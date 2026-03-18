@@ -10,6 +10,8 @@
     "next:start": "next start"
   },
   "dependencies": {
+    "@convex-dev/better-auth": "^0.11.2",
+    "better-auth": "^1.5.5",
     "concurrently": "^9.2.1",
     "convex": "^1.33.1",
     "next": "16.1.7",
