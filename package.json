@@ -3,14 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "dev": "concurrently -c gray,yellow --names next-dev,convex-dev \"bun run next:dev\" \"bun run convex:dev\"",
+    "next:dev": "next dev",
+    "convex:dev": "convex dev",
+    "next:build": "next build",
+    "next:start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "concurrently": "^9.2.1",
     "convex": "^1.34.0",
     "lucide-react": "^0.577.0",
     "next": "16.2.0",
