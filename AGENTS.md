@@ -29,11 +29,6 @@ Convex agent skills for common tasks can be installed with `npx convex ai-files 
 ## Directory Guide
 - `app/`: routes, layouts, and global CSS.
 - `components/`: shared React components and providers.
-- `components/ui/`: shadcn-style primitives; preserve upstream structure when po
-
-## Directory Guide
-- `app/`: routes, layouts, and global CSS.
-- `components/`: shared React components and providers.
 - `components/ui/`: shadcn-style primitives; preserve upstream structure when possible.
 - `lib/`: small shared helpers such as `cn()`.
 - `convex/`: Convex code; do not hand-edit `convex/_generated/*`.
@@ -99,6 +94,7 @@ Convex agent skills for common tasks can be installed with `npx convex ai-files 
 ### Naming
 - Use PascalCase for React components.
 - Use camelCase for functions, variables, and helpers.
+- Keep code identifiers in English, including variables, functions, components, types, props, tables, and similar names.
 - Keep Next route filenames framework-standard: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, and similar.
 - Keep shadcn primitive filenames lowercase in `components/ui/` unless the generator requires otherwise.
 - Prefer descriptive names over abbreviations.
@@ -109,6 +105,11 @@ Convex agent skills for common tasks can be installed with `npx convex ai-files 
 - Put cross-app providers in `components/Providers.tsx` or an equally explicit wrapper.
 - Prefer App Router APIs and current Next.js patterns over Pages Router habits.
 - Use `next/image` and other built-ins when they fit the feature.
+
+### Product Language
+- User-facing interface copy should be written in Brazilian Portuguese (`pt-BR`).
+- Keep code, identifiers, filenames, and technical structure in English even when the UI text is Portuguese.
+- If text is shared between frontend and backend, keep the code key/name in English and the rendered label/message in `pt-BR`.
 
 ### Styling
 - Use Tailwind utilities for component-level styling.
