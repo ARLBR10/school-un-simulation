@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { authClient } from "@/lib/auth-client";
+import AuthLocalization from "@/lib/auth-localization";
 
 export default function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function AuthProvider({ children }: { children: ReactNode }) {
         slug,
       }}
       Link={Link}
+      localization={AuthLocalization}
     >
       {children}
     </AuthUIProvider>
