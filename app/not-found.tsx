@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { MoveLeft } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+
 export default function NotFound() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center relative min-h-[calc(100vh-8rem)] text-center px-4">
@@ -16,13 +18,16 @@ export default function NotFound() {
         <p className="text-white/50 max-w-[400px] mb-8">
           A página que você está procurando não existe, foi removida, ou está temporariamente indisponível.
         </p>
-        <Link 
-          href="/" 
-          className="group flex items-center gap-2 px-6 py-3 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-sm font-medium text-white/80 hover:text-white"
+        <Button
+          asChild
+          variant="outline"
+          className="group rounded-full border-white/10 bg-white/5 px-6 text-white/80 hover:bg-white/10 hover:text-white"
         >
-          <MoveLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-          Voltar para o início
-        </Link>
+          <Link href="/">
+            <MoveLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+            Voltar para o início
+          </Link>
+        </Button>
       </div>
     </div>
   );

@@ -1,23 +1,33 @@
-import Link from "next/link";
 import { Github } from "lucide-react";
+import Link from "next/link";
+import type { ComponentProps } from "react";
 
-export function Footer() {
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+export function Footer({ className, ...props }: ComponentProps<"footer">) {
   return (
-    <footer className="border-t border-white/5 bg-black/50 py-4 text-white/50">
+    <footer
+      data-slot="footer"
+      className={cn("border-t border-white/5 bg-black/50 py-4 text-white/50", className)}
+      {...props}
+    >
       <div className="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 sm:px-8 md:flex-row">
         <p className="text-center text-xs md:text-left">
           Um projeto independente.
         </p>
         <div className="flex items-center space-x-4">
-          <Link
-            href="https://github.com"
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-full bg-white/5 p-1.5 transition-colors hover:bg-white/10 hover:text-white"
+          <Button
+            asChild
+            variant="ghost"
+            size="icon-sm"
+            className="rounded-full bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
           >
-            <Github className="h-3.5 w-3.5" />
-            <span className="sr-only">GitHub</span>
-          </Link>
+            <Link href="https://github.com" target="_blank" rel="noreferrer">
+              <Github className="h-3.5 w-3.5" />
+              <span className="sr-only">GitHub</span>
+            </Link>
+          </Button>
         </div>
       </div>
     </footer>

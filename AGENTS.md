@@ -116,6 +116,7 @@ Convex agent skills for common tasks can be installed with `npx convex ai-files 
 - Reuse tokens from `app/globals.css` instead of inventing ad hoc color variables.
 - Prefer semantic classes and design tokens over one-off raw colors.
 - Use `cn()` from `@/lib/utils` for conditional class merging.
+- Keep all custom components in `app/` and `components/` (except `components/ui/*`) shadcn-compliant by accepting `className`, merging with `cn()`, and preferring shadcn primitives for interactive UI when available.
 - Keep `components/ui/*` compatible with `class-variance-authority`, Radix Slot, and shadcn conventions.
 
 ### State, Data, And Environment

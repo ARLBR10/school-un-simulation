@@ -1,9 +1,26 @@
+import { AuthLoading, SignedIn, SignedOut, UserButton } from "@daveyplate/better-auth-ui";
 import Link from "next/link";
-import { User } from "lucide-react";
+import type { ComponentProps } from "react";
 
-export function Topbar() {
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+function AuthButtonSkeleton() {
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/50 backdrop-blur supports-[backdrop-filter]:bg-black/20">
+    <div className="h-10 w-24 animate-pulse rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.05)]" />
+  );
+}
+
+export function Topbar({ className, ...props }: ComponentProps<"header">) {
+  return (
+    <header
+      data-slot="topbar"
+      className={cn(
+        "sticky top-0 z-50 w-full border-b border-white/10 bg-black/50 backdrop-blur supports-[backdrop-filter]:bg-black/20",
+        className,
+      )}
+      {...props}
+    >
       <div className="container flex h-16 items-center justify-between px-4 sm:px-8 max-w-7xl mx-auto">
         <div className="flex gap-6 md:gap-10">
           <Link href="/" className="flex items-center space-x-2">
@@ -30,12 +47,30 @@ export function Topbar() {
               Sobre
             </Link>
           </nav>
-          <div className="flex items-center space-x-4">
-            <button className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-              <User className="h-4 w-4 text-white" />
-              <span className="sr-only">Perfil do Usuário</span>
-            </button>
-          </div>
+          <AuthLoading>
+            <AuthButtonSkeleton />
+          </AuthLoading>
+          <SignedIn>
+            <UserButton />
+          </SignedIn>
+          <SignedOut>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="group h-10 rounded-xl border-[rgba(255,255,255,0.12)] bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-4 font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
+            >
+              <Link href="/auth/sign-in">
+                Entrar
+                <span
+                  aria-hidden="true"
+                  className="transition-transform duration-200 group-hover:translate-x-0.5"
+                >
+                  {"->"}
+                </span>
+              </Link>
+            </Button>
+          </SignedOut>
         </div>
       </div>
     </header>
