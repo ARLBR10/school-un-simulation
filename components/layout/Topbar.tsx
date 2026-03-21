@@ -51,7 +51,17 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
             <AuthButtonSkeleton />
           </AuthLoading>
           <SignedIn>
-            <UserButton />
+            <UserButton
+              variant="outline"
+              className="!h-10 rounded-xl border-[rgba(255,255,255,0.12)] !bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-3 font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:!bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
+              classNames={{
+                trigger: {
+                  avatar: {
+                    fallback: "bg-[rgba(216,221,231,0.25)] text-[var(--foreground)]",
+                  },
+                },
+              }}
+            />
           </SignedIn>
           <SignedOut>
             <Button
