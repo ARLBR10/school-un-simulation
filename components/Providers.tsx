@@ -7,6 +7,7 @@ import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { AuthLang_PT_BR } from "@/lib/better-auth-ui-lang";
 
 const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
 
@@ -35,6 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       authClient={authClient}
       navigate={router.push}
       replace={router.replace}
+      localization={AuthLang_PT_BR}
       onSessionChange={() => {
         // Clear router cache (protected routes)
         router.refresh();
