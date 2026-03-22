@@ -19,6 +19,7 @@
     "clsx": "^2.1.1",
     "concurrently": "^9.2.1",
     "convex": "^1.34.0",
+    "framer-motion": "^12.38.0",
     "lucide-react": "^0.577.0",
     "next": "16.2.1",
     "posthog-js": "^1.363.1",
