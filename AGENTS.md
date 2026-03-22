@@ -13,7 +13,7 @@ This project uses [Convex](https://convex.dev) as its backend.
 When working on Convex code, always read `convex/_generated/ai/guidelines.md` first.
 That file contains repo-local rules that override generic Convex assumptions.
 
-Convex agent skills for common tasks can be installed with `npx convex ai-files install`.
+Convex agent skills for common tasks can be installed with `bunx convex ai-files install`.
 <!-- convex-ai-end -->
 
 # Agent Notes For `school-onu-panel`
