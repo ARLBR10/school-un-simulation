@@ -1,4 +1,4 @@
-import { Github } from "lucide-react";
+import { SiGithub } from '@icons-pack/react-simple-icons'
 import Link from "next/link";
 import type { ComponentProps } from "react";
 
@@ -9,7 +9,10 @@ export function Footer({ className, ...props }: ComponentProps<"footer">) {
   return (
     <footer
       data-slot="footer"
-      className={cn("border-t border-white/5 bg-black/50 py-4 text-white/50", className)}
+      className={cn(
+        "border-t border-white/5 bg-black/50 py-4 text-white/50",
+        className,
+      )}
       {...props}
     >
       <div className="container mx-auto flex max-w-7xl flex-col items-center justify-between gap-2 px-4 sm:px-8 md:flex-row">
@@ -23,8 +26,12 @@ export function Footer({ className, ...props }: ComponentProps<"footer">) {
             size="icon-sm"
             className="rounded-full bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
           >
-            <Link href="https://github.com" target="_blank" rel="noreferrer">
-              <Github className="h-3.5 w-3.5" />
+            <Link
+              href="https://github.com/ARLBR10/school-un-simulation"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <SiGithub />
               <span className="sr-only">GitHub</span>
             </Link>
           </Button>
