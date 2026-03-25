@@ -3,7 +3,7 @@ import { v } from "convex/values";
 
 export default defineSchema({
   members: defineTable({
-    authId: v.optional(v.string()), // IDs from others components don't count on convex/values. This is optional because the mtf could not be registered.
+    userId: v.optional(v.string()), // IDs from others components don't count on convex/values. This is optional because the mtf could not be registered.
     type: v.union(
       v.literal("delegate"),
       v.literal("logistics"),
@@ -14,7 +14,7 @@ export default defineSchema({
     ),
     committee: v.optional(v.id("committees")),
     delegate: v.optional(v.string()), // @TODO: Be one of a big fat array of all the countries
-  }),
+  }).index("by_userId", ["userId"]),
   docs: defineTable({
     member: v.id("members"),
     type: v.union(

@@ -1,7 +1,7 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
-import { components } from "./_generated/api";
-import { DataModel } from "./_generated/dataModel";
+import { components, internal } from "./_generated/api";
+import { DataModel, Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { betterAuth } from "better-auth/minimal";
 import authConfig from "./auth.config";
@@ -28,11 +28,30 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
   });
 };
 
-// Example function for getting the current user
-// Feel free to edit, omit, etc.
+type AuthUser = Awaited<ReturnType<typeof authComponent.getAuthUser>>;
+
+type UserInfoType = AuthUser & {
+  member: Doc<"members"> | null;
+};
+
 export const getCurrentUser = query({
   args: {},
-  handler: async (ctx) => {
-    return authComponent.getAuthUser(ctx);
+  handler: async (ctx): Promise<UserInfoType | null> => {
+    const userInfo = await authComponent.getAuthUser(ctx).catch(() => {
+      return null;
+    });
+
+    if (!userInfo) {
+      return null;
+    }
+
+    const membershipInfo = await ctx.runQuery(internal.members.getMemberInfo, {
+      userId: userInfo._id,
+    });
+
+    return {
+      ...userInfo,
+      member: membershipInfo,
+    };
   },
 });
