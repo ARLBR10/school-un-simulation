@@ -5,7 +5,56 @@ import { Users, UserCog, Home, FileText, BarChart, Globe } from "lucide-react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { ReactNode, useEffect } from "react";
+
+const Links = [
+  {
+    href: "/admin",
+    text: "Dashboard",
+    icon: (
+      <Home className="h-4 w-4 transition-transform group-hover:scale-110" />
+    ),
+  },
+  {
+    href: "/admin/members",
+    text: "Membros",
+    icon: (
+      <Users className="h-4 w-4 transition-transform group-hover:scale-110" />
+    ),
+  },
+  {
+    href: "/admin/users",
+    text: "Usuários",
+    icon: (
+      <UserCog className="h-4 w-4 transition-transform group-hover:scale-110" />
+    ),
+  },
+  {
+    href: "/admin/committees",
+    text: "Comitês",
+    icon: (
+      <Globe className="h-4 w-4 transition-transform group-hover:scale-110" />
+    ),
+  },
+  {
+    href: "/admin/documents",
+    text: "Documentos",
+    icon: (
+      <FileText className="h-4 w-4 transition-transform group-hover:scale-110" />
+    ),
+  },
+  {
+    href: "/admin/reports",
+    text: "Relatórios",
+    icon: (
+      <BarChart className="h-4 w-4 transition-transform group-hover:scale-110" />
+    ),
+  },
+] as {
+  text: string;
+  href: string;
+  icon: ReactNode;
+}[];
 
 export default function AdminLayout({
   children,
@@ -35,53 +84,16 @@ export default function AdminLayout({
             Administração
           </div>
 
-          <Link
-            href="/admin"
-            className="group flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent/80 hover:text-accent-foreground transition-all duration-200 text-sm"
-          >
-            <Home className="h-4 w-4 transition-transform group-hover:scale-110" />
-            Dashboard
-          </Link>
-
-          <Link
-            href="/admin/members"
-            className="group flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent/80 hover:text-accent-foreground transition-all duration-200 text-sm"
-          >
-            <Users className="h-4 w-4 transition-transform group-hover:scale-110" />
-            Membros
-          </Link>
-
-          <Link
-            href="/admin/users"
-            className="group flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent/80 hover:text-accent-foreground transition-all duration-200 text-sm"
-          >
-            <UserCog className="h-4 w-4 transition-transform group-hover:scale-110" />
-            Usuários
-          </Link>
-
-          <Link
-            href="/admin/committees"
-            className="group flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent/80 hover:text-accent-foreground transition-all duration-200 text-sm"
-          >
-            <Globe className="h-4 w-4 transition-transform group-hover:scale-110" />
-            Comitês
-          </Link>
-
-          <Link
-            href="/admin/documents"
-            className="group flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent/80 hover:text-accent-foreground transition-all duration-200 text-sm"
-          >
-            <FileText className="h-4 w-4 transition-transform group-hover:scale-110" />
-            Documentos
-          </Link>
-
-          <Link
-            href="/admin/reports"
-            className="group flex items-center gap-3 px-3 py-2 rounded-md hover:bg-accent/80 hover:text-accent-foreground transition-all duration-200 text-sm"
-          >
-            <BarChart className="h-4 w-4 transition-transform group-hover:scale-110" />
-            Relatórios
-          </Link>
+          {Links.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-200 hover:bg-accent/80 hover:text-accent-foreground"
+            >
+              {l.icon}
+              {l.text}
+            </Link>
+          ))}
         </nav>
       </aside>
 
