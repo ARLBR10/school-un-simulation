@@ -1,11 +1,11 @@
-"use client";
 import Link from "next/link";
-import { AdminPageTransition } from "@/components/admin/AdminPageTransition";
+import { redirect } from "next/navigation";
 import { Users, UserCog, Home, FileText, BarChart, Globe } from "lucide-react";
-import { useQuery } from "convex/react";
+import type { ReactNode } from "react";
+
+import { AdminPageTransition } from "@/components/admin/AdminPageTransition";
 import { api } from "@/convex/_generated/api";
-import { useRouter } from "next/navigation";
-import { ReactNode, useEffect } from "react";
+import { fetchAuthQuery } from "@/lib/auth-server";
 
 const Links = [
   {
@@ -56,24 +56,15 @@ const Links = [
   icon: ReactNode;
 }[];
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
-  const userInfo = useQuery(api.auth.getCurrentUser);
-  const router = useRouter();
-  const isLoadingUser = userInfo === undefined;
-  const isAdmin = userInfo?.member?.type === "admin";
+  const userInfo = await fetchAuthQuery(api.auth.getCurrentUser, {});
 
-  useEffect(() => {
-    if (!isLoadingUser && !isAdmin) {
-      router.replace("/");
-    }
-  }, [isAdmin, isLoadingUser, router]);
-
-  if (isLoadingUser || !isAdmin) {
-    return null;
+  if (userInfo?.member?.type !== "admin") {
+    redirect("/");
   }
 
   return (
