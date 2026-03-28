@@ -68,10 +68,10 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="flex w-full flex-1">
-      <aside className="w-64 flex-shrink-0 border-r border-border/50 bg-muted/40 min-h-full">
-        <nav className="flex h-full flex-col gap-2 p-4">
-          <div className="text-sm font-medium text-muted-foreground mb-4 px-2">
+    <div className="flex w-full flex-1 flex-col md:flex-row">
+      <aside className="w-full border-b border-border/50 bg-muted/40 md:min-h-full md:w-64 md:flex-shrink-0 md:border-b-0 md:border-r">
+        <nav className="flex gap-2 overflow-x-auto p-3 md:h-full md:flex-col md:p-4">
+          <div className="hidden px-2 pb-2 text-sm font-medium text-muted-foreground md:block md:pb-4">
             Administração
           </div>
 
@@ -79,7 +79,7 @@ export default async function AdminLayout({
             <Link
               key={l.href}
               href={l.href}
-              className="group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-200 hover:bg-accent/80 hover:text-accent-foreground"
+              className="group inline-flex shrink-0 items-center gap-3 rounded-md px-3 py-2 text-sm transition-all duration-200 hover:bg-accent/80 hover:text-accent-foreground md:w-full"
             >
               {l.icon}
               {l.text}
@@ -88,8 +88,8 @@ export default async function AdminLayout({
         </nav>
       </aside>
 
-      <main className="flex-1">
-        <div className="p-8">
+      <main className="min-w-0 flex-1">
+        <div className="p-4 sm:p-6 md:p-8">
           <AdminPageTransition>{children}</AdminPageTransition>
         </div>
       </main>

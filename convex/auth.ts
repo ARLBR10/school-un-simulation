@@ -1,9 +1,9 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
+import { betterAuth } from "better-auth/minimal";
 import { components, internal } from "./_generated/api";
 import { DataModel, Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
-import { betterAuth } from "better-auth/minimal";
 import authConfig from "./auth.config";
 
 const siteUrl = process.env.SITE_URL!;
@@ -45,7 +45,7 @@ export const getCurrentUser = query({
       return null;
     }
 
-    const membershipInfo = await ctx.runQuery(internal.members.getMemberInfo, {
+    const membershipInfo = await ctx.runQuery(internal.members.getByUserId, {
       userId: userInfo._id,
     });
 

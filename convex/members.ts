@@ -1,8 +1,18 @@
 import { v } from "convex/values";
-import { internalQuery } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
+import { internalQuery, mutation, query } from "./_generated/server";
 
-export const getMemberInfo = internalQuery({
+export const memberTypes = v.union(
+  v.literal("delegate"),
+  v.literal("logistics"),
+  v.literal("press"),
+  v.literal("clerk"), // Clerk ~ "Mesário"
+  v.literal("teacher"),
+  v.literal("admin"), // Coordenação, Secretary General, Meg Dev (@ARLBR10)
+);
+
+export const getByUserId = internalQuery({
   args: {
     userId: v.optional(v.string()),
   },
@@ -17,3 +27,104 @@ export const getMemberInfo = internalQuery({
       .unique();
   },
 });
+
+export const get = internalQuery({
+  args: {
+    id: v.id("members"),
+  },
+  async handler(ctx, args): Promise<null | Doc<"members">> {
+    return ctx.db.get(args.id);
+  },
+});
+
+export const getAll = query({
+  async handler(ctx): Promise<Doc<"members">[] | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    // Permission check
+    if (userInfo?.member?.type != "admin") {
+      return null;
+    }
+
+    return await ctx.db.query("members").collect()
+  },
+})
+
+// The admin type shouldn't be set by ANY mutation, that job should only occur at the Convex Admin
+
+export const create = mutation({
+  args: {
+    // Keep this up-to-date the table.
+    userId: v.optional(v.string()),
+    name: v.string(),
+    class: v.string(),
+    type: memberTypes,
+    committee: v.optional(v.id("committees")),
+    delegate: v.optional(v.string()),
+  },
+  async handler(ctx, args): Promise<null | Boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    // Permission check
+    if (userInfo?.member?.type != "admin") {
+      return null;
+    }
+
+    await ctx.db.insert("members", {
+      type: args.type === "admin" ? "delegate" : args.type,
+      committee: args.committee,
+      delegate: args.delegate,
+      userId: args.userId,
+      class: args.class,
+      name: args.name,
+    });
+
+    return true;
+  },
+});
+
+export const update = mutation({
+  args: {
+    id: v.id("members"),
+    // Keep this up-to-date the table.
+    userId: v.optional(v.string()),
+    name: v.optional(v.string()),
+    class: v.optional(v.string()),
+    type: v.optional(memberTypes),
+    committee: v.optional(v.optional(v.id("committees"))),
+    delegate: v.optional(v.optional(v.string())),
+  },
+  async handler(ctx, args): Promise<null | Boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    // Permission check
+    if (userInfo?.member?.type != "admin") return null;
+
+    // Member Info
+    const memberInfo = await ctx.runQuery(internal.members.get, {
+      id: args.id,
+    });
+
+    if (!memberInfo) return null;
+
+    await ctx.db.patch("members", args.id, {
+      type: args.type === "admin" ? undefined : args.type,
+      committee: args.committee,
+      delegate: args.delegate,
+      userId: args.userId,
+      class: args.class,
+      name: args.name,
+    });
+
+    return true;
+  },
+});
+
+export const purge = mutation({
+  args: {
+    id: v.id("members")
+  },
+  async handler(ctx, args) {
+    return ctx.db.delete("members", args.id)
+  },
+})
