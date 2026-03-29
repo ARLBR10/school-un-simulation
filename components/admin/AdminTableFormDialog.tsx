@@ -2,9 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 
 import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 
 export type AdminTableFormField = {
   key: string;
@@ -63,102 +69,70 @@ export function AdminTableFormDialog({
   }
 
   return (
-    <AnimatePresence>
-      {open ? (
-        <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
-        >
-          <motion.div
-            className="w-full max-w-xl rounded-xl border border-border/70 bg-card shadow-xl"
-            initial={{ opacity: 0, y: 20, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 16, scale: 0.98 }}
-            transition={{ duration: 0.24, ease: "easeOut" }}
-          >
-            <div className="border-b border-border/70 px-6 py-4">
-              <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-              <p className="text-sm text-muted-foreground">
-                {mode === "create"
-                  ? "Preencha os campos para criar um novo registro."
-                  : "Atualize os dados e salve as alterações."}
-              </p>
-            </div>
+    <Sheet
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          onClose();
+        }
+      }}
+    >
+      <SheetContent
+        side="right"
+        className="w-full gap-0 overflow-y-auto border-border/70 bg-card p-0 sm:max-w-xl"
+      >
+        <SheetHeader className="border-b border-border/70 px-6 py-4">
+          <SheetTitle className="text-lg font-semibold tracking-tight">{title}</SheetTitle>
+          <SheetDescription>
+            {mode === "create"
+              ? "Preencha os campos para criar um novo registro."
+              : "Atualize os dados e salve as alterações."}
+          </SheetDescription>
+        </SheetHeader>
 
-            <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
-              <motion.div
-                className="grid gap-4 sm:grid-cols-2"
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: {},
-                  visible: {
-                    transition: {
-                      staggerChildren: 0.04,
-                      delayChildren: 0.06,
-                    },
-                  },
-                }}
-              >
-                {fields.map((field) => (
-                  <motion.label
-                    key={field.key}
-                    className="space-y-2 text-sm font-medium"
-                    variants={{
-                      hidden: { opacity: 0, y: 6 },
-                      visible: { opacity: 1, y: 0 },
-                    }}
-                    transition={{ duration: 0.2, ease: "easeOut" }}
-                  >
-                    <span>{field.label}</span>
-                    {field.renderInput ? (
-                      field.renderInput({
-                        value: values[field.key] ?? "",
-                        mode,
-                        onChange: (value) =>
-                          setValues((currentValues) => ({
-                            ...currentValues,
-                            [field.key]: value,
-                          })),
-                      })
-                    ) : (
-                      <input
-                        type="text"
-                        value={values[field.key] ?? ""}
-                        onChange={(event) =>
-                          setValues((currentValues) => ({
-                            ...currentValues,
-                            [field.key]: event.target.value,
-                          }))
-                        }
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring/50"
-                      />
-                    )}
-                  </motion.label>
-                ))}
-              </motion.div>
+        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
+          <div className="flex flex-col gap-2">
+            {fields.map((field) => (
+              <label key={field.key} className="flex flex-col gap-1 text-sm font-medium">
+                <span>{field.label}</span>
+                {field.renderInput ? (
+                  field.renderInput({
+                    value: values[field.key] ?? "",
+                    mode,
+                    onChange: (value) =>
+                      setValues((currentValues) => ({
+                        ...currentValues,
+                        [field.key]: value,
+                      })),
+                  })
+                ) : (
+                  <input
+                    type="text"
+                    value={values[field.key] ?? ""}
+                    onChange={(event) =>
+                      setValues((currentValues) => ({
+                        ...currentValues,
+                        [field.key]: event.target.value,
+                      }))
+                    }
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring/50"
+                  />
+                )}
+              </label>
+            ))}
+          </div>
 
-              <motion.div
-                className="flex flex-wrap justify-end gap-2 border-t border-border/70 pt-4"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2, delay: 0.14, ease: "easeOut" }}
-              >
-                <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
-                  {cancelButtonLabel}
-                </Button>
+          <div className="flex flex-wrap justify-end gap-2 border-t border-border/70 pt-4">
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
+              {cancelButtonLabel}
+            </Button>
 
-                <Button type="submit" disabled={isSubmitting}>
-                  {mode === "create" ? "Criar" : "Salvar"}
-                </Button>
-              </motion.div>
-            </form>
-          </motion.div>
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+            <Button type="submit" disabled={isSubmitting}>
+              {mode === "create" ? "Criar" : "Salvar"}
+            </Button>
+          </div>
+        </form>
+      </SheetContent>
+    </Sheet>
   );
 }

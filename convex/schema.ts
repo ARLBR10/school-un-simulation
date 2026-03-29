@@ -6,7 +6,7 @@ export default defineSchema({
   members: defineTable({
     userId: v.optional(v.string()), // IDs from others components don't count on convex/values. This is optional because the mtf could not be registered.
     name: v.string(),
-    class: v.string(),
+    class: v.optional(v.string()),
     type: memberTypes,
     committee: v.optional(v.id("committees")),
     delegate: v.optional(v.string()), // @TODO: Be one of a big fat array of all the countries

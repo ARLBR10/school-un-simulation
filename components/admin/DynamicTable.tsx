@@ -2,10 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { AdminTableFormDialog, type AdminTableFormField } from "@/components/admin/AdminTableFormDialog";
+import {
+  AdminTableSelectInput,
+  type AdminTableSelectOption,
+} from "@/components/admin/AdminTableSelectInput";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+
+export type { AdminTableSelectOption } from "@/components/admin/AdminTableSelectInput";
 
 type AdminTableRow = Record<string, ReactNode>;
 
@@ -20,6 +27,8 @@ type AdminTableFormValues<T extends AdminTableRow> = {
   [K in EditableFormKey<T>]?: string;
 };
 
+type AdminTableActionResult = boolean | void;
+
 export type AdminTableColumn<T extends AdminTableRow> = {
   key: keyof T;
   label: ReactNode;
@@ -33,6 +42,8 @@ export type AdminTableColumn<T extends AdminTableRow> = {
     mode: "create" | "edit";
     row: T | null;
   }) => ReactNode;
+  formSelectOptions?: AdminTableSelectOption[];
+  formSelectPlaceholder?: string;
   render?: (row: T) => ReactNode;
 };
 
@@ -46,15 +57,21 @@ export type AdminTableChangeEvent<T extends AdminTableRow> = {
 type DynamicTableProps<T extends AdminTableRow> = {
   columns: AdminTableColumn<T>[];
   data: T[];
+  isLoading?: boolean;
   className?: string;
   rowKey?: keyof T;
   onChange?: (
     data: T[],
     event: AdminTableChangeEvent<T>,
   ) => void | Promise<void>;
-  onCreate?: (values: AdminTableFormValues<T>) => void | Promise<void>;
-  onUpdate?: (row: T, values: AdminTableFormValues<T>) => void | Promise<void>;
-  onDelete?: (row: T) => void | Promise<void>;
+  onCreate?: (
+    values: AdminTableFormValues<T>,
+  ) => AdminTableActionResult | Promise<AdminTableActionResult>;
+  onUpdate?: (
+    row: T,
+    values: AdminTableFormValues<T>,
+  ) => AdminTableActionResult | Promise<AdminTableActionResult>;
+  onDelete?: (row: T) => AdminTableActionResult | Promise<AdminTableActionResult>;
 };
 
 function formatCellValue(value: ReactNode) {
@@ -78,6 +95,7 @@ function removeReadOnlyFields(values: Record<string, string>) {
 export function DynamicTable<T extends AdminTableRow>({
   columns,
   data,
+  isLoading = false,
   className,
   rowKey,
   onChange,
@@ -107,6 +125,7 @@ export function DynamicTable<T extends AdminTableRow>({
         })
         .map((column) => {
           const formRender = column.formRender;
+          const selectOptions = column.formSelectOptions;
 
           return {
             key: String(column.key),
@@ -121,6 +140,17 @@ export function DynamicTable<T extends AdminTableRow>({
                     mode,
                     row: rowToEdit,
                   })
+              : selectOptions
+                ? ({ value, onChange, mode }) => (
+                    <AdminTableSelectInput
+                      fieldKey={String(column.key)}
+                      mode={mode}
+                      options={selectOptions}
+                      placeholder={column.formSelectPlaceholder}
+                      value={value}
+                      onChange={onChange}
+                    />
+                  )
               : undefined,
           };
         }),
@@ -178,16 +208,27 @@ export function DynamicTable<T extends AdminTableRow>({
 
     if (formMode === "create") {
       const newRow = typedValues as unknown as T;
+      let shouldApplyChange = true;
+
+      if (onCreate) {
+        try {
+          const createResult = await onCreate(typedValues);
+          shouldApplyChange = createResult !== false;
+        } catch {
+          shouldApplyChange = false;
+        }
+      }
+
+      if (!shouldApplyChange) {
+        return;
+      }
+
       let nextData: T[] = [];
 
       setTableData((currentData) => {
         nextData = [...currentData, newRow];
         return nextData;
       });
-
-      if (onCreate) {
-        await onCreate(typedValues);
-      }
 
       if (onChange) {
         await onChange(nextData, {
@@ -196,9 +237,27 @@ export function DynamicTable<T extends AdminTableRow>({
           index: nextData.length - 1,
         });
       }
+
+      handleCloseForm();
+      return;
     }
 
     if (formMode === "edit" && rowToEdit && rowToEditIndex !== null) {
+      let shouldApplyChange = true;
+
+      if (onUpdate) {
+        try {
+          const updateResult = await onUpdate(rowToEdit, typedValues);
+          shouldApplyChange = updateResult !== false;
+        } catch {
+          shouldApplyChange = false;
+        }
+      }
+
+      if (!shouldApplyChange) {
+        return;
+      }
+
       const updatedRow = {
         ...rowToEdit,
         ...(typedValues as unknown as Partial<T>),
@@ -217,10 +276,6 @@ export function DynamicTable<T extends AdminTableRow>({
         return nextData;
       });
 
-      if (onUpdate) {
-        await onUpdate(rowToEdit, typedValues);
-      }
-
       if (onChange) {
         await onChange(nextData, {
           type: "update",
@@ -229,22 +284,33 @@ export function DynamicTable<T extends AdminTableRow>({
           previousRow: rowToEdit,
         });
       }
-    }
 
-    handleCloseForm();
+      handleCloseForm();
+    }
   }
 
   async function handleDeleteRow(row: T, index: number) {
+    let shouldApplyChange = true;
+
+    if (onDelete) {
+      try {
+        const deleteResult = await onDelete(row);
+        shouldApplyChange = deleteResult !== false;
+      } catch {
+        shouldApplyChange = false;
+      }
+    }
+
+    if (!shouldApplyChange) {
+      return;
+    }
+
     let nextData: T[] = [];
 
     setTableData((currentData) => {
       nextData = currentData.filter((_, currentIndex) => currentIndex !== index);
       return nextData;
     });
-
-    if (onDelete) {
-      await onDelete(row);
-    }
 
     if (onChange) {
       await onChange(nextData, {
@@ -300,49 +366,80 @@ export function DynamicTable<T extends AdminTableRow>({
               </tr>
             </thead>
 
-            <tbody>
-              {tableData.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={tableColumns.length + 1}
-                    className="px-4 py-8 text-center text-muted-foreground"
-                  >
-                    Nenhum registro encontrado.
-                  </td>
-                </tr>
-              ) : (
-                tableData.map((row, index) => (
-                  <tr key={resolveRowKey(row, index)} className="border-t">
-                    {tableColumns.map((column) => (
-                      <td key={String(column.key)} className="px-4 py-3 align-middle">
-                        {column.render ? column.render(row) : formatCellValue(row[column.key])}
+            <AnimatePresence mode="wait" initial={false}>
+              {isLoading ? (
+                <motion.tbody
+                  key="table-loading"
+                  initial={{ opacity: 1 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                >
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <tr key={`loading-row-${index}`} className="border-t">
+                      {tableColumns.map((column) => (
+                        <td key={String(column.key)} className="px-4 py-3 align-middle">
+                          <div className="h-4 w-full max-w-44 animate-pulse rounded-md bg-muted/70" />
+                        </td>
+                      ))}
+                      <td className="px-4 py-3 align-middle">
+                        <div className="h-8 w-24 animate-pulse rounded-md bg-muted/70" />
                       </td>
-                    ))}
+                    </tr>
+                  ))}
+                </motion.tbody>
+              ) : (
+                <motion.tbody
+                  key="table-content"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.24, ease: "easeOut" }}
+                >
+                  {tableData.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={tableColumns.length + 1}
+                        className="px-4 py-8 text-center text-muted-foreground"
+                      >
+                        Nenhum registro encontrado.
+                      </td>
+                    </tr>
+                  ) : (
+                    tableData.map((row, index) => (
+                      <tr key={resolveRowKey(row, index)} className="border-t">
+                        {tableColumns.map((column) => (
+                          <td key={String(column.key)} className="px-4 py-3 align-middle">
+                            {column.render ? column.render(row) : formatCellValue(row[column.key])}
+                          </td>
+                        ))}
 
-                    <td className="px-4 py-3 align-middle">
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleOpenEdit(row, index)}
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => void handleDeleteRow(row, index)}
-                        >
-                          Excluir
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                        <td className="px-4 py-3 align-middle">
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEdit(row, index)}
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => void handleDeleteRow(row, index)}
+                            >
+                              Excluir
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </motion.tbody>
               )}
-            </tbody>
+            </AnimatePresence>
           </table>
         </div>
       </div>

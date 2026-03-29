@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import AllProviders from "@/components/Providers";
 import { Topbar } from "@/components/layout/Topbar";
 import { Footer } from "@/components/layout/Footer";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -50,6 +51,7 @@ export default function RootLayout({
             <main className="flex-1 flex flex-col relative z-0">{children}</main>
             <Footer />
           </div>
+          <Toaster position="top-right" richColors closeButton />
         </AllProviders>
       </body>
     </html>

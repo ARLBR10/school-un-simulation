@@ -46,9 +46,9 @@ export const getAll = query({
       return null;
     }
 
-    return await ctx.db.query("members").collect()
+    return await ctx.db.query("members").collect();
   },
-})
+});
 
 // The admin type shouldn't be set by ANY mutation, that job should only occur at the Convex Admin
 
@@ -57,7 +57,7 @@ export const create = mutation({
     // Keep this up-to-date the table.
     userId: v.optional(v.string()),
     name: v.string(),
-    class: v.string(),
+    class: v.optional(v.string()),
     type: memberTypes,
     committee: v.optional(v.id("committees")),
     delegate: v.optional(v.string()),
@@ -70,14 +70,25 @@ export const create = mutation({
       return null;
     }
 
-    await ctx.db.insert("members", {
+    const newMember: Omit<Doc<"members">, "_id" | "_creationTime"> = {
       type: args.type === "admin" ? "delegate" : args.type,
-      committee: args.committee,
-      delegate: args.delegate,
-      userId: args.userId,
-      class: args.class,
       name: args.name,
-    });
+    };
+
+    if (args.committee !== undefined) {
+      newMember.committee = args.committee;
+    }
+    if (args.delegate !== undefined) {
+      newMember.delegate = args.delegate;
+    }
+    if (args.userId !== undefined) {
+      newMember.userId = args.userId;
+    }
+    if (args.class !== undefined) {
+      newMember.class = args.class;
+    }
+
+    await ctx.db.insert("members", newMember);
 
     return true;
   },
@@ -107,14 +118,31 @@ export const update = mutation({
 
     if (!memberInfo) return null;
 
-    await ctx.db.patch("members", args.id, {
-      type: args.type === "admin" ? undefined : args.type,
-      committee: args.committee,
-      delegate: args.delegate,
-      userId: args.userId,
-      class: args.class,
-      name: args.name,
-    });
+    const memberPatch: Partial<Omit<Doc<"members">, "_id" | "_creationTime">> =
+      {
+        type:
+          args.type === "admin"
+            ? memberInfo.type
+            : (args.type ?? memberInfo.type),
+      };
+
+    if ("committee" in args) {
+      memberPatch.committee = args.committee;
+    }
+    if ("delegate" in args) {
+      memberPatch.delegate = args.delegate;
+    }
+    if ("userId" in args) {
+      memberPatch.userId = args.userId;
+    }
+    if ("class" in args) {
+      memberPatch.class = args.class;
+    }
+    if ("name" in args) {
+      memberPatch.name = args.name;
+    }
+
+    await ctx.db.patch("members", args.id, memberPatch);
 
     return true;
   },
@@ -122,9 +150,16 @@ export const update = mutation({
 
 export const purge = mutation({
   args: {
-    id: v.id("members")
+    id: v.id("members"),
   },
-  async handler(ctx, args) {
-    return ctx.db.delete("members", args.id)
+  async handler(ctx, args): Promise<null | Boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (userInfo?.member?.type != "admin") {
+      return null;
+    }
+
+    await ctx.db.delete("members", args.id);
+    return true;
   },
-})
+});
