@@ -7,6 +7,7 @@ import {
   type AdminTableColumn,
   type AdminTableSelectOption,
 } from "@/components/admin/DynamicTable";
+import { createSelectColumn } from "@/components/admin/DynamicTableFields";
 import { api } from "@/convex/_generated/api";
 import { Doc } from "@/convex/_generated/dataModel";
 
@@ -39,13 +40,12 @@ const membersColumns: AdminTableColumn<Doc<"members">>[] = [
   { key: "class", label: "Classe", showInTable: false },
   { key: "committee", label: "Comitê", showInTable: false }, // @TODO: Selectable Menu
   { key: "delegate", label: "País Delegado", showInTable: false }, // @TODO: Selectable Menu
-  {
+  createSelectColumn({
     key: "type",
     label: "Tipo",
-    render: (member) => memberTypeLabels[member.type],
-    formSelectOptions: memberTypeOptions,
-    formSelectPlaceholder: "Selecione um tipo",
-  },
+    options: memberTypeOptions,
+    placeholder: "Selecione um tipo",
+  }),
   { key: "userId", label: "Usuário" },
 ];
 
