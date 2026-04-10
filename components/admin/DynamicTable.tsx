@@ -46,6 +46,8 @@ export type AdminTableColumn<T extends AdminTableRow> = {
   className?: string;
   showInTable?: boolean;
   showInForm?: boolean;
+  showInCreateForm?: boolean;
+  showInEditForm?: boolean;
   formLabel?: string;
   formRender?: (props: {
     value: string;
@@ -97,6 +99,21 @@ function isReadOnlyFieldKey(key: string) {
   return key === "_id" || key === "_creationTime";
 }
 
+function shouldShowColumnInForm<T extends AdminTableRow>(
+  column: AdminTableColumn<T>,
+  mode: "create" | "edit",
+) {
+  if (column.showInForm === false) {
+    return false;
+  }
+
+  if (mode === "create") {
+    return column.showInCreateForm !== false;
+  }
+
+  return column.showInEditForm !== false;
+}
+
 function removeReadOnlyFields(values: Record<string, string>) {
   return Object.fromEntries(
     Object.entries(values).filter(([key]) => !isReadOnlyFieldKey(key)),
@@ -128,7 +145,7 @@ export function DynamicTable<T extends AdminTableRow>({
     () =>
       columns
         .filter((column) => {
-          if (column.showInForm === false) {
+          if (!shouldShowColumnInForm(column, formMode)) {
             return false;
           }
 
@@ -165,7 +182,7 @@ export function DynamicTable<T extends AdminTableRow>({
               : undefined,
           };
         }),
-    [columns, rowToEdit],
+    [columns, formMode, rowToEdit],
   );
 
   const tableColumns = useMemo(
