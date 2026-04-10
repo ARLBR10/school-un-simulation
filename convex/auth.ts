@@ -28,7 +28,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
   });
 };
 
-type AuthUser = Awaited<ReturnType<typeof authComponent.getAuthUser>>;
+export type AuthUser = Awaited<ReturnType<typeof authComponent.getAuthUser>>;
 
 type UserInfoType = AuthUser & {
   member: Doc<"members"> | null;
