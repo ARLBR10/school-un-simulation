@@ -1,7 +1,7 @@
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
-This repo uses Next.js 16.2.0 with App Router, React 19, and Tailwind CSS 4.
+This repo uses Next.js 16.2.3 with App Router, React 19, and Tailwind CSS 4.
 Before changing framework code, read the relevant guide in `node_modules/next/dist/docs/`.
 Assume APIs, conventions, and file structure may differ from older Next.js versions.
 Heed deprecation notices and prefer current framework patterns over training-data habits.
@@ -10,10 +10,9 @@ Heed deprecation notices and prefer current framework patterns over training-dat
 <!-- convex-ai-start -->
 This project uses [Convex](https://convex.dev) as its backend.
 
-When working on Convex code, always read `convex/_generated/ai/guidelines.md` first.
-That file contains repo-local rules that override generic Convex assumptions.
+When working on Convex code, **always read `convex/_generated/ai/guidelines.md` first** for important guidelines on how to correctly use Convex APIs and patterns. The file contains rules that override what you may have learned about Convex from training data.
 
-Convex agent skills for common tasks can be installed with `bunx convex ai-files install`.
+Convex agent skills for common tasks can be installed by running `npx convex ai-files install`.
 <!-- convex-ai-end -->
 
 # Agent Notes For `school-onu-panel`
