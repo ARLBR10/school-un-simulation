@@ -106,7 +106,9 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 - Use `next/image` and other built-ins when they fit the feature.
 
 ### Product Language
+- Chat responses should use the same language as the user.
 - User-facing interface copy should be written in Brazilian Portuguese (`pt-BR`).
+- Treat chat language and interface language as separate concerns.
 - Keep code, identifiers, filenames, and technical structure in English even when the UI text is Portuguese.
 - If text is shared between frontend and backend, keep the code key/name in English and the rendered label/message in `pt-BR`.
 
