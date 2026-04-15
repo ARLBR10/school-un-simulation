@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
 import { internalQuery, mutation, query } from "./_generated/server";
+import { getPostHog } from "./posthog";
 
 export const memberTypes = v.union(
   v.literal("delegate"),
@@ -67,29 +68,37 @@ export const create = mutation({
 
     // Permission check
     if (userInfo?.member?.type != "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "member.create",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
       return null;
     }
 
     const newMember: Omit<Doc<"members">, "_id" | "_creationTime"> = {
       type: args.type === "admin" ? "delegate" : args.type,
       name: args.name,
+      ...(args.committee !== undefined ? { committee: args.committee } : {}),
+      ...(args.delegate !== undefined ? { delegate: args.delegate } : {}),
+      ...(args.userId !== undefined ? { userId: args.userId } : {}),
+      ...(args.class !== undefined ? { class: args.class } : {}),
     };
 
-    if (args.committee !== undefined) {
-      newMember.committee = args.committee;
-    }
-    if (args.delegate !== undefined) {
-      newMember.delegate = args.delegate;
-    }
-    if (args.userId !== undefined) {
-      newMember.userId = args.userId;
-    }
-    if (args.class !== undefined) {
-      newMember.class = args.class;
-    }
+    const memberId = await ctx.db.insert("members", newMember);
 
-    await ctx.db.insert("members", newMember);
-
+    await getPostHog().capture(ctx, {
+      event: "admin_create_member",
+      properties: {
+        createdMemberInfo: newMember,
+        createdMemberId: memberId,
+      },
+    });
     return true;
   },
 });
@@ -109,7 +118,19 @@ export const update = mutation({
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
     // Permission check
-    if (userInfo?.member?.type != "admin") return null;
+    if (userInfo?.member?.type != "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "member.update",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
+      return null;
+    }
 
     // Member Info
     const memberInfo = await ctx.runQuery(internal.members.get, {
@@ -124,25 +145,22 @@ export const update = mutation({
           args.type === "admin"
             ? memberInfo.type
             : (args.type ?? memberInfo.type),
+        ...("committee" in args ? { committee: args.committee } : {}),
+        ...("delegate" in args ? { delegate: args.delegate } : {}),
+        ...("userId" in args ? { userId: args.userId } : {}),
+        ...("class" in args ? { class: args.class } : {}),
+        ...("name" in args ? { name: args.name } : {}),
       };
 
-    if ("committee" in args) {
-      memberPatch.committee = args.committee;
-    }
-    if ("delegate" in args) {
-      memberPatch.delegate = args.delegate;
-    }
-    if ("userId" in args) {
-      memberPatch.userId = args.userId;
-    }
-    if ("class" in args) {
-      memberPatch.class = args.class;
-    }
-    if ("name" in args) {
-      memberPatch.name = args.name;
-    }
-
     await ctx.db.patch("members", args.id, memberPatch);
+
+    await getPostHog().capture(ctx, {
+      event: "admin_update_member",
+      properties: {
+        id: args.id,
+        dataReceived: args,
+      },
+    });
 
     return true;
   },
@@ -156,10 +174,26 @@ export const purge = mutation({
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
     if (userInfo?.member?.type != "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "member.purge",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
       return null;
     }
 
     await ctx.db.delete("members", args.id);
+    await getPostHog().capture(ctx, {
+      event: "admin_delete_member",
+      properties: {
+        id: args.id,
+      },
+    });
     return true;
   },
 });

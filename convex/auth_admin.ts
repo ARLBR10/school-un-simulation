@@ -3,43 +3,7 @@ import { v } from "convex/values";
 import { api, components, internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { authComponent, createAuth, type AuthUser } from "./auth";
-
-export const create = mutation({
-  args: {
-    name: v.string(),
-    email: v.string(),
-    password: v.string(),
-    username: v.optional(v.string()),
-    cellphone: v.optional(v.string()),
-  },
-  async handler(ctx, args) {
-    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
-
-    // Permission check
-    if (userInfo?.member?.type != "admin") {
-      return null;
-    }
-
-    const { auth } = await authComponent.getAuth(createAuth, ctx);
-    const authContext = await auth.$context;
-
-    const { id: userCreatedId } = await authContext.internalAdapter.createUser({
-      updatedAt: new Date(),
-      name: args.name,
-      email: args.email,
-      username: args.username,
-      cellphone: args.cellphone,
-    });
-    await authContext.internalAdapter.createAccount({
-      accountId: userCreatedId,
-      userId: userCreatedId,
-      providerId: "credential",
-      createdAt: new Date(),
-      password: await authContext.password.hash(args.password),
-    });
-    return true;
-  },
-});
+import { getPostHog } from "./posthog";
 
 export const getAll = query({
   async handler(ctx): Promise<AuthUser[] | null> {
@@ -62,6 +26,69 @@ export const getAll = query({
   },
 });
 
+export const create = mutation({
+  args: {
+    name: v.string(),
+    email: v.string(),
+    password: v.string(),
+    username: v.optional(v.string()),
+    cellphone: v.optional(v.string()),
+  },
+  async handler(ctx, args) {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    // Permission check
+    if (userInfo?.member?.type != "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "auth_admin.create",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
+      return null;
+    }
+
+    const { auth } = await authComponent.getAuth(createAuth, ctx);
+    const authContext = await auth.$context;
+
+    const { id: createdUserId } = await authContext.internalAdapter.createUser({
+      updatedAt: new Date(),
+      name: args.name,
+      email: args.email,
+      username: args.username,
+      cellphone: args.cellphone,
+    });
+    const { id: createdAccountId } =
+      await authContext.internalAdapter.createAccount({
+        accountId: createdUserId,
+        userId: createdUserId,
+        providerId: "credential",
+        createdAt: new Date(),
+        password: await authContext.password.hash(args.password),
+      });
+
+    await getPostHog().capture(ctx, {
+      event: "admin_create_user",
+      properties: {
+        userId: createdUserId,
+        accountId: createdAccountId,
+        createdUserInfo: {
+          name: args.name,
+          email: args.email,
+          username: args.username,
+          cellphone: args.cellphone,
+          // No password here. Otherwise it wouldn't be a secret...
+        },
+      },
+    });
+    return true;
+  },
+});
+
 export const edit = mutation({
   args: {
     id: v.string(),
@@ -79,6 +106,16 @@ export const edit = mutation({
 
     // Permission check
     if (userInfo?.member?.type != "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "auth_admin.edit",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
       return null;
     }
 
@@ -104,6 +141,24 @@ export const edit = mutation({
           )
         : null,
     ]);
+
+    // Logs need to only be executed on a successful mutation.
+    await getPostHog().capture(ctx, {
+      event: "admin_edit_user",
+      properties: {
+        userId: args.id,
+        dataUpdated: {
+          name: args.name,
+          email: args.email,
+          emailVerified: args.emailVerified,
+          passwordUpdated: args.password && args.password !== "" ? true : false,
+          twoFactorEnabled: args.twoFactorEnabled,
+          username: args.username,
+          cellphone: args.cellphone,
+          cellphoneVerified: args.cellphoneVerified,
+        },
+      },
+    });
     return true;
   },
 });
@@ -117,6 +172,16 @@ export const purge = mutation({
 
     // Permission check
     if (userInfo?.member?.type != "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "auth_admin.purge",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
       return null;
     }
 
@@ -124,21 +189,29 @@ export const purge = mutation({
     const { auth } = await authComponent.getAuth(createAuth, ctx);
     const authContext = await auth.$context;
 
+    const accountId = (
+      await ctx.runQuery(components.betterAuth.adapter.findOne, {
+        model: "account",
+        where: [
+          {
+            field: "userId",
+            value: args.id,
+          },
+        ],
+      })
+    )._id;
 
     await Promise.all([
       authContext.internalAdapter.deleteUser(args.id),
-      authContext.internalAdapter.deleteAccount(
-        (await ctx.runQuery(components.betterAuth.adapter.findOne, {
-          model: "account",
-          where: [
-            {
-              field: "userId",
-              value: args.id,
-            },
-          ],
-        }))._id,
-      ),
+      authContext.internalAdapter.deleteAccount(accountId),
     ]);
+    await getPostHog().capture(ctx, {
+      event: "admin_delete_user",
+      properties: {
+        userId: args.id,
+        accountId
+      },
+    });
     return true;
   },
 });
