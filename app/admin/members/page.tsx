@@ -1,15 +1,19 @@
 "use client";
+
+import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 
+import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import {
   DynamicTable,
   type AdminTableColumn,
   type AdminTableSelectOption,
 } from "@/components/admin/DynamicTable";
 import { createSelectColumn } from "@/components/admin/DynamicTableFields";
+import type { AuthUser } from "@/convex/auth";
 import { api } from "@/convex/_generated/api";
-import { Doc } from "@/convex/_generated/dataModel";
+import type { Doc } from "@/convex/_generated/dataModel";
 
 const memberTypeLabels: Record<Doc<"members">["type"], string> = {
   delegate: "Delegado",
@@ -35,19 +39,7 @@ const memberTypeOptions: AdminTableSelectOption[] = memberTypes.map((type) => ({
   disabled: type === "admin",
 }));
 
-const membersColumns: AdminTableColumn<Doc<"members">>[] = [
-  { key: "name", label: "Nome" },
-  { key: "class", label: "Classe", showInTable: false },
-  { key: "committee", label: "Comitê", showInTable: false }, // @TODO: Selectable Menu
-  { key: "delegate", label: "País Delegado", showInTable: false }, // @TODO: Selectable Menu
-  createSelectColumn({
-    key: "type",
-    label: "Tipo",
-    options: memberTypeOptions,
-    placeholder: "Selecione um tipo",
-  }),
-  { key: "userId", label: "Usuário" },
-];
+const noUserOptionValue = "__no_user__";
 
 function isMemberType(value: string): value is Doc<"members">["type"] {
   return memberTypes.includes(value as Doc<"members">["type"]);
@@ -63,11 +55,94 @@ function normalizeOptionalString(value: string | undefined) {
   return trimmedValue;
 }
 
+function normalizeOptionalUserId(value: string | undefined) {
+  if (value === noUserOptionValue) {
+    return undefined;
+  }
+
+  return normalizeOptionalString(value);
+}
+
+function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
+  return user.name?.trim() || user.email?.trim() || user._id;
+}
+
 export default function MembersPage() {
   const membersData = useQuery(api.members.getAll);
+  const usersData = useQuery(api.auth_admin.getAll);
   const memberCreate = useMutation(api.members.create);
   const memberUpdate = useMutation(api.members.update);
   const memberDelete = useMutation(api.members.purge);
+
+  const userLabelById: Record<string, string> = {};
+  const userOptions: AdminTableSelectOption[] = [
+    { value: noUserOptionValue, label: "Sem usuário" },
+  ];
+
+  for (const user of usersData ?? []) {
+    const userLabel = getUserDisplayName(user);
+
+    userLabelById[user._id] = userLabel;
+    userOptions.push({
+      value: user._id,
+      label: userLabel,
+    });
+  }
+
+  // Preserve stale references so existing rows remain editable after user deletion.
+  for (const member of membersData ?? []) {
+    const userId = member.userId?.trim();
+
+    if (!userId || userLabelById[userId]) {
+      continue;
+    }
+
+    userLabelById[userId] = userId;
+    userOptions.push({
+      value: userId,
+      label: userId,
+    });
+  }
+
+  const membersColumns: AdminTableColumn<Doc<"members">>[] = [
+    { key: "name", label: "Nome" },
+    { key: "class", label: "Classe", showInTable: false },
+    { key: "committee", label: "Comitê", showInTable: false }, // @TODO: Selectable Menu
+    { key: "delegate", label: "País Delegado", showInTable: false }, // @TODO: Selectable Menu
+    createSelectColumn({
+      key: "type",
+      label: "Tipo",
+      options: memberTypeOptions,
+      placeholder: "Selecione um tipo",
+    }),
+    {
+      key: "userId",
+      label: "Usuário",
+      render(row) {
+        if (!row.userId) {
+          return "-";
+        }
+
+        return (
+          <Link href={`/admin/users?_id=${row.userId}`} className="font-semibold">
+            {userLabelById[row.userId] ?? row.userId}
+          </Link>
+        );
+      },
+      formRender: ({ value, onChange, mode }) => (
+        <AdminTableSelectInput
+          fieldKey="userId"
+          mode={mode}
+          options={userOptions}
+          placeholder="Selecione um usuário"
+          value={value}
+          onChange={(nextValue) =>
+            onChange(nextValue === noUserOptionValue ? "" : nextValue)
+          }
+        />
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -78,7 +153,7 @@ export default function MembersPage() {
       <DynamicTable
         columns={membersColumns}
         data={membersData ?? []}
-        isLoading={membersData === undefined}
+        isLoading={membersData === undefined || usersData === undefined}
         rowKey="name"
         onCreate={async (values) => {
           const name = normalizeOptionalString(values.name);
@@ -95,7 +170,7 @@ export default function MembersPage() {
               name,
               class: memberClass,
               type,
-              userId: normalizeOptionalString(values.userId),
+              userId: normalizeOptionalUserId(values.userId),
               delegate: normalizeOptionalString(values.delegate),
             });
 
@@ -119,7 +194,7 @@ export default function MembersPage() {
               name: normalizeOptionalString(values.name),
               class: normalizeOptionalString(values.class),
               type: type && isMemberType(type) ? type : undefined,
-              userId: normalizeOptionalString(values.userId),
+              userId: normalizeOptionalUserId(values.userId),
               delegate: normalizeOptionalString(values.delegate),
             });
 

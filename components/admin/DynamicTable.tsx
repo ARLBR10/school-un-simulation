@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { AdminTableFormDialog, type AdminTableFormField } from "@/components/admin/AdminTableFormDialog";
 import {
@@ -28,6 +29,7 @@ export type { AdminTableSelectOption } from "@/components/admin/AdminTableSelect
 type AdminTableRow = Record<string, ReactNode>;
 
 type ReadOnlyFieldKey = "_id" | "_creationTime";
+type SearchParamKey<T extends AdminTableRow> = Extract<keyof T, string>;
 
 type EditableFormKey<T extends AdminTableRow> = Exclude<
   Extract<keyof T, string>,
@@ -73,6 +75,7 @@ type DynamicTableProps<T extends AdminTableRow> = {
   isLoading?: boolean;
   className?: string;
   rowKey?: keyof T;
+  searchParamKey?: SearchParamKey<T>;
   onChange?: (
     data: T[],
     event: AdminTableChangeEvent<T>,
@@ -120,26 +123,103 @@ function removeReadOnlyFields(values: Record<string, string>) {
   );
 }
 
+function resolveSearchParamValue<T extends AdminTableRow>(
+  row: T,
+  searchParamKey: SearchParamKey<T>,
+) {
+  const value = row[searchParamKey];
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  return null;
+}
+
 export function DynamicTable<T extends AdminTableRow>({
   columns,
   data,
   isLoading = false,
   className,
   rowKey,
+  searchParamKey,
   onChange,
   onCreate,
   onUpdate,
   onDelete,
 }: DynamicTableProps<T>) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [tableData, setTableData] = useState<T[]>(data);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [rowToEdit, setRowToEdit] = useState<T | null>(null);
   const [rowToEditIndex, setRowToEditIndex] = useState<number | null>(null);
+  const referencedRowValue = searchParamKey ? searchParams.get(searchParamKey) : null;
 
   useEffect(() => {
     setTableData(data);
   }, [data]);
+
+  useEffect(() => {
+    if (!searchParamKey) {
+      return;
+    }
+
+    if (!referencedRowValue) {
+      if (isFormOpen && formMode === "edit") {
+        setIsFormOpen(false);
+        setRowToEdit(null);
+        setRowToEditIndex(null);
+      }
+
+      return;
+    }
+
+    const nextRowIndex = tableData.findIndex(
+      (row) => resolveSearchParamValue(row, searchParamKey) === referencedRowValue,
+    );
+
+    if (nextRowIndex === -1) {
+      if (isFormOpen && formMode === "edit") {
+        setIsFormOpen(false);
+        setRowToEdit(null);
+        setRowToEditIndex(null);
+      }
+
+      return;
+    }
+
+    const nextRow = tableData[nextRowIndex];
+    const currentRowReference =
+      rowToEdit && searchParamKey
+        ? resolveSearchParamValue(rowToEdit, searchParamKey)
+        : null;
+
+    if (
+      isFormOpen &&
+      formMode === "edit" &&
+      currentRowReference === referencedRowValue &&
+      rowToEditIndex === nextRowIndex &&
+      rowToEdit === nextRow
+    ) {
+      return;
+    }
+
+    setFormMode("edit");
+    setRowToEdit(nextRow);
+    setRowToEditIndex(nextRowIndex);
+    setIsFormOpen(true);
+  }, [
+    formMode,
+    isFormOpen,
+    referencedRowValue,
+    rowToEdit,
+    rowToEditIndex,
+    searchParamKey,
+    tableData,
+  ]);
 
   const formFields = useMemo<AdminTableFormField[]>(
     () =>
@@ -211,24 +291,58 @@ export function DynamicTable<T extends AdminTableRow>({
     }, baseValues);
   }, [formFields, formMode, rowToEdit]);
 
+  function updateSearchParam(nextValue: string | null) {
+    if (!searchParamKey) {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+
+    if (nextValue) {
+      nextSearchParams.set(searchParamKey, nextValue);
+    } else {
+      nextSearchParams.delete(searchParamKey);
+    }
+
+    const nextQuery = nextSearchParams.toString();
+    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+
+    router.replace(nextUrl);
+  }
+
   function handleOpenCreate() {
     setFormMode("create");
     setRowToEdit(null);
     setRowToEditIndex(null);
     setIsFormOpen(true);
+
+    if (referencedRowValue) {
+      updateSearchParam(null);
+    }
   }
 
   function handleOpenEdit(row: T, index: number) {
+    const nextReferencedRowValue =
+      searchParamKey ? resolveSearchParamValue(row, searchParamKey) : null;
+
     setFormMode("edit");
     setRowToEdit(row);
     setRowToEditIndex(index);
     setIsFormOpen(true);
+
+    if (nextReferencedRowValue && nextReferencedRowValue !== referencedRowValue) {
+      updateSearchParam(nextReferencedRowValue);
+    }
   }
 
   function handleCloseForm() {
     setIsFormOpen(false);
     setRowToEdit(null);
     setRowToEditIndex(null);
+
+    if (referencedRowValue) {
+      updateSearchParam(null);
+    }
   }
 
   async function handleSubmitForm(values: Record<string, string>) {
@@ -319,6 +433,8 @@ export function DynamicTable<T extends AdminTableRow>({
 
   async function handleDeleteRow(row: T, index: number) {
     let shouldApplyChange = true;
+    const deletedRowReference =
+      searchParamKey ? resolveSearchParamValue(row, searchParamKey) : null;
 
     if (onDelete) {
       try {
@@ -346,6 +462,13 @@ export function DynamicTable<T extends AdminTableRow>({
         row,
         index,
       });
+    }
+
+    if (deletedRowReference && deletedRowReference === referencedRowValue) {
+      setIsFormOpen(false);
+      setRowToEdit(null);
+      setRowToEditIndex(null);
+      updateSearchParam(null);
     }
   }
 

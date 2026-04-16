@@ -100,6 +100,7 @@ export default function UsersPage() {
         data={(usersData ?? []) as AuthUserWithPass[]}
         isLoading={usersData === undefined}
         rowKey="email"
+        searchParamKey="_id"
         onCreate={async (values) => {
           const name = normalizeOptionalString(values.name);
           const email = normalizeOptionalString(values.email)?.toLowerCase();
