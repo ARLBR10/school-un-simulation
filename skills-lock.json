@@ -21,6 +21,11 @@
       "sourceType": "github",
       "computedHash": "e719d31d1ab0d19ca7b942d1154d3ff436b5c156900eea9866c2aaeb910a1388"
     },
+    "frontend-design": {
+      "source": "anthropics/skills",
+      "sourceType": "github",
+      "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
