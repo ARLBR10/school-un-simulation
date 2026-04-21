@@ -8,7 +8,6 @@ import { AuthUIProvider } from "@daveyplate/better-auth-ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthLang_PT_BR } from "@/lib/better-auth-ui-lang";
-import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
@@ -53,10 +52,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
+  const { data: session } = authClient.useSession();
   useEffect(() => {
     posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
       api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
       defaults: "2026-01-30",
+      bootstrap: {
+        distinctID: session?.user.id,
+        sessionID: session?.session.id,
+      },
     });
   }, []);
 

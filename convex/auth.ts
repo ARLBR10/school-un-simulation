@@ -5,6 +5,10 @@ import { components, internal } from "./_generated/api";
 import { DataModel, Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import authConfig from "./auth.config";
+import { auditLog, AuditLogEntry } from "better-auth-audit-logs";
+import { getPostHog } from "./posthog";
+import { GenericActionCtx } from "convex/server";
+import { detectBrowser, detectBrowserVersion, detectOS, detectDevice, detectDeviceType } from '@posthog/core'
 
 const siteUrl = process.env.SITE_URL!;
 
@@ -16,14 +20,59 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth({
     baseURL: siteUrl,
     database: authComponent.adapter(ctx),
-    // Configure simple, non-verified email/password to get started
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
     },
     plugins: [
-      // The Convex plugin is required for Convex compatibility
       convex({ authConfig }),
+      auditLog({
+        capture: {
+          ipAddress: true,
+          userAgent: true,
+        },
+        nonBlocking: true,
+        piiRedaction: { enabled: true, strategy: "hash" },
+        storage: {
+          write: async (entry: AuditLogEntry) => {
+            const posthog = getPostHog();
+
+            // This might help but it probably was WAYY to Overengineered
+            let userAgentInfo;
+            if (entry.userAgent) {
+              const [os_name, os_version] = detectOS(entry.userAgent);
+              userAgentInfo = {
+                $browser: detectBrowser(entry.userAgent, undefined),
+                $browser_version: detectBrowserVersion(
+                  entry.userAgent,
+                  undefined,
+                ),
+                $os: os_name,
+                $os_version: os_version,
+                $device: detectDevice(entry.userAgent),
+                $device_type: detectDeviceType(entry.userAgent),
+                $raw_user_agent:
+                  entry.userAgent.length > 1000
+                    ? entry.userAgent.substring(0, 997) + "..."
+                    : entry.userAgent,
+              };
+            }
+
+            posthog.capture(ctx as GenericActionCtx<DataModel>, {
+              event: entry.action,
+              timestamp: entry.createdAt,
+              distinctId: entry.userId ?? undefined, // Distinct ID of the User
+              properties: {
+                $ip: entry.ipAddress,
+                ...userAgentInfo,
+                status: entry.status,
+                severity: entry.severity,
+                ...entry.metadata,
+              },
+            });
+          },
+        },
+      }),
     ],
   });
 };
