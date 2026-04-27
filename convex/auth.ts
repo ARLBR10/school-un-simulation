@@ -8,7 +8,13 @@ import authConfig from "./auth.config";
 import { auditLog, AuditLogEntry } from "better-auth-audit-logs";
 import { getPostHog } from "./posthog";
 import { GenericActionCtx } from "convex/server";
-import { detectBrowser, detectBrowserVersion, detectOS, detectDevice, detectDeviceType } from '@posthog/core'
+import {
+  detectBrowser,
+  detectBrowserVersion,
+  detectDevice,
+  detectDeviceType,
+  detectOS,
+} from "@posthog/core";
 
 const siteUrl = process.env.SITE_URL!;
 
@@ -31,13 +37,15 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
           ipAddress: true,
           userAgent: true,
         },
-        nonBlocking: true,
         piiRedaction: { enabled: true, strategy: "hash" },
         storage: {
           write: async (entry: AuditLogEntry) => {
+            if (!entry.userId) {
+              return;
+            }
+
             const posthog = getPostHog();
 
-            // This might help but it probably was WAYY to Overengineered
             let userAgentInfo;
             if (entry.userAgent) {
               const [os_name, os_version] = detectOS(entry.userAgent);
@@ -58,18 +66,36 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
               };
             }
 
-            posthog.capture(ctx as GenericActionCtx<DataModel>, {
-              event: entry.action,
-              timestamp: entry.createdAt,
-              distinctId: entry.userId ?? undefined, // Distinct ID of the User
-              properties: {
-                $ip: entry.ipAddress,
-                ...userAgentInfo,
-                status: entry.status,
-                severity: entry.severity,
-                ...entry.metadata,
-              },
-            });
+            try {
+              await posthog.capture(ctx as GenericActionCtx<DataModel>, {
+                event: `auth:${entry.action}`,
+                timestamp: entry.createdAt,
+                distinctId: entry.userId,
+                properties: {
+                  $ip: entry.ipAddress,
+                  $geoip_disable: false,
+                  ...userAgentInfo,
+                  status: entry.status,
+                  severity: entry.severity,
+                  ...entry.metadata,
+                },
+              });
+            } catch (error) {
+              console.error(
+                "Failed to capture auth audit log in PostHog",
+                error,
+              );
+              await posthog.captureException(
+                ctx as GenericActionCtx<DataModel>,
+                {
+                  error,
+                  distinctId: entry.userId,
+                  additionalProperties: {
+                    entry,
+                  },
+                },
+              );
+            }
           },
         },
       }),
