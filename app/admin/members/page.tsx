@@ -64,7 +64,9 @@ function normalizeOptionalUserId(value: string | undefined) {
 }
 
 function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
-  return user.name?.trim() || user.email?.trim() || user._id;
+  return user.email && user.name
+    ? `${user.name?.trim()} (${user.email?.trim()})`
+    : user.email?.trim() || user._id;
 }
 
 export default function MembersPage() {
@@ -124,7 +126,10 @@ export default function MembersPage() {
         }
 
         return (
-          <Link href={`/admin/users?_id=${row.userId}`} className="font-semibold">
+          <Link
+            href={`/admin/users?_id=${row.userId}`}
+            className="font-semibold"
+          >
             {userLabelById[row.userId] ?? row.userId}
           </Link>
         );
