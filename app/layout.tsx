@@ -6,6 +6,7 @@ import AllProviders from "@/components/Providers";
 import { Topbar } from "@/components/layout/Topbar";
 import { Footer } from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
+import MembershipRequired from "@/components/layout/MembershipRequired";
 
 const inter = Inter({subsets:['latin'],variable:'--font-sans'});
 
@@ -48,7 +49,9 @@ export default function RootLayout({
             {/* Background effects */}
             <div className="absolute inset-0 z-[-1] pointer-events-none bg-[radial-gradient(circle_at_50%_0%,rgba(40,40,90,0.15),transparent_60%),radial-gradient(circle_at_100%_100%,rgba(20,20,40,0.4),transparent_50%)]"></div>
             <Topbar />
-            <main className="flex-1 flex flex-col relative z-0">{children}</main>
+            <main className="flex-1 flex flex-col relative z-0">
+              <MembershipRequired>{children}</MembershipRequired>
+            </main>
             <Footer />
           </div>
           <Toaster position="top-right" richColors closeButton />
