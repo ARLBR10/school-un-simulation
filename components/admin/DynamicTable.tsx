@@ -53,6 +53,7 @@ export type AdminTableColumn<T extends AdminTableRow> = {
   formLabel?: string;
   formRender?: (props: {
     value: string;
+    values: Record<string, string>;
     onChange: (value: string) => void;
     mode: "create" | "edit";
     row: T | null;
@@ -96,6 +97,23 @@ function formatCellValue(value: ReactNode) {
   }
 
   return value;
+}
+
+function formatFormValue(value: ReactNode) {
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (
+    Array.isArray(value) &&
+    value.every(
+      (item) => typeof item === "string" || typeof item === "number",
+    )
+  ) {
+    return value.join(", ");
+  }
+
+  return "";
 }
 
 function isReadOnlyFieldKey(key: string) {
@@ -241,9 +259,10 @@ export function DynamicTable<T extends AdminTableRow>({
               column.formLabel ??
               (typeof column.label === "string" ? column.label : String(column.key)),
             renderInput: formRender
-              ? ({ value, onChange, mode }) =>
+              ? ({ value, values, onChange, mode }) =>
                   formRender({
                     value,
+                    values,
                     onChange,
                     mode,
                     row: rowToEdit,
@@ -284,8 +303,7 @@ export function DynamicTable<T extends AdminTableRow>({
     return formFields.reduce<Record<string, string>>((accumulator, field) => {
       const value = rowToEdit[field.key];
 
-      accumulator[field.key] =
-        typeof value === "string" || typeof value === "number" ? String(value) : "";
+      accumulator[field.key] = formatFormValue(value);
 
       return accumulator;
     }, baseValues);

@@ -40,6 +40,7 @@ const memberTypeOptions: AdminTableSelectOption[] = memberTypes.map((type) => ({
 }));
 
 const noUserOptionValue = "__no_user__";
+const noCommitteeOptionValue = "__no_committee__";
 
 function isMemberType(value: string): value is Doc<"members">["type"] {
   return memberTypes.includes(value as Doc<"members">["type"]);
@@ -63,6 +64,14 @@ function normalizeOptionalUserId(value: string | undefined) {
   return normalizeOptionalString(value);
 }
 
+function normalizeOptionalCommitteeId(value: string | undefined) {
+  if (value === noCommitteeOptionValue) {
+    return undefined;
+  }
+
+  return normalizeOptionalString(value) as Doc<"committees">["_id"] | undefined;
+}
+
 function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
   return user.email && user.name
     ? `${user.name?.trim()} (${user.email?.trim()})`
@@ -71,10 +80,24 @@ function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
 
 export default function MembersPage() {
   const membersData = useQuery(api.members.getAll);
+  const committeesData = useQuery(api.committees.getAll);
   const usersData = useQuery(api.auth_admin.getAll);
   const memberCreate = useMutation(api.members.create);
   const memberUpdate = useMutation(api.members.update);
   const memberDelete = useMutation(api.members.purge);
+
+  const committeeLabelById: Record<string, string> = {};
+  const committeeOptions: AdminTableSelectOption[] = [
+    { value: noCommitteeOptionValue, label: "Sem comitê" },
+  ];
+
+  for (const committee of committeesData ?? []) {
+    committeeLabelById[committee._id] = committee.theme;
+    committeeOptions.push({
+      value: committee._id,
+      label: committee.theme,
+    });
+  }
 
   const userLabelById: Record<string, string> = {};
   const userOptions: AdminTableSelectOption[] = [
@@ -106,11 +129,54 @@ export default function MembersPage() {
     });
   }
 
+  // Preserve stale references so existing rows remain editable after committee deletion.
+  for (const member of membersData ?? []) {
+    const committeeId = member.committee?.trim();
+
+    if (!committeeId || committeeLabelById[committeeId]) {
+      continue;
+    }
+
+    committeeLabelById[committeeId] = committeeId;
+    committeeOptions.push({
+      value: committeeId,
+      label: committeeId,
+    });
+  }
+
   const membersColumns: AdminTableColumn<Doc<"members">>[] = [
     { key: "name", label: "Nome" },
-    { key: "class", label: "Classe", showInTable: false },
-    { key: "committee", label: "Comitê", showInTable: false }, // @TODO: Selectable Menu
-    { key: "delegate", label: "País Delegado", showInTable: false }, // @TODO: Selectable Menu
+    { key: "tuitionId", label: "Matrícula" },
+    createSelectColumn({
+      key: "committee",
+      label: "Comitê",
+      options: committeeOptions,
+      placeholder: "Selecione um comitê",
+      showInTable: false,
+    }),
+    {
+      key: "delegatedCountry",
+      label: "País representado",
+      showInTable: false,
+      formRender: ({ value, values, onChange }) => {
+        const hasCommittee = Boolean(normalizeOptionalCommitteeId(values.committee));
+
+        return (
+          <input
+            type="text"
+            value={hasCommittee ? value : ""}
+            placeholder={
+              hasCommittee
+                ? "Informe o país representado"
+                : "Selecione um comitê primeiro"
+            }
+            disabled={!hasCommittee}
+            onChange={(event) => onChange(event.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-ring/50"
+          />
+        );
+      },
+    },
     createSelectColumn({
       key: "type",
       label: "Tipo",
@@ -158,25 +224,33 @@ export default function MembersPage() {
       <DynamicTable
         columns={membersColumns}
         data={membersData ?? []}
-        isLoading={membersData === undefined || usersData === undefined}
+        isLoading={
+          membersData === undefined ||
+          usersData === undefined ||
+          committeesData === undefined
+        }
         rowKey="name"
         onCreate={async (values) => {
           const name = normalizeOptionalString(values.name);
-          const memberClass = normalizeOptionalString(values.class);
+          const tuitionId = normalizeOptionalString(values.tuitionId);
+          const committee = normalizeOptionalCommitteeId(values.committee);
           const type = values.type?.trim();
 
           if (!name || !type || !isMemberType(type)) {
-            toast.error("Preencha nome, classe e tipo para criar o membro.");
+            toast.error("Preencha nome e tipo para criar o membro.");
             return false;
           }
 
           try {
             const created = await memberCreate({
               name,
-              class: memberClass,
+              tuitionId,
               type,
               userId: normalizeOptionalUserId(values.userId),
-              delegate: normalizeOptionalString(values.delegate),
+              delegatedCountry: committee
+                ? normalizeOptionalString(values.delegatedCountry)
+                : undefined,
+              committee,
             });
 
             if (created === true) {
@@ -191,16 +265,20 @@ export default function MembersPage() {
           }
         }}
         onUpdate={async (member, values) => {
+          const committee = normalizeOptionalCommitteeId(values.committee);
           const type = values.type?.trim();
 
           try {
             const updated = await memberUpdate({
               id: member._id,
               name: normalizeOptionalString(values.name),
-              class: normalizeOptionalString(values.class),
+              tuitionId: normalizeOptionalString(values.tuitionId),
               type: type && isMemberType(type) ? type : undefined,
               userId: normalizeOptionalUserId(values.userId),
-              delegate: normalizeOptionalString(values.delegate),
+              delegatedCountry: committee
+                ? normalizeOptionalString(values.delegatedCountry)
+                : undefined,
+              committee,
             });
 
             if (updated === true) {

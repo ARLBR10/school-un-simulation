@@ -17,6 +17,7 @@ export type AdminTableFormField = {
   label: string;
   renderInput?: (props: {
     value: string;
+    values: Record<string, string>;
     onChange: (value: string) => void;
     mode: "create" | "edit";
   }) => ReactNode;
@@ -98,6 +99,7 @@ export function AdminTableFormDialog({
                 {field.renderInput ? (
                   field.renderInput({
                     value: values[field.key] ?? "",
+                    values,
                     mode,
                     onChange: (value) =>
                       setValues((currentValues) => ({

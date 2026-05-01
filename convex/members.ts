@@ -39,6 +39,7 @@ export const get = internalQuery({
 });
 
 export const getAll = query({
+  args: {},
   async handler(ctx): Promise<Doc<"members">[] | null> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
@@ -47,7 +48,7 @@ export const getAll = query({
       return null;
     }
 
-    return await ctx.db.query("members").collect();
+    return await ctx.db.query("members").take(999);
   },
 });
 
@@ -58,12 +59,12 @@ export const create = mutation({
     // Keep this up-to-date the table.
     userId: v.optional(v.string()),
     name: v.string(),
-    class: v.optional(v.string()),
+    tuitionId: v.optional(v.string()),
     type: memberTypes,
+    delegatedCountry: v.optional(v.string()),
     committee: v.optional(v.id("committees")),
-    delegate: v.optional(v.string()),
   },
-  async handler(ctx, args): Promise<null | Boolean> {
+  async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
     // Permission check
@@ -84,10 +85,12 @@ export const create = mutation({
     const newMember: Omit<Doc<"members">, "_id" | "_creationTime"> = {
       type: args.type === "admin" ? "delegate" : args.type,
       name: args.name,
+      ...(args.delegatedCountry !== undefined
+        ? { delegatedCountry: args.delegatedCountry }
+        : {}),
       ...(args.committee !== undefined ? { committee: args.committee } : {}),
-      ...(args.delegate !== undefined ? { delegate: args.delegate } : {}),
       ...(args.userId !== undefined ? { userId: args.userId } : {}),
-      ...(args.class !== undefined ? { class: args.class } : {}),
+      ...(args.tuitionId !== undefined ? { tuitionId: args.tuitionId } : {}),
     };
 
     const memberId = await ctx.db.insert("members", newMember);
@@ -109,12 +112,12 @@ export const update = mutation({
     // Keep this up-to-date the table.
     userId: v.optional(v.string()),
     name: v.optional(v.string()),
-    class: v.optional(v.string()),
+    tuitionId: v.optional(v.string()),
     type: v.optional(memberTypes),
+    delegatedCountry: v.optional(v.optional(v.string())),
     committee: v.optional(v.optional(v.id("committees"))),
-    delegate: v.optional(v.optional(v.string())),
   },
-  async handler(ctx, args): Promise<null | Boolean> {
+  async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
     // Permission check
@@ -145,10 +148,12 @@ export const update = mutation({
           args.type === "admin"
             ? memberInfo.type
             : (args.type ?? memberInfo.type),
+        ...("delegatedCountry" in args
+          ? { delegatedCountry: args.delegatedCountry }
+          : {}),
         ...("committee" in args ? { committee: args.committee } : {}),
-        ...("delegate" in args ? { delegate: args.delegate } : {}),
         ...("userId" in args ? { userId: args.userId } : {}),
-        ...("class" in args ? { class: args.class } : {}),
+        ...("tuitionId" in args ? { tuitionId: args.tuitionId } : {}),
         ...("name" in args ? { name: args.name } : {}),
       };
 
@@ -170,7 +175,7 @@ export const purge = mutation({
   args: {
     id: v.id("members"),
   },
-  async handler(ctx, args): Promise<null | Boolean> {
+  async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
     if (userInfo?.member?.type != "admin") {
