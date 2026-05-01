@@ -230,6 +230,7 @@ export default function MembersPage() {
           committeesData === undefined
         }
         rowKey="name"
+        searchParamKey="_id"
         onCreate={async (values) => {
           const name = normalizeOptionalString(values.name);
           const tuitionId = normalizeOptionalString(values.tuitionId);
