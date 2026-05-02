@@ -1,4 +1,6 @@
 import { v } from "convex/values";
+import { countriesConvexSchema } from "@/lib/country-list";
+
 import { api, internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
 import { internalQuery, mutation, query } from "./_generated/server";
@@ -61,7 +63,7 @@ export const create = mutation({
     name: v.string(),
     tuitionId: v.optional(v.string()),
     type: memberTypes,
-    delegatedCountry: v.optional(v.string()),
+    delegatedCountry: v.optional(countriesConvexSchema),
     committee: v.optional(v.id("committees")),
   },
   async handler(ctx, args): Promise<null | boolean> {
@@ -114,7 +116,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     tuitionId: v.optional(v.string()),
     type: v.optional(memberTypes),
-    delegatedCountry: v.optional(v.optional(v.string())),
+    delegatedCountry: v.optional(v.optional(countriesConvexSchema)),
     committee: v.optional(v.optional(v.id("committees"))),
   },
   async handler(ctx, args): Promise<null | boolean> {

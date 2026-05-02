@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
@@ -11,9 +12,18 @@ import {
   type AdminTableSelectOption,
 } from "@/components/admin/DynamicTable";
 import { createSelectColumn } from "@/components/admin/DynamicTableFields";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import type { AuthUser } from "@/convex/auth";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
+import { countries, type CountryCode } from "@/lib/country-list";
 
 const memberTypeLabels: Record<Doc<"members">["type"], string> = {
   delegate: "Delegado",
@@ -41,6 +51,11 @@ const memberTypeOptions: AdminTableSelectOption[] = memberTypes.map((type) => ({
 
 const noUserOptionValue = "__no_user__";
 const noCommitteeOptionValue = "__no_committee__";
+
+const countryOptions = countries.map((country) => ({
+  value: country.code,
+  label: `${country.name} (${country.code})`,
+}));
 
 function isMemberType(value: string): value is Doc<"members">["type"] {
   return memberTypes.includes(value as Doc<"members">["type"]);
@@ -72,10 +87,71 @@ function normalizeOptionalCommitteeId(value: string | undefined) {
   return normalizeOptionalString(value) as Doc<"committees">["_id"] | undefined;
 }
 
+function isCountryCode(value: string): value is CountryCode {
+  return countryOptions.some((option) => option.value === value);
+}
+
+function normalizeOptionalCountryCode(value: string | undefined) {
+  const normalizedValue = normalizeOptionalString(value);
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  return isCountryCode(normalizedValue) ? normalizedValue : undefined;
+}
+
 function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
   return user.email && user.name
     ? `${user.name?.trim()} (${user.email?.trim()})`
     : user.email?.trim() || user._id;
+}
+
+function DelegatedCountryCombobox({
+  disabled,
+  value,
+  onChange,
+}: {
+  disabled: boolean;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const comboboxPortalContainerRef = useRef<HTMLDivElement>(null);
+  const selectedCountryOption =
+    countryOptions.find((option) => option.value === value) ?? null;
+
+  return (
+    <div ref={comboboxPortalContainerRef}>
+      <Combobox
+        items={countryOptions}
+        itemToStringValue={(option) => option.label}
+        value={disabled ? null : selectedCountryOption}
+        onValueChange={(option) => onChange(option?.value ?? "")}
+        autoHighlight
+      >
+        <ComboboxInput
+          placeholder={
+            disabled
+              ? "Selecione um comitê primeiro"
+              : "Nome do país (código de duas letras)"
+          }
+          disabled={disabled}
+          showClear
+          className="h-10 w-full rounded-md bg-background text-foreground shadow-sm hover:bg-background dark:bg-background"
+        />
+        <ComboboxContent portalContainer={comboboxPortalContainerRef}>
+          <ComboboxEmpty>Nenhum país encontrado.</ComboboxEmpty>
+          <ComboboxList>
+            {(option) => (
+              <ComboboxItem key={option.value} value={option}>
+                {option.label}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+    </div>
+  );
 }
 
 export default function MembersPage() {
@@ -162,17 +238,10 @@ export default function MembersPage() {
         const hasCommittee = Boolean(normalizeOptionalCommitteeId(values.committee));
 
         return (
-          <input
-            type="text"
-            value={hasCommittee ? value : ""}
-            placeholder={
-              hasCommittee
-                ? "Informe o país representado"
-                : "Selecione um comitê primeiro"
-            }
+          <DelegatedCountryCombobox
             disabled={!hasCommittee}
-            onChange={(event) => onChange(event.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition disabled:cursor-not-allowed disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-ring/50"
+            value={hasCommittee ? value : ""}
+            onChange={onChange}
           />
         );
       },
@@ -249,7 +318,7 @@ export default function MembersPage() {
               type,
               userId: normalizeOptionalUserId(values.userId),
               delegatedCountry: committee
-                ? normalizeOptionalString(values.delegatedCountry)
+                ? normalizeOptionalCountryCode(values.delegatedCountry)
                 : undefined,
               committee,
             });
@@ -277,7 +346,7 @@ export default function MembersPage() {
               type: type && isMemberType(type) ? type : undefined,
               userId: normalizeOptionalUserId(values.userId),
               delegatedCountry: committee
-                ? normalizeOptionalString(values.delegatedCountry)
+                ? normalizeOptionalCountryCode(values.delegatedCountry)
                 : undefined,
               committee,
             });

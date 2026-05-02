@@ -12,6 +12,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@base-ui/react": "^1.4.1",
     "@convex-dev/better-auth": "^0.12.1",
     "@daveyplate/better-auth-ui": "^3.4.0",
     "@icons-pack/react-simple-icons": "^13.13.0",

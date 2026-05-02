@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { memberTypes } from "./members";
+import { countriesConvexSchema } from "@/lib/country-list";
 
 export default defineSchema({
   members: defineTable({
@@ -8,7 +9,7 @@ export default defineSchema({
     name: v.string(),
     tuitionId: v.optional(v.string()),
     type: memberTypes,
-    delegatedCountry: v.optional(v.string()), // @TODO: Be one of a big fat array of all the countries
+    delegatedCountry: v.optional(countriesConvexSchema), // @TODO: Be one of a big fat array of all the countries
     committee: v.optional(v.id("committees")),
   })
     .index("by_userId", ["userId"])
