@@ -1,15 +1,45 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import {
+  type ColumnDef,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  type HeaderContext,
+  type PaginationState,
+  type Row,
+  type SortingState,
+  type VisibilityState,
+  useReactTable,
+} from "@tanstack/react-table";
+import {
+  MoreHorizontalIcon,
+  SearchIcon,
+  Settings2Icon,
+  XIcon,
+} from "lucide-react";
 
 import { AdminTableFormDialog, type AdminTableFormField } from "@/components/admin/AdminTableFormDialog";
 import {
   AdminTableSelectInput,
   type AdminTableSelectOption,
 } from "@/components/admin/AdminTableSelectInput";
+import { DataGrid } from "@/components/reui/data-grid/data-grid";
+import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header";
+import { DataGridColumnVisibility } from "@/components/reui/data-grid/data-grid-column-visibility";
+import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination";
+import { DataGridScrollArea } from "@/components/reui/data-grid/data-grid-scroll-area";
+import { DataGridTable } from "@/components/reui/data-grid/data-grid-table";
+import {
+  Frame,
+  FrameFooter,
+  FrameHeader,
+  FramePanel,
+} from "@/components/reui/frame";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +52,21 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 export type { AdminTableSelectOption } from "@/components/admin/AdminTableSelectInput";
@@ -41,6 +86,8 @@ type AdminTableFormValues<T extends AdminTableRow> = {
 };
 
 type AdminTableActionResult = boolean | void;
+const defaultPageIndex = 0;
+const defaultPageSize = 10;
 
 export type AdminTableColumn<T extends AdminTableRow> = {
   key: keyof T;
@@ -154,6 +201,131 @@ function resolveSearchParamValue<T extends AdminTableRow>(
   return null;
 }
 
+function parsePositiveInteger(value: string | null, fallback: number) {
+  if (!value) {
+    return fallback;
+  }
+
+  const parsedValue = Number(value);
+
+  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
+    return fallback;
+  }
+
+  return parsedValue;
+}
+
+function normalizeSearchableValue(value: ReactNode): string {
+  if (value === null || value === undefined || typeof value === "boolean") {
+    return "";
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(normalizeSearchableValue).join(" ");
+  }
+
+  return "";
+}
+
+function rowMatchesSearch<T extends AdminTableRow>(row: T, searchQuery: string) {
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  if (!normalizedSearchQuery) {
+    return true;
+  }
+
+  return Object.values(row)
+    .map(normalizeSearchableValue)
+    .join(" ")
+    .toLowerCase()
+    .includes(normalizedSearchQuery);
+}
+
+function resolveTableHeader<T extends AdminTableRow>(
+  columnDefinition: AdminTableColumn<T>,
+  column: HeaderContext<T, unknown>["column"],
+) {
+  if (typeof columnDefinition.label !== "string") {
+    return columnDefinition.label;
+  }
+
+  return (
+    <DataGridColumnHeader
+      title={columnDefinition.label}
+      visibility={true}
+      column={column}
+    />
+  );
+}
+
+function DynamicTableActionsCell<T extends AdminTableRow>({
+  row,
+  onEdit,
+  onDelete,
+}: {
+  row: Row<T>;
+  onEdit: (row: T, index: number) => void;
+  onDelete: (row: T, index: number) => void;
+}) {
+  return (
+    <AlertDialog>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            aria-label="Abrir ações"
+          >
+            <MoreHorizontalIcon />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuGroup>
+            <DropdownMenuItem onClick={() => onEdit(row.original, row.index)}>
+              Editar
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuGroup>
+            <AlertDialogTrigger asChild>
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(event) => event.preventDefault()}
+              >
+                Excluir
+              </DropdownMenuItem>
+            </AlertDialogTrigger>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialogContent size="sm">
+        <AlertDialogHeader>
+          <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Esta ação não pode ser desfeita.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          <AlertDialogAction
+            variant="destructive"
+            onClick={() => onDelete(row.original, row.index)}
+          >
+            Excluir
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function DynamicTable<T extends AdminTableRow>({
   columns,
   data,
@@ -174,6 +346,16 @@ export function DynamicTable<T extends AdminTableRow>({
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [rowToEdit, setRowToEdit] = useState<T | null>(null);
   const [rowToEditIndex, setRowToEditIndex] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState(
+    () => searchParams.get("q") ?? "",
+  );
+  const [pagination, setPagination] = useState<PaginationState>(() => ({
+    pageIndex:
+      parsePositiveInteger(searchParams.get("page"), defaultPageIndex + 1) - 1,
+    pageSize: parsePositiveInteger(searchParams.get("perPage"), defaultPageSize),
+  }));
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const referencedRowValue = searchParamKey ? searchParams.get(searchParamKey) : null;
 
   useEffect(() => {
@@ -289,6 +471,11 @@ export function DynamicTable<T extends AdminTableRow>({
     [columns],
   );
 
+  const [columnOrder, setColumnOrder] = useState<string[]>(() => [
+    ...tableColumns.map((column) => String(column.key)),
+    "actions",
+  ]);
+
   const formInitialValues = useMemo(() => {
     const baseValues: Record<string, string> = {};
 
@@ -309,23 +496,40 @@ export function DynamicTable<T extends AdminTableRow>({
     }, baseValues);
   }, [formFields, formMode, rowToEdit]);
 
+  const replaceQueryParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const nextSearchParams = new URLSearchParams(searchParams.toString());
+
+      for (const [key, value] of Object.entries(updates)) {
+        if (value) {
+          nextSearchParams.set(key, value);
+        } else {
+          nextSearchParams.delete(key);
+        }
+      }
+
+      const nextQuery = nextSearchParams.toString();
+      const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+
+      router.replace(nextUrl);
+    },
+    [pathname, router, searchParams],
+  );
+
   function updateSearchParam(nextValue: string | null) {
     if (!searchParamKey) {
       return;
     }
 
-    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    replaceQueryParams({ [searchParamKey]: nextValue });
+  }
 
-    if (nextValue) {
-      nextSearchParams.set(searchParamKey, nextValue);
-    } else {
-      nextSearchParams.delete(searchParamKey);
-    }
-
-    const nextQuery = nextSearchParams.toString();
-    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
-
-    router.replace(nextUrl);
+  function handleSearchQueryChange(nextSearchQuery: string) {
+    setSearchQuery(nextSearchQuery);
+    setPagination((currentPagination) => ({
+      ...currentPagination,
+      pageIndex: defaultPageIndex,
+    }));
   }
 
   function handleOpenCreate() {
@@ -498,136 +702,260 @@ export function DynamicTable<T extends AdminTableRow>({
     const value = row[rowKey];
 
     if (typeof value === "string" || typeof value === "number") {
-      return String(value);
+      return `${String(value)}-${index}`;
     }
 
     return `row-${index}`;
   }
 
+  const dataGridColumns: ColumnDef<T>[] = [
+    ...tableColumns.map((columnDefinition) => ({
+      id: String(columnDefinition.key),
+      accessorFn: (row) => row[columnDefinition.key],
+      header: ({ column }) => resolveTableHeader(columnDefinition, column),
+      cell: ({ row }) => {
+        const originalRow = row.original;
+
+        return columnDefinition.render
+          ? columnDefinition.render(originalRow)
+          : formatCellValue(originalRow[columnDefinition.key]);
+      },
+      enableSorting: true,
+      enableHiding: true,
+      size: 180,
+      meta: {
+        headerTitle:
+          typeof columnDefinition.label === "string"
+            ? columnDefinition.label
+            : String(columnDefinition.key),
+        headerClassName: columnDefinition.className,
+        cellClassName: columnDefinition.className,
+        skeleton: <Skeleton className="h-4 w-full max-w-44" />,
+      },
+    } satisfies ColumnDef<T>)),
+    {
+      id: "actions",
+      header: "Ações",
+      cell: ({ row }) => (
+        <DynamicTableActionsCell
+          row={row}
+          onEdit={handleOpenEdit}
+          onDelete={(nextRow, index) => void handleDeleteRow(nextRow, index)}
+        />
+      ),
+      enableSorting: false,
+      enableHiding: false,
+      size: 80,
+      meta: {
+        headerTitle: "Ações",
+        headerClassName: "text-right",
+        cellClassName: "text-right",
+        skeleton: <Skeleton className="ml-auto h-7 w-7" />,
+      },
+    },
+  ];
+
+  useEffect(() => {
+    const nextSearchQuery = searchParams.get("q") ?? "";
+    const nextPageIndex =
+      parsePositiveInteger(searchParams.get("page"), defaultPageIndex + 1) - 1;
+    const nextPageSize = parsePositiveInteger(
+      searchParams.get("perPage"),
+      defaultPageSize,
+    );
+
+    setSearchQuery((currentSearchQuery) =>
+      currentSearchQuery === nextSearchQuery
+        ? currentSearchQuery
+        : nextSearchQuery,
+    );
+    setPagination((currentPagination) => {
+      if (
+        currentPagination.pageIndex === nextPageIndex &&
+        currentPagination.pageSize === nextPageSize
+      ) {
+        return currentPagination;
+      }
+
+      return {
+        pageIndex: nextPageIndex,
+        pageSize: nextPageSize,
+      };
+    });
+  }, [searchParams]);
+
+  useEffect(() => {
+    const nextPage = pagination.pageIndex > 0
+      ? String(pagination.pageIndex + 1)
+      : null;
+    const nextPageSize = pagination.pageSize !== defaultPageSize
+      ? String(pagination.pageSize)
+      : null;
+    const nextSearchQuery = searchQuery.trim() || null;
+
+    if (
+      (searchParams.get("page") ?? null) === nextPage &&
+      (searchParams.get("perPage") ?? null) === nextPageSize &&
+      (searchParams.get("q") ?? null) === nextSearchQuery
+    ) {
+      return;
+    }
+
+    replaceQueryParams({
+      page: nextPage,
+      perPage: nextPageSize,
+      q: nextSearchQuery,
+    });
+  }, [
+    pagination.pageIndex,
+    pagination.pageSize,
+    replaceQueryParams,
+    searchParams,
+    searchQuery,
+  ]);
+
+  useEffect(() => {
+    const nextColumnIds = [
+      ...tableColumns.map((column) => String(column.key)),
+      "actions",
+    ];
+
+    setColumnOrder((currentColumnOrder) => {
+      const currentColumnIds = new Set(nextColumnIds);
+      const preservedColumnIds = currentColumnOrder.filter((columnId) =>
+        currentColumnIds.has(columnId),
+      );
+      const addedColumnIds = nextColumnIds.filter(
+        (columnId) => !preservedColumnIds.includes(columnId),
+      );
+
+      if (
+        preservedColumnIds.length === currentColumnOrder.length &&
+        addedColumnIds.length === 0
+      ) {
+        return currentColumnOrder;
+      }
+
+      return [...preservedColumnIds, ...addedColumnIds];
+    });
+  }, [tableColumns]);
+
+  const table = useReactTable({
+    columns: dataGridColumns,
+    data: tableData,
+    getRowId: resolveRowKey,
+    state: {
+      pagination,
+      sorting,
+      columnOrder,
+      columnVisibility,
+      globalFilter: searchQuery,
+    },
+    onPaginationChange: setPagination,
+    onSortingChange: setSorting,
+    onColumnOrderChange: setColumnOrder,
+    onColumnVisibilityChange: setColumnVisibility,
+    autoResetPageIndex: false,
+    globalFilterFn: (row, _columnId, filterValue) =>
+      rowMatchesSearch(row.original, String(filterValue)),
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  const filteredRecordCount = table.getFilteredRowModel().rows.length;
+
+  useEffect(() => {
+    setPagination((currentPagination) => {
+      const pageCount = Math.max(
+        1,
+        Math.ceil(filteredRecordCount / currentPagination.pageSize),
+      );
+
+      if (currentPagination.pageIndex < pageCount) {
+        return currentPagination;
+      }
+
+      return {
+        ...currentPagination,
+        pageIndex: pageCount - 1,
+      };
+    });
+  }, [filteredRecordCount]);
+
   return (
     <section className={cn("space-y-4", className)}>
-      <div className="flex justify-end">
-        <Button type="button" size="sm" onClick={handleOpenCreate}>
-          Criar
-        </Button>
-      </div>
-
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-card">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                {tableColumns.map((column) => (
-                  <th
-                    key={String(column.key)}
-                    className={cn(
-                      "px-4 py-3 text-left font-medium text-muted-foreground",
-                      column.className,
-                    )}
+      <DataGrid
+        table={table}
+        recordCount={filteredRecordCount}
+        isLoading={isLoading}
+        emptyMessage="Nenhum registro encontrado."
+        loadingMessage="Carregando..."
+        tableLayout={{
+          columnsMovable: true,
+          columnsPinnable: true,
+          columnsResizable: false,
+          columnsVisibility: true,
+        }}
+      >
+        <Frame className="w-full" stacked dense>
+          <FrameHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <InputGroup className="w-full bg-background sm:w-72">
+              <InputGroupAddon align="inline-start">
+                <SearchIcon />
+              </InputGroupAddon>
+              <InputGroupInput
+                aria-label="Buscar registros"
+                placeholder="Buscar..."
+                value={searchQuery}
+                onChange={(event) => handleSearchQueryChange(event.target.value)}
+              />
+              {searchQuery.length > 0 && (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    aria-label="Limpar busca"
+                    title="Limpar"
+                    size="icon-xs"
+                    onClick={() => handleSearchQueryChange("")}
                   >
-                    {column.label}
-                  </th>
-                ))}
-
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-
-            <AnimatePresence mode="wait" initial={false}>
-              {isLoading ? (
-                <motion.tbody
-                  key="table-loading"
-                  initial={{ opacity: 1 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                >
-                  {Array.from({ length: 4 }).map((_, index) => (
-                    <tr key={`loading-row-${index}`} className="border-t">
-                      {tableColumns.map((column) => (
-                        <td key={String(column.key)} className="px-4 py-3 align-middle">
-                          <div className="h-4 w-full max-w-44 animate-pulse rounded-md bg-muted/70" />
-                        </td>
-                      ))}
-                      <td className="px-4 py-3 align-middle">
-                        <div className="h-8 w-24 animate-pulse rounded-md bg-muted/70" />
-                      </td>
-                    </tr>
-                  ))}
-                </motion.tbody>
-              ) : (
-                <motion.tbody
-                  key="table-content"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.24, ease: "easeOut" }}
-                >
-                  {tableData.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={tableColumns.length + 1}
-                        className="px-4 py-8 text-center text-muted-foreground"
-                      >
-                        Nenhum registro encontrado.
-                      </td>
-                    </tr>
-                  ) : (
-                    tableData.map((row, index) => (
-                      <tr key={resolveRowKey(row, index)} className="border-t">
-                        {tableColumns.map((column) => (
-                          <td key={String(column.key)} className="px-4 py-3 align-middle">
-                            {column.render ? column.render(row) : formatCellValue(row[column.key])}
-                          </td>
-                        ))}
-
-                        <td className="px-4 py-3 align-middle">
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEdit(row, index)}
-                            >
-                              Editar
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button type="button" variant="destructive" size="sm">
-                                  Excluir
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent size="sm">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    variant="destructive"
-                                    onClick={() => void handleDeleteRow(row, index)}
-                                  >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </motion.tbody>
+                    <XIcon />
+                  </InputGroupButton>
+                </InputGroupAddon>
               )}
-            </AnimatePresence>
-          </table>
-        </div>
-      </div>
+            </InputGroup>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <DataGridColumnVisibility
+                table={table}
+                trigger={
+                  <Button type="button" variant="outline" size="sm">
+                    <Settings2Icon />
+                    Colunas
+                  </Button>
+                }
+              />
+              <Button type="button" size="sm" onClick={handleOpenCreate}>
+                Criar
+              </Button>
+            </div>
+          </FrameHeader>
+          <FramePanel className="p-0 shadow-none">
+            <DataGridScrollArea>
+              <DataGridTable />
+            </DataGridScrollArea>
+          </FramePanel>
+          {(isLoading || filteredRecordCount > 0) && (
+            <FrameFooter className="px-2.5 py-1.5">
+              <DataGridPagination
+                info="{from} - {to} de {count}"
+                rowsPerPageLabel="Linhas por página"
+                previousPageLabel="Ir para a página anterior"
+                nextPageLabel="Ir para a próxima página"
+              />
+            </FrameFooter>
+          )}
+        </Frame>
+      </DataGrid>
 
       <AdminTableFormDialog
         open={isFormOpen}
