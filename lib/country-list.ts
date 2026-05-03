@@ -451,3 +451,15 @@ export default countries;
 export const countriesConvexSchema = v.union(
   ...countryCodes.map((code) => v.literal(code)),
 );
+
+export function countryCodeToFlagUrl(code: string): string | null {
+  if (code.length !== 2) {
+    return null;
+  }
+
+  return `https://flagcdn.com/${code.toLowerCase()}.svg`;
+}
+
+export function getCountryByCode(code: string): Country | undefined {
+  return countries.find((country) => country.code === code);
+}

@@ -32,9 +32,9 @@ function AuthButtonSkeleton() {
 export function Topbar({ className, ...props }: ComponentProps<"header">) {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const navigationLinks = [
-    { href: "/comites", label: "Comitês" },
-    { href: "/delegacoes", label: "Delegações" },
-    { href: "/sobre", label: "Sobre" },
+    { href: "/committees", label: "Comitês" },
+    { href: "/news", label: "Noticias" },
+    { href: "/rules", label: "Regras" },
   ];
   const userButtonLinks = userInfo?.member?.type === "admin"
     ? [
