@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
+import { getCountryByCode } from "@/lib/country-list";
 
 const emptyClerkOptionValue = "__empty_clerk__";
 const emptyTopicValue = "__empty_topic__";
@@ -152,7 +153,7 @@ function CommitteeDelegatesDialog({
                 >
                   <TableCell className="font-medium">{delegate.name}</TableCell>
                   <TableCell>{delegate.tuitionId ?? "-"}</TableCell>
-                  <TableCell>{delegate.delegatedCountry ?? "-"}</TableCell>
+                  <TableCell>{delegate.delegatedCountry ? `${getCountryByCode(delegate.delegatedCountry)?.name} (${delegate.delegatedCountry})` : "-"}</TableCell>
                 </TableRow>
               ))
             )}
