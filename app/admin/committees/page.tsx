@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -36,6 +37,7 @@ import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 
 const emptyClerkOptionValue = "__empty_clerk__";
+const emptyTopicValue = "__empty_topic__";
 
 function normalizeRequiredString(value: string | undefined) {
   const trimmedValue = value?.trim();
@@ -75,8 +77,16 @@ function normalizeMemberIdList(value: unknown) {
   );
 }
 
+function normalizeTopicList(value: unknown) {
+  return normalizeStringList(value).filter((item) => item !== emptyTopicValue);
+}
+
 function parseMemberIds(value: string | undefined) {
   return normalizeMemberIdList(value) as Doc<"members">["_id"][];
+}
+
+function parseTopics(value: string | undefined) {
+  return normalizeTopicList(value);
 }
 
 function CommitteeDelegatesDialog({
@@ -246,6 +256,62 @@ function MemberIdListInput({
   );
 }
 
+function TopicListInput({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const topics = normalizeStringList(value);
+
+  function updateTopics(nextTopics: string[]) {
+    onChange(nextTopics.join("\n"));
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-input bg-background p-3">
+      {topics.map((topic, index) => (
+        <div key={`topic-${index}`} className="flex gap-2">
+          <Input
+            value={topic === emptyTopicValue ? "" : topic}
+            placeholder="Ex.: Segurança alimentar"
+            onChange={(event) => {
+              const nextTopics = [...topics];
+              const nextTopic = event.target.value;
+
+              nextTopics[index] = nextTopic.trim() ? nextTopic : emptyTopicValue;
+              updateTopics(nextTopics);
+            }}
+          />
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              updateTopics(
+                topics.filter((_, currentIndex) => currentIndex !== index),
+              );
+            }}
+          >
+            Remover
+          </Button>
+        </div>
+      ))}
+
+      <div className="flex justify-center">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => updateTopics([...topics, emptyTopicValue])}
+        >
+          Adicionar tópico
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function TextareaInput({
   value,
   placeholder,
@@ -302,13 +368,9 @@ export default function CommitteesPage() {
     {
       key: "topics",
       label: "Tópicos",
-      render: (committee) => normalizeStringList(committee.topics).join(", ") || "-",
+      render: (committee) => normalizeTopicList(committee.topics).join(", ") || "-",
       formRender: ({ value, onChange }) => (
-        <TextareaInput
-          value={value}
-          placeholder="Separe tópicos por vírgula ou quebra de linha"
-          onChange={onChange}
-        />
+        <TopicListInput value={value} onChange={onChange} />
       ),
       showInTable: false
     },
@@ -353,7 +415,7 @@ export default function CommitteesPage() {
         onCreate={async (values) => {
           const theme = normalizeRequiredString(values.theme);
           const description = normalizeRequiredString(values.description);
-          const topics = parseList(values.topics);
+          const topics = parseTopics(values.topics);
 
           if (!theme || !description) {
             toast.error("Preencha tema e descrição para criar o comitê.");
@@ -386,7 +448,7 @@ export default function CommitteesPage() {
               theme: normalizeRequiredString(values.theme) ?? undefined,
               description:
                 normalizeRequiredString(values.description) ?? undefined,
-              topics: parseList(values.topics),
+              topics: parseTopics(values.topics),
               clerks: parseMemberIds(values.clerks),
             });
 
