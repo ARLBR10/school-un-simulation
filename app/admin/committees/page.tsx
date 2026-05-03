@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/table";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
+import { getCountryByCode } from "@/lib/country-list";
 
 const emptyClerkOptionValue = "__empty_clerk__";
 const emptyTopicValue = "__empty_topic__";
@@ -152,7 +153,11 @@ function CommitteeDelegatesDialog({
                 >
                   <TableCell className="font-medium">{delegate.name}</TableCell>
                   <TableCell>{delegate.tuitionId ?? "-"}</TableCell>
-                  <TableCell>{delegate.delegatedCountry ?? "-"}</TableCell>
+                  <TableCell>
+                    {delegate.delegatedCountry
+                      ? `${getCountryByCode(delegate.delegatedCountry)?.name} (${delegate.delegatedCountry})`
+                      : "-"}
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -229,7 +234,9 @@ function MemberIdListInput({
                   variant="outline"
                   onClick={() => {
                     updateSelectedIds(
-                      selectedIds.filter((_, currentIndex) => currentIndex !== index),
+                      selectedIds.filter(
+                        (_, currentIndex) => currentIndex !== index,
+                      ),
                     );
                   }}
                 >
@@ -244,7 +251,9 @@ function MemberIdListInput({
               type="button"
               variant="outline"
               className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-background disabled:text-muted-foreground disabled:hover:bg-background disabled:hover:text-muted-foreground"
-              onClick={() => updateSelectedIds([...selectedIds, emptyClerkOptionValue])}
+              onClick={() =>
+                updateSelectedIds([...selectedIds, emptyClerkOptionValue])
+              }
               disabled={parseMemberIds(value).length >= members.length}
             >
               Adicionar mesário
@@ -280,7 +289,9 @@ function TopicListInput({
               const nextTopics = [...topics];
               const nextTopic = event.target.value;
 
-              nextTopics[index] = nextTopic.trim() ? nextTopic : emptyTopicValue;
+              nextTopics[index] = nextTopic.trim()
+                ? nextTopic
+                : emptyTopicValue;
               updateTopics(nextTopics);
             }}
           />
@@ -353,7 +364,9 @@ export default function CommitteesPage() {
         const clerkIds = normalizeMemberIdList(committee.clerks);
 
         return clerkIds.length > 0
-          ? clerkIds.map((clerkId) => memberNameById[clerkId] ?? clerkId).join(", ")
+          ? clerkIds
+              .map((clerkId) => memberNameById[clerkId] ?? clerkId)
+              .join(", ")
           : "-";
       },
       formRender: ({ value, onChange }) => (
@@ -363,16 +376,17 @@ export default function CommitteesPage() {
           onChange={onChange}
         />
       ),
-      showInTable: false
+      showInTable: false,
     },
     {
       key: "topics",
       label: "Tópicos",
-      render: (committee) => normalizeTopicList(committee.topics).join(", ") || "-",
+      render: (committee) =>
+        normalizeTopicList(committee.topics).join(", ") || "-",
       formRender: ({ value, onChange }) => (
         <TopicListInput value={value} onChange={onChange} />
       ),
-      showInTable: false
+      showInTable: false,
     },
     {
       key: "description",
