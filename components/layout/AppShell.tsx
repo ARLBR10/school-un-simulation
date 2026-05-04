@@ -62,7 +62,6 @@ const publicNavigationLinks: NavigationItem[] = [
 ];
 
 const adminNavigationLinks: NavigationItem[] = [
-  { href: "/admin", label: "Dashboard", icon: Home, exact: true },
   { href: "/admin/members", label: "Membros", icon: Users },
   { href: "/admin/users", label: "Usuários", icon: UserCog },
   { href: "/admin/committees", label: "Comitês", icon: Globe },

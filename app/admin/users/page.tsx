@@ -40,6 +40,7 @@ const userColumns: AdminTableColumn<AuthUserWithPass>[] = [
   createBooleanColumn({
     key: "twoFactorEnabled",
     label: "2FA",
+    hiddenByDefault: true,
   }),
   {
     key: "isAnonymous",
@@ -47,7 +48,7 @@ const userColumns: AdminTableColumn<AuthUserWithPass>[] = [
     showInForm: false,
     showInTable: false,
   },
-  { key: "username", label: "Usuário", showInTable: false },
+  { key: "username", label: "Usuário", hiddenByDefault: true },
   {
     key: "password",
     label: "Password",
@@ -59,10 +60,11 @@ const userColumns: AdminTableColumn<AuthUserWithPass>[] = [
     showInForm: false,
     showInTable: false,
   },
-  { key: "phoneNumber", label: "Celular" },
+  { key: "phoneNumber", label: "Celular", hiddenByDefault: true },
   createBooleanColumn({
     key: "phoneNumberVerified",
     label: "Celular Verificado",
+    hiddenByDefault: true,
   }),
 ];
 
@@ -145,7 +147,9 @@ export default function UsersPage() {
               twoFactorEnabled: parseOptionalBoolean(values.twoFactorEnabled),
               username: normalizeOptionalString(values.username),
               cellphone: normalizeOptionalString(values.phoneNumber),
-              cellphoneVerified: parseOptionalBoolean(values.phoneNumberVerified),
+              cellphoneVerified: parseOptionalBoolean(
+                values.phoneNumberVerified,
+              ),
             });
 
             if (updated === true) {

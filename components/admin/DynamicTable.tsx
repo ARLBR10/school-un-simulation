@@ -101,6 +101,7 @@ export type AdminTableColumn<T extends AdminTableRow> = {
   icon?: ReactNode;
   className?: string;
   showInTable?: boolean;
+  hiddenByDefault?: boolean;
   showInForm?: boolean;
   showInCreateForm?: boolean;
   showInEditForm?: boolean;
@@ -279,6 +280,18 @@ function shouldShowColumnInForm<T extends AdminTableRow>(
   return column.showInEditForm !== false;
 }
 
+function getDefaultColumnVisibility<T extends AdminTableRow>(
+  columns: AdminTableColumn<T>[],
+): VisibilityState {
+  return Object.fromEntries(
+    columns
+      .filter(
+        (column) => column.showInTable !== false && column.hiddenByDefault,
+      )
+      .map((column) => [String(column.key), false]),
+  );
+}
+
 function removeReadOnlyFields(values: Record<string, string>) {
   return Object.fromEntries(
     Object.entries(values).filter(([key]) => !isReadOnlyFieldKey(key)),
@@ -321,7 +334,9 @@ export function DynamicTable<T extends AdminTableRow>({
   const searchParams = useSearchParams();
   const [tableData, setTableData] = useState<T[]>(data);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() =>
+    getDefaultColumnVisibility(columns),
+  );
   const [globalFilter, setGlobalFilter] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
