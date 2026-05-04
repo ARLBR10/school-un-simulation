@@ -1,5 +1,6 @@
 "use client";
 
+import { SiGithub } from "@icons-pack/react-simple-icons";
 import {
   AuthLoading,
   SignedIn,
@@ -25,7 +26,6 @@ import { usePathname } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 
 import { api } from "@/convex/_generated/api";
-import { Footer } from "@/components/layout/Footer";
 import {
   Sidebar,
   SidebarContent,
@@ -168,6 +168,20 @@ function AppSidebarFooter() {
           </SignedOut>
         </SidebarMenuItem>
       </SidebarMenu>
+      <div className="flex items-center justify-between border-t border-sidebar-border px-2 pt-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
+        <span className="truncate text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
+          Programado por Meg (e IA!)
+        </span>
+        <Link
+          href="https://github.com/ARLBR10/school-un-simulation"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+        >
+          <SiGithub className="size-3.5" />
+          <span className="sr-only">GitHub</span>
+        </Link>
+      </div>
     </SidebarFooter>
   );
 }
@@ -337,7 +351,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         }
       >
         <div className="flex flex-1 flex-col">{children}</div>
-        <Footer className="mt-auto" />
       </main>
     );
   }
@@ -354,7 +367,6 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SidebarInset className="min-h-screen">
           <SiteHeader />
           <div className="flex flex-1 flex-col">{children}</div>
-          <Footer className="mt-auto" />
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
