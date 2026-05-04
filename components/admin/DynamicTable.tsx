@@ -1,11 +1,46 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { isValidElement, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type SortingFn,
+  type SortingState,
+  type VisibilityState,
+} from "@tanstack/react-table";
+import {
+  CalendarDays,
+  CheckCircle2,
+  Copy,
+  FileText,
+  Globe,
+  Hash,
+  KeyRound,
+  ListChecks,
+  Mail,
+  MoreHorizontal,
+  Pencil,
+  Phone,
+  Plus,
+  Search,
+  Settings2,
+  Text,
+  Trash2,
+  User,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
-import { AdminTableFormDialog, type AdminTableFormField } from "@/components/admin/AdminTableFormDialog";
+import {
+  AdminTableFormDialog,
+  type AdminTableFormField,
+} from "@/components/admin/AdminTableFormDialog";
 import {
   AdminTableSelectInput,
   type AdminTableSelectOption,
@@ -22,6 +57,24 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import {
+  DataGrid,
+  DataGridContainer,
+} from "@/components/reui/data-grid/data-grid";
+import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-column-header";
+import { DataGridColumnVisibility } from "@/components/reui/data-grid/data-grid-column-visibility";
+import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination";
+import { DataGridTable } from "@/components/reui/data-grid/data-grid-table";
 import { cn } from "@/lib/utils";
 
 export type { AdminTableSelectOption } from "@/components/admin/AdminTableSelectInput";
@@ -45,6 +98,7 @@ type AdminTableActionResult = boolean | void;
 export type AdminTableColumn<T extends AdminTableRow> = {
   key: keyof T;
   label: ReactNode;
+  icon?: ReactNode;
   className?: string;
   showInTable?: boolean;
   showInForm?: boolean;
@@ -116,6 +170,96 @@ function formatFormValue(value: ReactNode) {
   return "";
 }
 
+function stringifyReactNode(value: ReactNode): string {
+  if (value === null || value === undefined || typeof value === "boolean") {
+    return "";
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => stringifyReactNode(item)).join(" ");
+  }
+
+  if (isValidElement<{ children?: ReactNode }>(value)) {
+    return stringifyReactNode(value.props.children);
+  }
+
+  return "";
+}
+
+function normalizeSearchValue(value: ReactNode) {
+  return stringifyReactNode(value).toLocaleLowerCase("pt-BR");
+}
+
+function compareCellValues(leftValue: ReactNode, rightValue: ReactNode) {
+  const leftText = stringifyReactNode(leftValue);
+  const rightText = stringifyReactNode(rightValue);
+  const leftNumber = Number(leftText);
+  const rightNumber = Number(rightText);
+
+  if (Number.isFinite(leftNumber) && Number.isFinite(rightNumber)) {
+    return leftNumber - rightNumber;
+  }
+
+  return leftText.localeCompare(rightText, "pt-BR", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
+function getColumnLabelText<T extends AdminTableRow>(
+  column: AdminTableColumn<T>,
+) {
+  return stringifyReactNode(column.label) || String(column.key);
+}
+
+function getColumnSearchValue<T extends AdminTableRow>(
+  row: T,
+  column: AdminTableColumn<T>,
+) {
+  const renderedValue = column.render ? column.render(row) : row[column.key];
+  const renderedText = stringifyReactNode(renderedValue);
+
+  if (renderedText) {
+    return renderedText;
+  }
+
+  return stringifyReactNode(row[column.key]);
+}
+
+function getDefaultColumnIcon(key: string): LucideIcon {
+  const normalizedKey = key.toLocaleLowerCase("en-US");
+
+  if (normalizedKey.includes("email")) return Mail;
+  if (normalizedKey.includes("phone") || normalizedKey.includes("cellphone")) {
+    return Phone;
+  }
+  if (normalizedKey.includes("date") || normalizedKey.includes("time")) {
+    return CalendarDays;
+  }
+  if (normalizedKey.includes("verified") || normalizedKey.startsWith("is")) {
+    return CheckCircle2;
+  }
+  if (normalizedKey.includes("country") || normalizedKey.includes("committee")) {
+    return Globe;
+  }
+  if (normalizedKey.includes("user")) return User;
+  if (normalizedKey.includes("member") || normalizedKey.includes("delegate")) {
+    return Users;
+  }
+  if (normalizedKey.includes("topic") || normalizedKey.includes("type")) {
+    return ListChecks;
+  }
+  if (normalizedKey.includes("description")) return FileText;
+  if (normalizedKey.includes("password")) return KeyRound;
+  if (normalizedKey.includes("id")) return Hash;
+
+  return Text;
+}
+
 function isReadOnlyFieldKey(key: string) {
   return key === "_id" || key === "_creationTime";
 }
@@ -154,6 +298,12 @@ function resolveSearchParamValue<T extends AdminTableRow>(
   return null;
 }
 
+function resolveRowIdValue<T extends AdminTableRow>(row: T, rowKey?: keyof T) {
+  const key = rowKey ?? ("_id" as keyof T);
+
+  return stringifyReactNode(row[key]);
+}
+
 export function DynamicTable<T extends AdminTableRow>({
   columns,
   data,
@@ -170,6 +320,9 @@ export function DynamicTable<T extends AdminTableRow>({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [tableData, setTableData] = useState<T[]>(data);
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [globalFilter, setGlobalFilter] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [rowToEdit, setRowToEdit] = useState<T | null>(null);
@@ -288,6 +441,168 @@ export function DynamicTable<T extends AdminTableRow>({
     () => columns.filter((column) => column.showInTable !== false),
     [columns],
   );
+
+  const cellSortingFn = useMemo<SortingFn<T>>(
+    () => (leftRow, rightRow, columnId) =>
+      compareCellValues(leftRow.getValue(columnId), rightRow.getValue(columnId)),
+    [],
+  );
+
+  const dataGridColumns: ColumnDef<T>[] = [
+    ...tableColumns.map<ColumnDef<T>>((column) => {
+      const columnId = String(column.key);
+      const title = getColumnLabelText(column);
+      const Icon = getDefaultColumnIcon(columnId);
+
+      return {
+        id: columnId,
+        accessorFn: (row) => row[column.key],
+        header: ({ column: tableColumn }) => (
+          <DataGridColumnHeader
+            column={tableColumn}
+            title={title}
+            icon={column.icon ?? <Icon />}
+            visibility
+          />
+        ),
+        cell: ({ row }) => (
+          <div className="min-w-0 truncate">
+            {column.render
+              ? column.render(row.original)
+              : formatCellValue(row.original[column.key])}
+          </div>
+        ),
+        enableHiding: true,
+        enableSorting: true,
+        sortingFn: cellSortingFn,
+        meta: {
+          headerTitle: title,
+          headerClassName: column.className,
+          cellClassName: column.className,
+        },
+      };
+    }),
+    {
+      id: "actions",
+      header: () => <span className="sr-only">Ações</span>,
+      cell: ({ row }) => {
+        const rowId = resolveRowIdValue(row.original, rowKey);
+
+        return (
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Abrir ações"
+                >
+                  <MoreHorizontal />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-40">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onSelect={() => handleOpenEdit(row.original, row.index)}
+                  >
+                    <Pencil />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!rowId}
+                    onSelect={() => void navigator.clipboard.writeText(rowId)}
+                  >
+                    <Copy />
+                    Copiar ID
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onSelect={(event) => event.preventDefault()}
+                      >
+                        <Trash2 />
+                        Excluir
+                      </DropdownMenuItem>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent size="sm">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação não pode ser desfeita.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          onClick={() =>
+                            void handleDeleteRow(row.original, row.index)
+                          }
+                        >
+                          Excluir
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+      enableHiding: false,
+      enableSorting: false,
+      size: 48,
+      meta: {
+        headerClassName: "px-1 text-right",
+        cellClassName: "px-1 text-right",
+      },
+    },
+  ];
+
+  const table = useReactTable({
+    data: tableData,
+    columns: dataGridColumns,
+    state: {
+      sorting,
+      columnVisibility,
+      globalFilter,
+    },
+    initialState: {
+      pagination: {
+        pageIndex: 0,
+        pageSize: 10,
+      },
+    },
+    autoResetPageIndex: false,
+    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const normalizedFilter = String(filterValue)
+        .trim()
+        .toLocaleLowerCase("pt-BR");
+
+      if (!normalizedFilter) {
+        return true;
+      }
+
+      return tableColumns.some((column) =>
+        normalizeSearchValue(getColumnSearchValue(row.original, column)).includes(
+          normalizedFilter,
+        ),
+      );
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  });
 
   const formInitialValues = useMemo(() => {
     const baseValues: Record<string, string> = {};
@@ -490,144 +805,63 @@ export function DynamicTable<T extends AdminTableRow>({
     }
   }
 
-  function resolveRowKey(row: T, index: number) {
-    if (!rowKey) {
-      return `row-${index}`;
-    }
-
-    const value = row[rowKey];
-
-    if (typeof value === "string" || typeof value === "number") {
-      return String(value);
-    }
-
-    return `row-${index}`;
-  }
-
   return (
-    <section className={cn("space-y-4", className)}>
-      <div className="flex justify-end">
-        <Button type="button" size="sm" onClick={handleOpenCreate}>
-          Criar
-        </Button>
-      </div>
+    <section className={cn("flex flex-col gap-4", className)}>
+      <Card>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full sm:max-w-xs [&_svg]:size-4">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={globalFilter}
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                placeholder="Buscar registros..."
+                className="pl-9"
+              />
+            </div>
 
-      <div className="overflow-hidden rounded-lg border border-border/70 bg-card">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr>
-                {tableColumns.map((column) => (
-                  <th
-                    key={String(column.key)}
-                    className={cn(
-                      "px-4 py-3 text-left font-medium text-muted-foreground",
-                      column.className,
-                    )}
-                  >
-                    {column.label}
-                  </th>
-                ))}
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <DataGridColumnVisibility
+                table={table}
+                trigger={
+                  <Button type="button" variant="outline" size="sm">
+                    <Settings2 data-icon="inline-start" />
+                    Colunas
+                  </Button>
+                }
+              />
+              <Button type="button" size="sm" onClick={handleOpenCreate}>
+                <Plus data-icon="inline-start" />
+                Criar
+              </Button>
+            </div>
+          </div>
 
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-
-            <AnimatePresence mode="wait" initial={false}>
-              {isLoading ? (
-                <motion.tbody
-                  key="table-loading"
-                  initial={{ opacity: 1 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2, ease: "easeOut" }}
-                >
-                  {Array.from({ length: 4 }).map((_, index) => (
-                    <tr key={`loading-row-${index}`} className="border-t">
-                      {tableColumns.map((column) => (
-                        <td key={String(column.key)} className="px-4 py-3 align-middle">
-                          <div className="h-4 w-full max-w-44 animate-pulse rounded-md bg-muted/70" />
-                        </td>
-                      ))}
-                      <td className="px-4 py-3 align-middle">
-                        <div className="h-8 w-24 animate-pulse rounded-md bg-muted/70" />
-                      </td>
-                    </tr>
-                  ))}
-                </motion.tbody>
-              ) : (
-                <motion.tbody
-                  key="table-content"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.24, ease: "easeOut" }}
-                >
-                  {tableData.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={tableColumns.length + 1}
-                        className="px-4 py-8 text-center text-muted-foreground"
-                      >
-                        Nenhum registro encontrado.
-                      </td>
-                    </tr>
-                  ) : (
-                    tableData.map((row, index) => (
-                      <tr key={resolveRowKey(row, index)} className="border-t">
-                        {tableColumns.map((column) => (
-                          <td key={String(column.key)} className="px-4 py-3 align-middle">
-                            {column.render ? column.render(row) : formatCellValue(row[column.key])}
-                          </td>
-                        ))}
-
-                        <td className="px-4 py-3 align-middle">
-                          <div className="flex flex-wrap gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEdit(row, index)}
-                            >
-                              Editar
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button type="button" variant="destructive" size="sm">
-                                  Excluir
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent size="sm">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    variant="destructive"
-                                    onClick={() => void handleDeleteRow(row, index)}
-                                  >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </motion.tbody>
-              )}
-            </AnimatePresence>
-          </table>
-        </div>
-      </div>
+          <DataGrid
+            table={table}
+            recordCount={table.getFilteredRowModel().rows.length}
+            isLoading={isLoading}
+            emptyMessage="Nenhum registro encontrado."
+            tableLayout={{
+              columnsVisibility: true,
+              headerBackground: true,
+              headerBorder: true,
+              rowBorder: true,
+              width: "fixed",
+            }}
+          >
+            <DataGridContainer>
+              <DataGridTable />
+            </DataGridContainer>
+            <DataGridPagination
+              info="{from} - {to} de {count}"
+              rowsPerPageLabel="Linhas por página"
+              previousPageLabel="Página anterior"
+              nextPageLabel="Próxima página"
+            />
+          </DataGrid>
+        </CardContent>
+      </Card>
 
       <AdminTableFormDialog
         open={isFormOpen}

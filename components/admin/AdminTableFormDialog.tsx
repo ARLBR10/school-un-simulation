@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -91,7 +92,7 @@ export function AdminTableFormDialog({
           </SheetDescription>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-5 px-6 py-5">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-6 py-5">
           <div className="flex flex-col gap-2">
             {fields.map((field) => (
               <label key={field.key} className="flex flex-col gap-1 text-sm font-medium">
@@ -108,7 +109,7 @@ export function AdminTableFormDialog({
                       })),
                   })
                 ) : (
-                  <input
+                  <Input
                     type="text"
                     value={values[field.key] ?? ""}
                     onChange={(event) =>
@@ -117,7 +118,6 @@ export function AdminTableFormDialog({
                         [field.key]: event.target.value,
                       }))
                     }
-                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-ring/50"
                   />
                 )}
               </label>

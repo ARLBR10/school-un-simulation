@@ -1,10 +1,49 @@
+import { PageHeader, PageShell } from "@/components/layout/PageShell";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
 export default function AdminPage() {
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Painel Administrativo</h1>
-      <p className="text-muted-foreground">
-        Bem-vindo à área de administração. Selecione uma opção no menu lateral.
-      </p>
-    </div>
+    <PageShell>
+      <PageHeader
+        title="Painel Administrativo"
+        description="Acompanhe e gerencie os dados centrais da simulação."
+      />
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Membros</CardTitle>
+            <CardDescription>Cadastros e vínculos de participantes.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Use o menu lateral para criar, editar e revisar membros.
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Comitês</CardTitle>
+            <CardDescription>Temas, tópicos e delegações.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Organize as mesas e acompanhe as representações cadastradas.
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Usuários</CardTitle>
+            <CardDescription>Acessos da plataforma.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Gerencie contas e informações de autenticação dos usuários.
+          </CardContent>
+        </Card>
+      </div>
+    </PageShell>
   );
 }

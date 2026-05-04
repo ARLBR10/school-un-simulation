@@ -12,6 +12,7 @@ import {
   type AdminTableSelectOption,
 } from "@/components/admin/DynamicTable";
 import { createSelectColumn } from "@/components/admin/DynamicTableFields";
+import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import {
   Combobox,
   ComboboxContent,
@@ -285,10 +286,11 @@ export default function MembersPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">
-        Gerenciador de Membros
-      </h1>
+    <PageShell>
+      <PageHeader
+        title="Gerenciador de Membros"
+        description="Cadastre participantes, defina funções e vincule delegados aos comitês."
+      />
 
       <DynamicTable
         columns={membersColumns}
@@ -378,6 +380,6 @@ export default function MembersPage() {
           }
         }}
       />
-    </div>
+    </PageShell>
   );
 }

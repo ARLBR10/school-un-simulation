@@ -1,34 +1,43 @@
 import Link from "next/link";
 import { MoveLeft } from "lucide-react";
 
+import { PageShell } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default function NotFound() {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center relative min-h-[calc(100vh-8rem)] text-center px-4">
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full blur-[100px] bg-red-900/10 pointer-events-none" />
-      
-      <div className="z-10 flex flex-col items-center">
-        <h1 className="text-8xl md:text-9xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white to-white/20 mb-4">
-          404
-        </h1>
-        <h2 className="text-2xl md:text-3xl font-medium text-white/80 mb-6">
-          Página não encontrada
-        </h2>
-        <p className="text-white/50 max-w-[400px] mb-8">
-          A página que você está procurando não existe, foi removida, ou está temporariamente indisponível.
-        </p>
-        <Button
-          asChild
-          variant="outline"
-          className="group rounded-full border-white/10 bg-white/5 px-6 text-white/80 hover:bg-white/10 hover:text-white"
-        >
-          <Link href="/">
-            <MoveLeft className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
-            Voltar para o início
-          </Link>
-        </Button>
-      </div>
-    </div>
+    <PageShell className="mx-auto w-full max-w-2xl justify-center">
+      <Card className="gap-6 py-6 sm:py-8">
+        <CardHeader className="gap-4 px-6 text-center justify-items-center sm:px-8">
+          <div className="text-6xl font-semibold tracking-tighter text-muted-foreground">
+            404
+          </div>
+          <CardTitle className="text-balance text-3xl">
+            Página não encontrada
+          </CardTitle>
+          <CardDescription className="max-w-md text-balance leading-6">
+            A página que você está procurando não existe, foi removida, ou está
+            temporariamente indisponível.
+          </CardDescription>
+        </CardHeader>
+        <div className="flex justify-center px-6 sm:px-8">
+          <Button asChild variant="outline" className="group">
+            <Link href="/">
+              <MoveLeft
+                data-icon="inline-start"
+                className="transition-transform group-hover:-translate-x-1"
+              />
+              Voltar para o início
+            </Link>
+          </Button>
+        </div>
+      </Card>
+    </PageShell>
   );
 }

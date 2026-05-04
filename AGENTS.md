@@ -1,7 +1,7 @@
 <!-- BEGIN:nextjs-agent-rules -->
 # This is NOT the Next.js you know
 
-This repo uses Next.js 16.2.3 with App Router, React 19, and Tailwind CSS 4.
+This repo uses Next.js 16.2.4 with App Router, React 19, and Tailwind CSS 4.
 Before changing framework code, read the relevant guide in `node_modules/next/dist/docs/`.
 Assume APIs, conventions, and file structure may differ from older Next.js versions.
 Heed deprecation notices and prefer current framework patterns over training-data habits.
@@ -21,14 +21,19 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 - Package manager: Bun.
 - Frontend: Next.js App Router in `app/`.
 - Language: TypeScript with `strict: true`.
-- Styling: Tailwind CSS 4 plus shadcn/radix-nova utilities in `app/globals.css`.
+- Styling: Tailwind CSS 4, shadcn/radix-nova, and reui data-grid components, all driven by tokens in `app/globals.css`.
+- Interface architecture: persistent application chrome in `components/layout/AppShell.tsx`, page spacing and headers via `components/layout/PageShell.tsx`.
 - Backend: Convex, with generated code under `convex/_generated/`.
-- The app is still close to scaffold level, so prefer simple, local changes.
+- The app has an established admin/public interface style; preserve it for new pages instead of introducing one-off layouts.
 
 ## Directory Guide
 - `app/`: routes, layouts, and global CSS.
 - `components/`: shared React components and providers.
+- `components/layout/`: app shell, footer, membership guard, and page scaffolding primitives.
 - `components/ui/`: shadcn-style primitives; preserve upstream structure when possible.
+- `components/reui/`: reui registry components, especially data-grid pieces; treat these as vendored-style primitives.
+- `components/admin/`: admin CRUD and table abstractions built on shadcn, reui, and TanStack Table.
+- `hooks/`: shared client hooks used by primitives such as the sidebar.
 - `lib/`: small shared helpers such as `cn()`.
 - `convex/`: Convex code; do not hand-edit `convex/_generated/*`.
 - `public/`: static assets.
@@ -52,7 +57,9 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 - `tsconfig.json` uses `strict: true`, `moduleResolution: "bundler"`, and the `@/*` path alias.
 - ESLint is configured in `eslint.config.mjs` with Next core-web-vitals and TypeScript presets.
 - There is no Prettier, Biome, Jest, Vitest, Playwright, or Cypress config checked in.
-- `components.json` uses shadcn aliases and the `radix-nova` style.
+- `components.json` uses shadcn aliases, the `radix-nova` style, Lucide icons, and the `@reui` registry.
+- Admin tables use `@tanstack/react-table` through `components/reui/data-grid/*`.
+- Motion on public-facing list/detail views uses `framer-motion`; keep transitions subtle and short.
 - `NEXT_PUBLIC_CONVEX_URL` is required by the current provider setup.
 
 ## Current Validation Status
@@ -102,8 +109,28 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 - Default to Server Components; add `"use client"` only when state, effects, refs, or browser APIs require it.
 - Keep route metadata typed and exported from route/layout files.
 - Put cross-app providers in `components/Providers.tsx` or an equally explicit wrapper.
+- Keep global application chrome in `AppShell`; do not recreate sidebars, site headers, auth footers, or shell-level backgrounds in individual pages.
+- Auth and error routes are standalone paths in `AppShell`; preserve that split when adding more auth/error screens.
 - Prefer App Router APIs and current Next.js patterns over Pages Router habits.
 - Use `next/image` and other built-ins when they fit the feature.
+
+### Interface Architecture
+- Build normal route content with `PageShell`; use `PageShell className="mx-auto w-full max-w-*"` for centered public/detail pages and plain `PageShell` for admin sections.
+- Start content pages with `PageHeader` using a concise title and one-sentence description; put primary actions in the `action` prop.
+- Default to shadcn primitives for UI composition; before creating custom controls or importing a new UI library, check whether `components/ui/*` already provides the needed primitive.
+- Use `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent`, and `CardFooter` for content surfaces instead of custom bordered panels.
+- Use `Button asChild` for navigational actions and keep Lucide icons inline with `data-icon="inline-start"` when matching existing buttons.
+- Use `Sheet` for side-edit forms, `Dialog` for focused secondary details, `AlertDialog` for destructive confirmation, and `DropdownMenu` for row actions.
+- Use `Skeleton` for loading states, dashed `Card` surfaces for empty or restricted states, and clear `aria-live`/`aria-busy` on async content swaps.
+- Use `AnimatePresence` and small `motion` transitions only where the surrounding page already uses motion; prefer opacity plus 6-12px translate and 0.2-0.4s duration.
+- Keep navigation labels, page titles, empty states, and form copy in Brazilian Portuguese.
+
+### Admin Tables
+- Prefer the existing `DynamicTable` abstraction for CRUD-like admin pages before creating a new table implementation.
+- Define admin table columns with `AdminTableColumn<T>` and keep labels/form labels user-facing in `pt-BR`.
+- Use `showInTable`, `showInForm`, `showInCreateForm`, `showInEditForm`, `formRender`, and `formSelectOptions` instead of branching around `DynamicTable` externally.
+- Keep search, column visibility, pagination, row actions, copy ID, and delete confirmation consistent with `DynamicTable`.
+- For tabular read-only detail sections, use `components/ui/table`; for admin data grids, use `components/reui/data-grid/*` through `DynamicTable`.
 
 ### Product Language
 - Chat responses should use the same language as the user.
@@ -115,10 +142,14 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 ### Styling
 - Use Tailwind utilities for component-level styling.
 - Reuse tokens from `app/globals.css` instead of inventing ad hoc color variables.
-- Prefer semantic classes and design tokens over one-off raw colors.
+- Prefer semantic classes and design tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border-border`, `ring-ring`, `bg-sidebar`, `text-sidebar-foreground`, and status tokens over one-off raw colors.
+- Preserve the dark-first visual language: neutral black/foreground foundation, subtle blue-violet primary accents, rounded card surfaces, light borders/rings, and restrained hover states like `hover:bg-muted/30`.
+- Keep layout rhythm close to the existing shells: `gap-4`, `md:gap-6`, `px-4`, `py-4`, `lg:px-6`, rounded `xl` cards, and compact `h-9` sidebar/menu controls.
+- Prefer responsive flex/grid utilities already used in the app, such as `flex flex-col gap-* sm:flex-row`, `grid gap-4 md:grid-cols-*`, `min-w-0`, `truncate`, and `max-w-*` content widths.
 - Use `cn()` from `@/lib/utils` for conditional class merging.
 - Keep all custom components in `app/` and `components/` (except `components/ui/*`) shadcn-compliant by accepting `className`, merging with `cn()`, and preferring shadcn primitives for interactive UI when available.
 - Keep `components/ui/*` compatible with `class-variance-authority`, Radix Slot, and shadcn conventions.
+- Preserve vendored formatting in `components/ui/*` and `components/reui/*`, even when it differs from project-authored files.
 
 ### State, Data, And Environment
 - Keep environment variable usage centralized and intentional.
@@ -145,7 +176,9 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 
 ## Practical Agent Workflow
 - Read `package.json`, this file, and nearby config before changing behavior.
-- For frontend work, inspect `app/layout.tsx`, `app/globals.css`, and nearby components before inventing patterns.
+- For frontend work, inspect `app/layout.tsx`, `app/globals.css`, `components/layout/AppShell.tsx`, `components/layout/PageShell.tsx`, and nearby components before inventing patterns.
+- For new pages, first decide whether the page is shell-managed, standalone auth/error content, public centered content, or admin content, then follow the matching existing route.
+- For new admin CRUD pages, inspect `components/admin/DynamicTable.tsx` and the closest `app/admin/*/page.tsx` before adding custom table or form code.
 - Before adding tests, choose and configure a test runner explicitly; do not assume one exists.
 - Before changing lint behavior, remember the current warnings come from generated Convex files.
 - If you add new workflow rules, update this file immediately so later agents see them.

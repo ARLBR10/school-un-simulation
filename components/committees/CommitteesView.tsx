@@ -5,12 +5,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import {
-  TypographyH1,
-  TypographyLead,
-  TypographyMuted,
-} from "@/components/ui/typography";
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 
 const SKELETON_ROW_COUNT = 4;
@@ -39,80 +41,77 @@ export function CommitteesView() {
   const isLoading = committees === undefined;
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-12 sm:px-8 md:py-16">
+    <PageShell className="mx-auto w-full max-w-5xl">
       <motion.header
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-        className="space-y-4"
       >
-        <TypographyH1>Comitês</TypographyH1>
-        <TypographyLead>
-          Conheça os comitês da simulação, seus temas e tópicos em debate.
-        </TypographyLead>
+        <PageHeader
+          title="Comitês"
+          description="Conheça os comitês da simulação, seus temas e tópicos em debate."
+        />
       </motion.header>
 
-      <div className="mt-12">
-        <AnimatePresence mode="wait" initial={false}>
-          {isLoading ? (
-            <motion.div
-              key="skeleton"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              aria-live="polite"
-              aria-busy="true"
-            >
-              <ListSkeleton />
-            </motion.div>
-          ) : committees === null ? (
-            <motion.div
-              key="forbidden"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <ForbiddenState />
-            </motion.div>
-          ) : committees.length === 0 ? (
-            <motion.div
-              key="empty"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <EmptyState />
-            </motion.div>
-          ) : (
-            <motion.ul
-              key="content"
-              variants={containerVariants}
-              initial="hidden"
-              animate="show"
-              exit={{ opacity: 0 }}
-              className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card"
-            >
-              {committees.map((committee) => (
-                <motion.li key={committee._id} variants={itemVariants}>
-                  <CommitteeRow
-                    id={committee._id}
-                    theme={committee.theme}
-                    description={committee.description}
-                  />
-                </motion.li>
-              ))}
-            </motion.ul>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
+      <AnimatePresence mode="wait" initial={false}>
+        {isLoading ? (
+          <motion.div
+            key="skeleton"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <ListSkeleton />
+          </motion.div>
+        ) : committees === null ? (
+          <motion.div
+            key="forbidden"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <ForbiddenState />
+          </motion.div>
+        ) : committees.length === 0 ? (
+          <motion.div
+            key="empty"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <EmptyState />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="content"
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+            exit={{ opacity: 0 }}
+            className="grid gap-4 md:grid-cols-2"
+          >
+            {committees.map((committee) => (
+              <motion.div key={committee._id} variants={itemVariants}>
+                <CommitteeCard
+                  id={committee._id}
+                  theme={committee.theme}
+                  description={committee.description}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </PageShell>
   );
 }
 
-function CommitteeRow({
+function CommitteeCard({
   id,
   theme,
   description,
@@ -122,32 +121,31 @@ function CommitteeRow({
   description: string;
 }) {
   return (
-    <Link
-      href={`/committees/${id}`}
-      className="group flex items-center gap-4 px-5 py-5 transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:bg-muted/40 sm:px-6"
-    >
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <h2 className="text-base font-semibold tracking-tight text-foreground sm:text-lg">
-          <span className="bg-[length:0_1px] bg-bottom bg-no-repeat bg-[linear-gradient(currentColor,currentColor)] transition-[background-size] duration-300 group-hover:bg-[length:100%_1px]">
-            {theme}
-          </span>
-        </h2>
-        <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-          {description}
-        </p>
-      </div>
-
-      <ChevronRight
-        aria-hidden="true"
-        className="size-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-foreground"
-      />
-    </Link>
+    <Card className="h-full transition-colors hover:bg-muted/30">
+      <Link
+        href={`/committees/${id}`}
+        className="group flex h-full flex-col gap-4 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <CardHeader className="px-0">
+          <CardTitle className="flex items-center justify-between gap-3">
+            <span className="truncate">{theme}</span>
+            <ChevronRight
+              aria-hidden="true"
+              className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+            />
+          </CardTitle>
+          <CardDescription className="line-clamp-3 leading-6">
+            {description}
+          </CardDescription>
+        </CardHeader>
+      </Link>
+    </Card>
   );
 }
 
 function ListSkeleton() {
   return (
-    <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+    <div className="grid gap-4 md:grid-cols-2">
       {Array.from({ length: SKELETON_ROW_COUNT }).map((_, index) => (
         <RowSkeleton key={index} />
       ))}
@@ -157,39 +155,38 @@ function ListSkeleton() {
 
 function RowSkeleton() {
   return (
-    <div className="flex items-center gap-4 px-5 py-5 sm:px-6">
-      <div className="min-w-0 flex-1 space-y-2">
+    <Card>
+      <CardHeader>
         <Skeleton className="h-5 w-1/3" />
         <Skeleton className="h-4 w-full" />
         <Skeleton className="h-4 w-5/6" />
-      </div>
-      <Skeleton className="size-4 shrink-0 rounded-full" />
-    </div>
+      </CardHeader>
+    </Card>
   );
 }
 
 function ForbiddenState() {
   return (
-    <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
-      <TypographyLead className="text-balance">
-        Acesso restrito a membros da simulação.
-      </TypographyLead>
-      <TypographyMuted className="mt-3">
-        Entre em contato com a coordenação para vincular sua conta.
-      </TypographyMuted>
-    </div>
+    <Card className="border-dashed">
+      <CardHeader>
+        <CardTitle>Acesso restrito a membros da simulação.</CardTitle>
+        <CardDescription>
+          Entre em contato com a coordenação para vincular sua conta.
+        </CardDescription>
+      </CardHeader>
+    </Card>
   );
 }
 
 function EmptyState() {
   return (
-    <div className="rounded-xl border border-dashed border-border bg-card/40 px-6 py-16 text-center">
-      <TypographyLead className="text-balance">
-        Nenhum comitê instalado.
-      </TypographyLead>
-      <TypographyMuted className="mt-3">
-        Volte mais tarde para acompanhar as próximas convocações.
-      </TypographyMuted>
-    </div>
+    <Card className="border-dashed">
+      <CardHeader>
+        <CardTitle>Nenhum comitê instalado.</CardTitle>
+        <CardDescription>
+          Volte mais tarde para acompanhar as próximas convocações.
+        </CardDescription>
+      </CardHeader>
+    </Card>
   );
 }

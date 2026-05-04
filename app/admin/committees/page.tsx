@@ -8,6 +8,7 @@ import {
   DynamicTable,
   type AdminTableColumn,
 } from "@/components/admin/DynamicTable";
+import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -184,7 +185,7 @@ function MemberIdListInput({
   }
 
   return (
-    <div className="space-y-3 rounded-md border border-input bg-background p-3">
+    <div className="flex flex-col gap-3 rounded-md border border-input bg-background p-3">
       {members.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           Cadastre membros antes de selecionar mesários.
@@ -417,8 +418,11 @@ export default function CommitteesPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Comitês</h1>
+    <PageShell>
+      <PageHeader
+        title="Comitês"
+        description="Gerencie temas, tópicos, mesários e delegações vinculadas."
+      />
 
       <DynamicTable
         columns={committeesColumns}
@@ -493,6 +497,6 @@ export default function CommitteesPage() {
           }
         }}
       />
-    </div>
+    </PageShell>
   );
 }

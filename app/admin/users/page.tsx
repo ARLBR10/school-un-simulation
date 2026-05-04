@@ -9,6 +9,7 @@ import {
   createDateColumn,
   parseBooleanValue,
 } from "@/components/admin/DynamicTableFields";
+import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { api } from "@/convex/_generated/api";
 import { AuthUser } from "@/convex/auth";
 import { useMutation, useQuery } from "convex/react";
@@ -90,10 +91,11 @@ export default function UsersPage() {
   const deleteUser = useMutation(api.auth_admin.purge);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">
-        Gerenciador de Usuários
-      </h1>
+    <PageShell>
+      <PageHeader
+        title="Gerenciador de Usuários"
+        description="Administre contas, contatos e status de verificação."
+      />
 
       <DynamicTable<AuthUserWithPass>
         columns={userColumns}
@@ -175,6 +177,6 @@ export default function UsersPage() {
           }
         }}
       />
-    </div>
+    </PageShell>
   );
 }
