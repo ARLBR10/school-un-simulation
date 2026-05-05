@@ -865,7 +865,7 @@ export function DynamicTable<T extends AdminTableRow>({
               width: "fixed",
             }}
           >
-            <DataGridContainer>
+            <DataGridContainer className="overflow-x-auto">
               <DataGridTable />
             </DataGridContainer>
             <DataGridPagination
