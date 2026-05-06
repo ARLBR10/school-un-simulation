@@ -65,6 +65,7 @@ const adminNavigationLinks: NavigationItem[] = [
   { href: "/admin/members", label: "Membros", icon: Users },
   { href: "/admin/users", label: "Usuários", icon: UserCog },
   { href: "/admin/committees", label: "Comitês", icon: Globe },
+  { href: "/admin/news", label: "Notícias", icon: Newspaper },
   { href: "/admin/documents", label: "Documentos", icon: FileText },
   { href: "/admin/reports", label: "Relatórios", icon: BarChart3 },
 ];
@@ -298,6 +299,14 @@ function getPageTitle(pathname: string) {
 
   if (pathname.startsWith("/admin/users")) {
     return "Usuários";
+  }
+
+  if (pathname === "/news") {
+    return "Notícias";
+  }
+
+  if (pathname.startsWith("/news/")) {
+    return "Notícia";
   }
 
   if (pathname.startsWith("/admin/committees")) {
