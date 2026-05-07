@@ -133,7 +133,9 @@ export function NewsDetailView({ id }: { id: string }) {
             <motion.div variants={blockVariants}>
               <Card>
                 <CardContent className="prose prose-neutral dark:prose-invert max-w-none pt-6">
-                  <Streamdown mode="static">{news.body}</Streamdown>
+                  <Streamdown mode="static" linkSafety={{ enabled: false }}>
+                    {news.body}
+                  </Streamdown>
                 </CardContent>
               </Card>
             </motion.div>
