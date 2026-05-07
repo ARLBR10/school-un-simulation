@@ -53,8 +53,55 @@ export type NewsDetail = Doc<"news"> & {
   committeeNames: string[];
 };
 
+export type NewsManageItem = NewsDetail;
+
 function canSeeAllNews(member: Doc<"members">) {
   return member.type === "admin" || member.type === "press";
+}
+
+function canManageNews(member: Doc<"members">) {
+  return member.type === "admin" || member.type === "press";
+}
+
+function getNewsAuditEventName(
+  member: Doc<"members">,
+  action: "create" | "update" | "delete",
+) {
+  return `${member.type}_${action}_news`;
+}
+
+function serializeNewsAuditValue(value: unknown) {
+  return value === undefined ? null : value;
+}
+
+function getNewsAuditSnapshot(news: Doc<"news">) {
+  return {
+    id: news._id,
+    createdAt: news._creationTime,
+    title: news.title,
+    body: news.body,
+    author: news.author ?? null,
+    committee: news.committee ?? null,
+  };
+}
+
+function getNewsAuditChanges(news: Doc<"news">, patch: NewsPatch) {
+  const changes: Record<string, { before: unknown; after: unknown }> = {};
+
+  for (const [field, nextValue] of Object.entries(patch)) {
+    const currentValue = news[field as keyof NewsPatch];
+
+    if (JSON.stringify(currentValue ?? null) === JSON.stringify(nextValue ?? null)) {
+      continue;
+    }
+
+    changes[field] = {
+      before: serializeNewsAuditValue(currentValue),
+      after: serializeNewsAuditValue(nextValue),
+    };
+  }
+
+  return changes;
 }
 
 function canSeeNews(news: Doc<"news">, member: Doc<"members">) {
@@ -169,9 +216,52 @@ export const getAll = query({
   },
 });
 
+export const getManageList = query({
+  args: {},
+  async handler(ctx): Promise<NewsManageItem[] | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (!userInfo?.member || !canManageNews(userInfo.member)) {
+      return null;
+    }
+
+    const news = await ctx.db.query("news").order("desc").take(999);
+    const authorIds = [...new Set(news.map((n) => n.author).filter(Boolean))] as Id<"members">[];
+    const committeeIds = [
+      ...new Set(news.flatMap((n) => n.committee ?? [])),
+    ] as Id<"committees">[];
+
+    const authorsById = new Map<Id<"members">, string>();
+    for (const authorId of authorIds) {
+      const author = await ctx.db.get(authorId);
+      if (author) {
+        authorsById.set(author._id, author.name);
+      }
+    }
+
+    const committeesById = new Map<Id<"committees">, string>();
+    for (const committeeId of committeeIds) {
+      const committee = await ctx.db.get(committeeId);
+      if (committee) {
+        committeesById.set(committee._id, committee.theme);
+      }
+    }
+
+    return news.map((newsItem) => ({
+      ...newsItem,
+      authorName: newsItem.author
+        ? (authorsById.get(newsItem.author) ?? null)
+        : null,
+      committeeNames: (newsItem.committee ?? [])
+        .map((committeeId) => committeesById.get(committeeId))
+        .filter((name): name is string => Boolean(name)),
+    }));
+  },
+});
+
 export const create = mutation({
   args: {
-    author: v.optional(v.id("members")),
+    author: v.optional(v.union(v.id("members"), v.null())),
     committee: v.optional(v.array(v.id("committees"))),
     title: v.string(),
     body: v.string(),
@@ -179,12 +269,12 @@ export const create = mutation({
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
-    if (userInfo?.member?.type !== "admin") {
+    if (!userInfo?.member || !canManageNews(userInfo.member)) {
       await getPostHog().capture(ctx, {
         event: "permission_denied",
         properties: {
           mutation: "news.create",
-          user_type_required: "admin",
+          user_type_required: "admin_or_press",
           memberId: userInfo?.member?._id,
           memberType: userInfo?.member?.type,
           dataReceived: args,
@@ -199,21 +289,47 @@ export const create = mutation({
       throw new Error("News body cannot be empty after sanitization.");
     }
 
+    const author =
+      "author" in args
+        ? (args.author ?? undefined)
+        : userInfo.member.type === "press"
+          ? userInfo.member._id
+          : undefined;
+
     const newNews: Omit<Doc<"news">, "_id" | "_creationTime"> = {
       title: args.title,
       body: sanitizedBody,
-      ...(args.author !== undefined ? { author: args.author } : {}),
+      ...(author !== undefined ? { author } : {}),
       ...(args.committee !== undefined && args.committee.length > 0
         ? { committee: args.committee }
         : {}),
     };
     const newsId = await ctx.db.insert("news", newNews);
+    const createdNews = await ctx.db.get(newsId);
 
     await getPostHog().capture(ctx, {
-      event: "admin_create_news",
+      event: getNewsAuditEventName(userInfo.member, "create"),
       properties: {
-        createdNewsId: newsId,
-        createdNewsInfo: newNews,
+        mutation: "news.create",
+        actorMemberType: userInfo.member.type,
+        newsId,
+        after: createdNews
+          ? getNewsAuditSnapshot(createdNews)
+          : {
+              id: newsId,
+              createdAt: null,
+              title: newNews.title,
+              body: newNews.body,
+              author: newNews.author ?? null,
+              committee: newNews.committee ?? null,
+            },
+        changedFields: Object.keys(newNews),
+        changes: Object.fromEntries(
+          Object.entries(newNews).map(([field, value]) => [
+            field,
+            { before: null, after: serializeNewsAuditValue(value) },
+          ]),
+        ),
       },
     });
 
@@ -232,17 +348,22 @@ export const update = mutation({
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
-    if (userInfo?.member?.type !== "admin") {
+    if (!userInfo?.member || !canManageNews(userInfo.member)) {
       await getPostHog().capture(ctx, {
         event: "permission_denied",
         properties: {
           mutation: "news.update",
-          user_type_required: "admin",
+          user_type_required: "admin_or_press",
           memberId: userInfo?.member?._id,
           memberType: userInfo?.member?.type,
           dataReceived: args,
         },
       });
+      return null;
+    }
+
+    const existingNews = await ctx.db.get(args.id);
+    if (!existingNews) {
       return null;
     }
 
@@ -255,12 +376,17 @@ export const update = mutation({
       throw new Error("News body cannot be empty after sanitization.");
     }
 
-    const newsPatch: NewsPatch = {
-      ...("title" in args ? { title: args.title } : {}),
-      ...("body" in args ? { body: sanitizedBody } : {}),
-    };
+    const newsPatch: NewsPatch = {};
 
-    if ("author" in args) {
+    if ("title" in args && args.title !== undefined) {
+      newsPatch.title = args.title;
+    }
+
+    if ("body" in args && sanitizedBody !== undefined) {
+      newsPatch.body = sanitizedBody;
+    }
+
+    if (userInfo.member.type === "admin" && "author" in args) {
       newsPatch.author = args.author ?? undefined;
     }
 
@@ -269,12 +395,27 @@ export const update = mutation({
       newsPatch.committee = committee.length > 0 ? committee : undefined;
     }
 
+    const changes = getNewsAuditChanges(existingNews, newsPatch);
+
     await ctx.db.patch("news", args.id, newsPatch);
     await getPostHog().capture(ctx, {
-      event: "admin_update_news",
+      event: getNewsAuditEventName(userInfo.member, "update"),
       properties: {
-        id: args.id,
-        dataReceived: args,
+        mutation: "news.update",
+        actorMemberType: userInfo.member.type,
+        newsId: args.id,
+        before: getNewsAuditSnapshot(existingNews),
+        after: {
+          ...getNewsAuditSnapshot(existingNews),
+          ...Object.fromEntries(
+            Object.entries(newsPatch).map(([field, value]) => [
+              field,
+              serializeNewsAuditValue(value),
+            ]),
+          ),
+        },
+        changedFields: Object.keys(changes),
+        changes,
       },
     });
 
@@ -289,12 +430,12 @@ export const purge = mutation({
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
-    if (userInfo?.member?.type !== "admin") {
+    if (!userInfo?.member || !canManageNews(userInfo.member)) {
       await getPostHog().capture(ctx, {
         event: "permission_denied",
         properties: {
           mutation: "news.purge",
-          user_type_required: "admin",
+          user_type_required: "admin_or_press",
           memberId: userInfo?.member?._id,
           memberType: userInfo?.member?.type,
           dataReceived: args,
@@ -303,11 +444,26 @@ export const purge = mutation({
       return null;
     }
 
+    const existingNews = await ctx.db.get(args.id);
+    if (!existingNews) {
+      return null;
+    }
+
     await ctx.db.delete("news", args.id);
     await getPostHog().capture(ctx, {
-      event: "admin_delete_news",
+      event: getNewsAuditEventName(userInfo.member, "delete"),
       properties: {
-        id: args.id,
+        mutation: "news.purge",
+        actorMemberType: userInfo.member.type,
+        newsId: args.id,
+        before: getNewsAuditSnapshot(existingNews),
+        after: null,
+        changedFields: ["title", "body", "author", "committee"],
+        changes: Object.fromEntries(
+          Object.entries(getNewsAuditSnapshot(existingNews))
+            .filter(([field]) => field !== "id" && field !== "createdAt")
+            .map(([field, value]) => [field, { before: value, after: null }]),
+        ),
       },
     });
 

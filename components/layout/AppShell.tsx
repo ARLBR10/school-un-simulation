@@ -70,6 +70,10 @@ const adminNavigationLinks: NavigationItem[] = [
   { href: "/admin/reports", label: "Relatórios", icon: BarChart3 },
 ];
 
+const pressNavigationLinks: NavigationItem[] = [
+  { href: "/press/news", label: "Notícias", icon: Newspaper },
+];
+
 function isActivePath(pathname: string, item: NavigationItem) {
   if (item.exact) {
     return pathname === item.href;
@@ -210,6 +214,7 @@ function AppSidebar() {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const isUserInfoLoading = userInfo === undefined;
   const isAdmin = userInfo?.member?.type === "admin";
+  const isPress = true //userInfo?.member?.type === "press" || isAdmin;
 
   return (
     <Sidebar collapsible="icon" variant="inset">
@@ -248,9 +253,9 @@ function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isUserInfoLoading ? (
-          <AppSidebarAdminSkeleton />
-        ) : isAdmin ? (
+        {isUserInfoLoading ? <AppSidebarAdminSkeleton /> : null}
+
+        {!isUserInfoLoading && isAdmin ? (
           <SidebarGroup>
             <SidebarGroupLabel className="h-9 text-sm font-semibold">
               Administração
@@ -258,6 +263,25 @@ function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminNavigationLinks.map((item) => (
+                  <AppSidebarLink
+                    key={item.href}
+                    item={item}
+                    isActive={isActivePath(pathname, item)}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
+
+        {!isUserInfoLoading && (isPress || isAdmin) ? (
+          <SidebarGroup>
+            <SidebarGroupLabel className="h-9 text-sm font-semibold">
+              Imprensa
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {pressNavigationLinks.map((item) => (
                   <AppSidebarLink
                     key={item.href}
                     item={item}
@@ -307,6 +331,10 @@ function getPageTitle(pathname: string) {
 
   if (pathname.startsWith("/news/")) {
     return "Notícia";
+  }
+
+  if (pathname.startsWith("/press/news")) {
+    return "Notícias da imprensa";
   }
 
   if (pathname.startsWith("/admin/committees")) {
