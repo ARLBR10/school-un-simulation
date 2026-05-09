@@ -214,7 +214,7 @@ function AppSidebar() {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const isUserInfoLoading = userInfo === undefined;
   const isAdmin = userInfo?.member?.type === "admin";
-  const isPress = true //userInfo?.member?.type === "press" || isAdmin;
+  const isPress = userInfo?.member?.type === "press" || isAdmin;
 
   return (
     <Sidebar collapsible="icon" variant="inset">
