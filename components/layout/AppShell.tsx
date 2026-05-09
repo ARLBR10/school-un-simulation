@@ -11,6 +11,7 @@ import { useQuery } from "convex/react";
 import {
   BarChart3,
   BookOpen,
+  ClipboardCheck,
   FileText,
   Globe,
   Home,
@@ -66,6 +67,7 @@ const adminNavigationLinks: NavigationItem[] = [
   { href: "/admin/users", label: "Usuários", icon: UserCog },
   { href: "/admin/committees", label: "Comitês", icon: Globe },
   { href: "/admin/news", label: "Notícias", icon: Newspaper },
+  { href: "/admin/grades", label: "Notas", icon: ClipboardCheck },
   { href: "/admin/documents", label: "Documentos", icon: FileText },
   { href: "/admin/reports", label: "Relatórios", icon: BarChart3 },
 ];

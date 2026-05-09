@@ -40,4 +40,14 @@ export default defineSchema({
     title: v.string(),
     body: v.string(), // Markdown
   }),
+  gradingEntries: defineTable({
+    member: v.id("members"),
+    kind: v.union(v.literal("grade"), v.literal("deduction")),
+    category: v.string(),
+    amount: v.number(),
+    note: v.optional(v.string()),
+  })
+    .index("by_member", ["member"])
+    .index("by_kind", ["kind"])
+    .index("by_member_and_kind", ["member", "kind"]),
 });

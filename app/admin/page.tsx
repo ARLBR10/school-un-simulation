@@ -43,6 +43,15 @@ export default function AdminPage() {
             Gerencie contas e informações de autenticação dos usuários.
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Notas</CardTitle>
+            <CardDescription>Pontuações e deduções.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Registre lançamentos para acompanhar o desempenho dos membros.
+          </CardContent>
+        </Card>
       </div>
     </PageShell>
   );
