@@ -744,6 +744,11 @@ export function DynamicTable<T extends AdminTableRow>({
         return;
       }
 
+      if (onCreate && !onChange) {
+        handleCloseForm();
+        return;
+      }
+
       let nextData: T[] = [];
 
       setTableData((currentData) => {
