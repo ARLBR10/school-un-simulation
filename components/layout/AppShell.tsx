@@ -18,6 +18,7 @@ import {
   Landmark,
   LogIn,
   Newspaper,
+  NotebookPen,
   UserCog,
   Users,
   type LucideIcon,
@@ -27,6 +28,10 @@ import { usePathname } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 
 import { api } from "@/convex/_generated/api";
+import {
+  getAllowedMemberTypesForGraderType,
+  type GradingMemberType,
+} from "@/lib/grading-categories";
 import {
   Sidebar,
   SidebarContent,
@@ -74,6 +79,10 @@ const adminNavigationLinks: NavigationItem[] = [
 
 const pressNavigationLinks: NavigationItem[] = [
   { href: "/press/news", label: "Notícias", icon: Newspaper },
+];
+
+const gradingNavigationLinks: NavigationItem[] = [
+  { href: "/grading", label: "Notas", icon: NotebookPen },
 ];
 
 function isActivePath(pathname: string, item: NavigationItem) {
@@ -217,6 +226,12 @@ function AppSidebar() {
   const isUserInfoLoading = userInfo === undefined;
   const isAdmin = userInfo?.member?.type === "admin";
   const isPress = userInfo?.member?.type === "press" || isAdmin;
+  const canManageGrades = userInfo?.member
+    ? getAllowedMemberTypesForGraderType(
+        userInfo.member.type as GradingMemberType,
+        isAdmin,
+      ).length > 0
+    : false;
 
   return (
     <Sidebar collapsible="icon" variant="inset">
@@ -294,6 +309,25 @@ function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         ) : null}
+
+        {!isUserInfoLoading && canManageGrades ? (
+          <SidebarGroup>
+            <SidebarGroupLabel className="h-9 text-sm font-semibold">
+              Operação
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {gradingNavigationLinks.map((item) => (
+                  <AppSidebarLink
+                    key={item.href}
+                    item={item}
+                    isActive={isActivePath(pathname, item)}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
       </SidebarContent>
 
       <AppSidebarFooter />
@@ -337,6 +371,10 @@ function getPageTitle(pathname: string) {
 
   if (pathname.startsWith("/press/news")) {
     return "Notícias da imprensa";
+  }
+
+  if (pathname.startsWith("/grading")) {
+    return "Lançamentos de notas";
   }
 
   if (pathname.startsWith("/admin/committees")) {

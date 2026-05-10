@@ -3,6 +3,8 @@ import { v } from "convex/values";
 import { memberTypes } from "./members";
 import { countriesConvexSchema } from "@/lib/country-list";
 
+const gradingEntryKind = v.union(v.literal("grade"), v.literal("deduction"));
+
 export default defineSchema({
   members: defineTable({
     userId: v.optional(v.string()), // IDs from others components don't count on convex/values. This is optional because the mtf could not be registered.
@@ -13,6 +15,7 @@ export default defineSchema({
     committee: v.optional(v.id("committees")),
   })
     .index("by_userId", ["userId"])
+    .index("by_type", ["type"])
     .index("by_committee", ["committee"])
     .index("by_delegatedCountry", ["delegatedCountry"]),
   docs: defineTable({
@@ -42,7 +45,7 @@ export default defineSchema({
   }),
   gradingEntries: defineTable({
     member: v.id("members"),
-    kind: v.union(v.literal("grade"), v.literal("deduction")),
+    kind: gradingEntryKind,
     category: v.string(),
     amount: v.number(),
     note: v.optional(v.string()),
