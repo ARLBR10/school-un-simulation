@@ -13,6 +13,8 @@ import {
 } from "@/components/admin/DynamicTable";
 import { createSelectColumn } from "@/components/admin/DynamicTableFields";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Combobox,
   ComboboxContent,
@@ -21,10 +23,31 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@/components/ui/combobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import type { AuthUser } from "@/convex/auth";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { countries, type CountryCode } from "@/lib/country-list";
+import {
+  getAllowedCategoriesForMemberType,
+  getCategoryDefinition,
+} from "@/lib/grading-categories";
 
 const memberTypeLabels: Record<Doc<"members">["type"], string> = {
   delegate: "Delegado",
@@ -57,6 +80,33 @@ const countryOptions = countries.map((country) => ({
   value: country.code,
   label: `${country.name} (${country.code})`,
 }));
+
+function formatAmount(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatCreatedAt(value: number) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function getGradingCategoryLabel(entry: Doc<"gradingEntries">) {
+  return getCategoryDefinition(entry.kind, entry.category)?.label ?? entry.category;
+}
+
+function hasGradingAvailable(memberType: Doc<"members">["type"]) {
+  return (
+    getAllowedCategoriesForMemberType("grade", memberType).length > 0 ||
+    getAllowedCategoriesForMemberType("deduction", memberType).length > 0
+  );
+}
 
 function isMemberType(value: string): value is Doc<"members">["type"] {
   return memberTypes.includes(value as Doc<"members">["type"]);
@@ -187,10 +237,146 @@ function DelegatedCountryCombobox({
   );
 }
 
+function MemberGradingDialog({
+  member,
+  entries,
+  disabled = false,
+}: {
+  member: Doc<"members">;
+  entries: Doc<"gradingEntries">[];
+  disabled?: boolean;
+}) {
+  const orderedEntries = [...entries].sort(
+    (leftEntry, rightEntry) => leftEntry._creationTime - rightEntry._creationTime,
+  );
+  const totalGrades = orderedEntries.reduce(
+    (total, entry) => total + (entry.kind === "grade" ? entry.amount : 0),
+    0,
+  );
+  const totalDeductions = orderedEntries.reduce(
+    (total, entry) => total + (entry.kind === "deduction" ? entry.amount : 0),
+    0,
+  );
+  const netTotal = totalGrades - totalDeductions;
+  let runningTotal = 0;
+  const orderedEntriesWithTotals = orderedEntries.map((entry) => {
+    const signedAmount = entry.kind === "grade" ? entry.amount : -entry.amount;
+    runningTotal += signedAmount;
+
+    return { entry, signedAmount, runningTotal };
+  });
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm" disabled={disabled}>
+          Ver notas
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Histórico de notas de {member.name}</DialogTitle>
+          <DialogDescription>
+            Contagem completa de pontuações e deduções em ordem cronológica.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 sm:grid-cols-3" aria-live="polite">
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Pontuações adicionadas
+            </p>
+            <p className="text-lg font-semibold">{formatAmount(totalGrades)}</p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Deduções removidas
+            </p>
+            <p className="text-lg font-semibold">{formatAmount(totalDeductions)}</p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="text-xs font-medium text-muted-foreground">Total</p>
+            <p className="text-lg font-semibold">{formatAmount(netTotal)}</p>
+          </div>
+        </div>
+
+        <div className="max-h-[60vh] overflow-auto rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Movimento</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="text-right">Total parcial</TableHead>
+                <TableHead>Observação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orderedEntries.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="py-6 text-center text-muted-foreground"
+                  >
+                    Nenhuma pontuação ou dedução lançada para este membro.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                orderedEntriesWithTotals.map(
+                  ({ entry, signedAmount, runningTotal: currentTotal }) => {
+                    return (
+                      <TableRow key={entry._id}>
+                        <TableCell>{formatCreatedAt(entry._creationTime)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              entry.kind === "grade" ? "secondary" : "destructive"
+                            }
+                          >
+                            {entry.kind === "grade" ? "Adicionado" : "Removido"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{getGradingCategoryLabel(entry)}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {signedAmount > 0 ? "+" : "-"}
+                          {formatAmount(Math.abs(signedAmount))}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatAmount(currentTotal)}
+                        </TableCell>
+                        <TableCell className="max-w-64 whitespace-normal text-muted-foreground">
+                          {entry.note ?? "-"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  },
+                )
+              )}
+            </TableBody>
+            {orderedEntries.length > 0 && (
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={4}>Total final</TableCell>
+                  <TableCell className="text-right">
+                    {formatAmount(netTotal)}
+                  </TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
+            )}
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function MembersPage() {
   const membersData = useQuery(api.members.getAll);
   const committeesData = useQuery(api.committees.getAll);
   const usersData = useQuery(api.auth_admin.getAll);
+  const gradingData = useQuery(api.grading.getAll);
   const memberCreate = useMutation(api.members.create);
   const memberUpdate = useMutation(api.members.update);
   const memberDelete = useMutation(api.members.purge);
@@ -315,6 +501,18 @@ export default function MembersPage() {
         />
       ),
     },
+    {
+      key: "_id",
+      label: "Notas",
+      showInForm: false,
+      render: (member) => (
+        <MemberGradingDialog
+          member={member}
+          entries={(gradingData ?? []).filter((entry) => entry.member === member._id)}
+          disabled={!hasGradingAvailable(member.type)}
+        />
+      ),
+    },
   ];
 
   return (
@@ -330,7 +528,8 @@ export default function MembersPage() {
         isLoading={
           membersData === undefined ||
           usersData === undefined ||
-          committeesData === undefined
+          committeesData === undefined ||
+          gradingData === undefined
         }
         rowKey="name"
         searchParamKey="_id"
