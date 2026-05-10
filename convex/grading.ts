@@ -55,6 +55,18 @@ function normalizeOptionalString(value: string | undefined) {
   return trimmedValue;
 }
 
+function resolveGradingEntryAmount(
+  entry: Pick<Doc<"gradingEntries">, "kind" | "category" | "amount">,
+) {
+  const category = getCategoryDefinition(entry.kind, entry.category);
+
+  if (entry.kind === "deduction" && category) {
+    return category.maxAmount;
+  }
+
+  return entry.amount;
+}
+
 async function getAssignedCommitteeIds(
   ctx: QueryCtx | MutationCtx,
   actor: Doc<"members">,
@@ -394,19 +406,20 @@ export const create = mutation({
 
     const { actor, scope } = authorization;
     const category = args.category.trim();
+    const amount = resolveGradingEntryAmount({ ...args, category });
     await validateGradingEntry(
       ctx,
       actor,
       scope,
       "grading.create",
-      { ...args, category },
+      { ...args, category, amount },
     );
 
     const entryId = await ctx.db.insert("gradingEntries", {
       member: args.member,
       kind: args.kind,
       category,
-      amount: args.amount,
+      amount,
       ...(normalizeOptionalString(args.note) !== undefined
         ? { note: normalizeOptionalString(args.note) }
         : {}),
@@ -457,6 +470,7 @@ export const update = mutation({
       category: args.category?.trim() ?? existingEntry.category,
       amount: args.amount ?? existingEntry.amount,
     };
+    nextEntry.amount = resolveGradingEntryAmount(nextEntry);
     await validateGradingEntry(
       ctx,
       actor,
@@ -472,7 +486,9 @@ export const update = mutation({
       ...("member" in args ? { member: args.member } : {}),
       ...("kind" in args ? { kind: args.kind } : {}),
       ...("category" in args ? { category: nextEntry.category } : {}),
-      ...("amount" in args ? { amount: args.amount } : {}),
+      ...("amount" in args || nextEntry.kind === "deduction"
+        ? { amount: nextEntry.amount }
+        : {}),
       ...("note" in args ? { note: normalizedNote } : {}),
     };
 

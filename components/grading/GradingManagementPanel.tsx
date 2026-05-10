@@ -140,14 +140,35 @@ function AmountInput({
   );
 }
 
-function formatCategoryLabel(category: {
-  label: string;
-  maxAmount: number;
-  day?: 1 | 2;
+function FixedAmountDisplay({
+  amount,
+}: {
+  amount: number | undefined;
 }) {
-  const dayLabel = category.day ? `Dia ${category.day} · ` : "";
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-input bg-muted/30 px-3 py-3 text-sm">
+      <span className="text-muted-foreground">Valor fixo da dedução</span>
+      <span className="font-medium">
+        {amount !== undefined
+          ? `${formatAmount(amount)} ponto(s)`
+          : "Selecione uma categoria"}
+      </span>
+    </div>
+  );
+}
 
-  return `${dayLabel}${category.label} (máx. ${formatAmount(category.maxAmount)})`;
+function formatCategoryLabel(
+  category: {
+    label: string;
+    maxAmount: number;
+    day?: 1 | 2;
+  },
+  kind: GradingEntryKind,
+) {
+  const dayLabel = category.day ? `Dia ${category.day} · ` : "";
+  const amountLabel = kind === "deduction" ? "valor" : "máx.";
+
+  return `${dayLabel}${category.label} (${amountLabel} ${formatAmount(category.maxAmount)})`;
 }
 
 function CategorySelectInput({
@@ -203,7 +224,7 @@ function CategorySelectInput({
       <SelectContent>
         {categories.map((category) => (
           <SelectItem key={category.value} value={category.value}>
-            {formatCategoryLabel(category)}
+            {formatCategoryLabel(category, kind)}
           </SelectItem>
         ))}
       </SelectContent>
@@ -392,11 +413,16 @@ function getEntryColumns({
     {
       key: "amount",
       label: "Pontos",
+      formLabel: kind === "deduction" ? "Valor da dedução" : "Pontos",
       render: (entry) => formatAmount(entry.amount),
       formRender: ({ value, values, onChange }) => {
         const category = values.category
           ? getCategoryDefinition(kind, values.category)
           : undefined;
+
+        if (kind === "deduction") {
+          return <FixedAmountDisplay amount={category?.maxAmount} />;
+        }
 
         return (
           <AmountInput
@@ -526,6 +552,18 @@ export function GradingManagementPanel({
     showAdminLinks,
   });
 
+  function resolveEntryAmount(
+    kind: GradingEntryKind,
+    category: string | null,
+    value: string | undefined,
+  ) {
+    if (kind === "deduction" && category) {
+      return getCategoryDefinition("deduction", category)?.maxAmount ?? null;
+    }
+
+    return parseAmount(value);
+  }
+
   function validateEntryValues({
     kind,
     member,
@@ -537,8 +575,8 @@ export function GradingManagementPanel({
     category: string | null;
     amount: number | null;
   }) {
-    if (!member || !category || amount === null) {
-      toast.error("Preencha membro, categoria e pontos para salvar o lançamento.");
+    if (!member || !category) {
+      toast.error("Preencha membro e categoria para salvar o lançamento.");
       return false;
     }
 
@@ -555,6 +593,11 @@ export function GradingManagementPanel({
 
     if (!memberType || !categoryDefinition) {
       toast.error("Selecione uma categoria disponível para este membro.");
+      return false;
+    }
+
+    if (amount === null) {
+      toast.error("Informe os pontos para salvar o lançamento.");
       return false;
     }
 
@@ -576,7 +619,7 @@ export function GradingManagementPanel({
       | Doc<"members">["_id"]
       | null;
     const category = normalizeRequiredString(values.category);
-    const amount = parseAmount(values.amount);
+    const amount = resolveEntryAmount(kind, category, values.amount);
 
     if (!validateEntryValues({ kind, member, category, amount })) {
       return false;
@@ -611,7 +654,7 @@ export function GradingManagementPanel({
       | Doc<"members">["_id"]
       | null;
     const category = normalizeRequiredString(values.category);
-    const amount = parseAmount(values.amount);
+    const amount = resolveEntryAmount(entry.kind, category, values.amount);
 
     if (!validateEntryValues({ kind: entry.kind, member, category, amount })) {
       return false;
