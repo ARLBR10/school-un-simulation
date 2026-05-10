@@ -8,6 +8,7 @@ import {
   DynamicTable,
   type AdminTableColumn,
 } from "@/components/admin/DynamicTable";
+import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,13 +20,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -202,33 +196,25 @@ function MemberIdListInput({
 
             return (
               <div key={`${selectedId}-${index}`} className="flex gap-2">
-                <Select
-                  value={selectedId || undefined}
-                  onValueChange={(nextId) => {
+                <AdminTableSelectInput
+                  fieldKey={`committee-clerk-${index}`}
+                  mode="create"
+                  options={members.map((member) => ({
+                    value: member._id,
+                    label: member.name,
+                    disabled: unavailableIds.has(member._id),
+                  }))}
+                  placeholder="Selecione um mesário"
+                  value={
+                    selectedId === emptyClerkOptionValue ? "" : selectedId
+                  }
+                  onChange={(nextId) => {
                     const nextIds = [...selectedIds];
 
                     nextIds[index] = nextId;
                     updateSelectedIds(nextIds);
                   }}
-                >
-                  <SelectTrigger className="w-full rounded-md border-input bg-background px-3 text-foreground shadow-sm hover:bg-background dark:bg-background data-[size=default]:h-10">
-                    <SelectValue placeholder="Selecione um mesário" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={emptyClerkOptionValue} disabled>
-                      Selecione um mesário
-                    </SelectItem>
-                    {members.map((member) => (
-                      <SelectItem
-                        key={member._id}
-                        value={member._id}
-                        disabled={unavailableIds.has(member._id)}
-                      >
-                        {member.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                />
 
                 <Button
                   type="button"

@@ -7,17 +7,10 @@ import {
   DynamicTable,
   type AdminTableColumn,
 } from "@/components/admin/DynamicTable";
+import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import { createDateColumn } from "@/components/admin/DynamicTableFields";
 import { MarkdownEditorDialogInput } from "@/components/admin/MarkdownEditorDialogInput";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import type { NewsManageItem } from "@/convex/news";
@@ -113,35 +106,23 @@ function CommitteeListInput({
 
         return (
           <div key={`${selectedId}-${index}`} className="flex gap-2">
-            <Select
-              value={selectedId || undefined}
-              onValueChange={(nextId) => {
+            <AdminTableSelectInput
+              fieldKey={`news-committee-${index}`}
+              mode="create"
+              options={committees.map((committee) => ({
+                value: committee._id,
+                label: committee.theme,
+                disabled: unavailableIds.has(committee._id),
+              }))}
+              placeholder="Selecione um comitê"
+              value={selectedId === emptyCommitteeValue ? "" : selectedId}
+              onChange={(nextId) => {
                 const nextIds = [...selectedIds];
 
                 nextIds[index] = nextId;
                 updateSelectedIds(nextIds);
               }}
-            >
-              <SelectTrigger className="w-full rounded-md border-input bg-background px-3 text-foreground shadow-sm hover:bg-background dark:bg-background data-[size=default]:h-10">
-                <SelectValue placeholder="Selecione um comitê" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value={emptyCommitteeValue} disabled>
-                    Selecione um comitê
-                  </SelectItem>
-                  {committees.map((committee) => (
-                    <SelectItem
-                      key={committee._id}
-                      value={committee._id}
-                      disabled={unavailableIds.has(committee._id)}
-                    >
-                      {committee.theme}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            />
 
             <Button
               type="button"

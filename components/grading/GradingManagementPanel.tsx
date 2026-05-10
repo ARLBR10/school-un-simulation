@@ -9,6 +9,7 @@ import {
   type AdminTableColumn,
   type AdminTableSelectOption,
 } from "@/components/admin/DynamicTable";
+import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import {
   Card,
@@ -18,13 +19,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { api } from "@/convex/_generated/api";
@@ -251,40 +245,26 @@ function CategorySelectInput({
     );
   }
 
-  return (
-    <Select
-      key={`${kind}-${memberId}-${value || "empty"}`}
-      value={value || undefined}
-      onValueChange={onChange}
-    >
-      <SelectTrigger className="w-full rounded-md border-input bg-background px-3 text-foreground shadow-sm hover:bg-background dark:bg-background data-[size=default]:h-10">
-        <SelectValue placeholder="Selecione uma categoria" />
-      </SelectTrigger>
-      <SelectContent>
-        {categories.map((category) => {
-          const isDisabled = disabledCategoryValues.has(category.value);
+  const categoryOptions = categories.map((category) => {
+    const isDisabled = disabledCategoryValues.has(category.value);
+    const label = formatCategoryLabel(category, kind);
 
-          return (
-            <SelectItem
-              key={category.value}
-              value={category.value}
-              disabled={isDisabled}
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <span className="truncate">
-                  {formatCategoryLabel(category, kind)}
-                </span>
-                {isDisabled ? (
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    Já lançado
-                  </span>
-                ) : null}
-              </span>
-            </SelectItem>
-          );
-        })}
-      </SelectContent>
-    </Select>
+    return {
+      value: category.value,
+      label: isDisabled ? `${label} · Já lançado` : label,
+      disabled: isDisabled,
+    };
+  });
+
+  return (
+    <AdminTableSelectInput
+      fieldKey={`${kind}-${memberId}-category`}
+      mode={currentEntryId ? "edit" : "create"}
+      options={categoryOptions}
+      placeholder="Selecione uma categoria"
+      value={value}
+      onChange={onChange}
+    />
   );
 }
 

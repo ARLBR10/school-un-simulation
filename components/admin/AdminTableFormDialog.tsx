@@ -95,7 +95,7 @@ export function AdminTableFormDialog({
         <form onSubmit={handleSubmit} className="flex flex-col gap-5 px-6 py-5">
           <div className="flex flex-col gap-2">
             {fields.map((field) => (
-              <label key={field.key} className="flex flex-col gap-1 text-sm font-medium">
+              <div key={field.key} className="flex flex-col gap-1 text-sm font-medium">
                 <span>{field.label}</span>
                 {field.renderInput ? (
                   field.renderInput({
@@ -118,9 +118,9 @@ export function AdminTableFormDialog({
                         [field.key]: event.target.value,
                       }))
                     }
-                  />
-                )}
-              </label>
+                    />
+                  )}
+              </div>
             ))}
           </div>
 
