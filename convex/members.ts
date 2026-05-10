@@ -6,6 +6,8 @@ import { Doc } from "./_generated/dataModel";
 import { internalQuery, mutation, query } from "./_generated/server";
 import { getPostHog } from "./posthog";
 
+type MemberPatch = Partial<Omit<Doc<"members">, "_id" | "_creationTime">>;
+
 export const memberTypes = v.union(
   v.literal("delegate"),
   v.literal("logistics"),
@@ -112,12 +114,12 @@ export const update = mutation({
   args: {
     id: v.id("members"),
     // Keep this up-to-date the table.
-    userId: v.optional(v.string()),
+    userId: v.optional(v.union(v.string(), v.null())),
     name: v.optional(v.string()),
-    tuitionId: v.optional(v.string()),
+    tuitionId: v.optional(v.union(v.string(), v.null())),
     type: v.optional(memberTypes),
-    delegatedCountry: v.optional(v.optional(countriesConvexSchema)),
-    committee: v.optional(v.optional(v.id("committees"))),
+    delegatedCountry: v.optional(v.union(countriesConvexSchema, v.null())),
+    committee: v.optional(v.union(v.id("committees"), v.null())),
   },
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
@@ -144,20 +146,30 @@ export const update = mutation({
 
     if (!memberInfo) return null;
 
-    const memberPatch: Partial<Omit<Doc<"members">, "_id" | "_creationTime">> =
-      {
-        type:
-          args.type === "admin"
-            ? memberInfo.type
-            : (args.type ?? memberInfo.type),
-        ...("delegatedCountry" in args
-          ? { delegatedCountry: args.delegatedCountry }
-          : {}),
-        ...("committee" in args ? { committee: args.committee } : {}),
-        ...("userId" in args ? { userId: args.userId } : {}),
-        ...("tuitionId" in args ? { tuitionId: args.tuitionId } : {}),
-        ...("name" in args ? { name: args.name } : {}),
-      };
+    const memberPatch: MemberPatch = {
+      type:
+        args.type === "admin" ? memberInfo.type : (args.type ?? memberInfo.type),
+    };
+
+    if ("delegatedCountry" in args) {
+      memberPatch.delegatedCountry = args.delegatedCountry ?? undefined;
+    }
+
+    if ("committee" in args) {
+      memberPatch.committee = args.committee ?? undefined;
+    }
+
+    if ("userId" in args) {
+      memberPatch.userId = args.userId ?? undefined;
+    }
+
+    if ("tuitionId" in args) {
+      memberPatch.tuitionId = args.tuitionId ?? undefined;
+    }
+
+    if ("name" in args && args.name !== undefined) {
+      memberPatch.name = args.name;
+    }
 
     await ctx.db.patch("members", args.id, memberPatch);
 

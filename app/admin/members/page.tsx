@@ -80,12 +80,34 @@ function normalizeOptionalUserId(value: string | undefined) {
   return normalizeOptionalString(value);
 }
 
+function normalizeNullableString(value: string | undefined) {
+  return normalizeOptionalString(value) ?? null;
+}
+
+function normalizeNullableUserId(value: string | undefined) {
+  if (value === noUserOptionValue) {
+    return null;
+  }
+
+  return normalizeNullableString(value);
+}
+
 function normalizeOptionalCommitteeId(value: string | undefined) {
   if (value === noCommitteeOptionValue) {
     return undefined;
   }
 
   return normalizeOptionalString(value) as Doc<"committees">["_id"] | undefined;
+}
+
+function normalizeNullableCommitteeId(value: string | undefined) {
+  if (value === noCommitteeOptionValue) {
+    return null;
+  }
+
+  const normalizedValue = normalizeOptionalString(value);
+
+  return normalizedValue ? (normalizedValue as Doc<"committees">["_id"]) : null;
 }
 
 function isCountryCode(value: string): value is CountryCode {
@@ -100,6 +122,16 @@ function normalizeOptionalCountryCode(value: string | undefined) {
   }
 
   return isCountryCode(normalizedValue) ? normalizedValue : undefined;
+}
+
+function normalizeNullableCountryCode(value: string | undefined) {
+  const normalizedValue = normalizeOptionalString(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return isCountryCode(normalizedValue) ? normalizedValue : null;
 }
 
 function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
@@ -337,19 +369,19 @@ export default function MembersPage() {
           }
         }}
         onUpdate={async (member, values) => {
-          const committee = normalizeOptionalCommitteeId(values.committee);
+          const committee = normalizeNullableCommitteeId(values.committee);
           const type = values.type?.trim();
 
           try {
             const updated = await memberUpdate({
               id: member._id,
               name: normalizeOptionalString(values.name),
-              tuitionId: normalizeOptionalString(values.tuitionId),
+              tuitionId: normalizeNullableString(values.tuitionId),
               type: type && isMemberType(type) ? type : undefined,
-              userId: normalizeOptionalUserId(values.userId),
+              userId: normalizeNullableUserId(values.userId),
               delegatedCountry: committee
-                ? normalizeOptionalCountryCode(values.delegatedCountry)
-                : undefined,
+                ? normalizeNullableCountryCode(values.delegatedCountry)
+                : null,
               committee,
             });
 
