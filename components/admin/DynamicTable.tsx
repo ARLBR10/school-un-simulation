@@ -131,6 +131,7 @@ type DynamicTableProps<T extends AdminTableRow> = {
   isLoading?: boolean;
   className?: string;
   rowKey?: keyof T;
+  copyIdKey?: keyof T;
   searchParamKey?: SearchParamKey<T>;
   onChange?: (
     data: T[],
@@ -311,10 +312,26 @@ function resolveSearchParamValue<T extends AdminTableRow>(
   return null;
 }
 
-function resolveRowIdValue<T extends AdminTableRow>(row: T, rowKey?: keyof T) {
-  const key = rowKey ?? ("_id" as keyof T);
+function resolveCopyIdValue<T extends AdminTableRow>(
+  row: T,
+  copyIdKey?: keyof T,
+  rowKey?: keyof T,
+) {
+  const keys = [copyIdKey, "_id" as keyof T, rowKey];
 
-  return stringifyReactNode(row[key]);
+  for (const key of keys) {
+    if (!key || !Object.prototype.hasOwnProperty.call(row, key)) {
+      continue;
+    }
+
+    const value = stringifyReactNode(row[key]);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return "";
 }
 
 export function DynamicTable<T extends AdminTableRow>({
@@ -323,6 +340,7 @@ export function DynamicTable<T extends AdminTableRow>({
   isLoading = false,
   className,
   rowKey,
+  copyIdKey,
   searchParamKey,
   onChange,
   onCreate,
@@ -501,7 +519,7 @@ export function DynamicTable<T extends AdminTableRow>({
       id: "actions",
       header: () => <span className="sr-only">Ações</span>,
       cell: ({ row }) => {
-        const rowId = resolveRowIdValue(row.original, rowKey);
+        const rowId = resolveCopyIdValue(row.original, copyIdKey, rowKey);
 
         return (
           <div className="flex justify-end">
@@ -604,6 +622,19 @@ export function DynamicTable<T extends AdminTableRow>({
         .toLocaleLowerCase("pt-BR");
 
       if (!normalizedFilter) {
+        return true;
+      }
+
+      const rowReferenceValues = [
+        resolveCopyIdValue(row.original, copyIdKey, rowKey),
+        searchParamKey ? resolveSearchParamValue(row.original, searchParamKey) : null,
+      ];
+
+      if (
+        rowReferenceValues.some((value) =>
+          normalizeSearchValue(value).includes(normalizedFilter),
+        )
+      ) {
         return true;
       }
 
