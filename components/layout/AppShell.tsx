@@ -25,13 +25,21 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import { api } from "@/convex/_generated/api";
 import {
   getAllowedMemberTypesForGraderType,
   type GradingMemberType,
 } from "@/lib/grading-categories";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import {
   Sidebar,
   SidebarContent,
@@ -59,6 +67,11 @@ type NavigationItem = {
   label: string;
   icon: LucideIcon;
   exact?: boolean;
+};
+
+type AppBreadcrumbItem = {
+  href?: string;
+  label: string;
 };
 
 const publicNavigationLinks: NavigationItem[] = [
@@ -336,64 +349,100 @@ function AppSidebar() {
   );
 }
 
-function getPageTitle(pathname: string) {
+function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
   if (pathname === "/") {
-    return "Início";
+    return [{ label: "Início" }];
   }
 
   if (pathname === "/committees") {
-    return "Comitês";
+    return [{ label: "Comitês" }];
   }
 
   if (pathname.startsWith("/committees/")) {
-    return "Detalhes do comitê";
+    return [
+      { href: "/committees", label: "Comitês" },
+      { label: "Detalhes do comitê" },
+    ];
   }
 
   if (pathname === "/admin") {
-    return "Painel administrativo";
+    return [{ label: "Painel administrativo" }];
   }
 
   if (pathname.startsWith("/admin/members")) {
-    return "Membros";
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Membros" },
+    ];
   }
 
   if (pathname.startsWith("/admin/users")) {
-    return "Usuários";
-  }
-
-  if (pathname === "/news") {
-    return "Notícias";
-  }
-
-  if (pathname.startsWith("/news/")) {
-    return "Notícia";
-  }
-
-  if (pathname.startsWith("/press/news")) {
-    return "Notícias da imprensa";
-  }
-
-  if (pathname.startsWith("/grading")) {
-    return "Lançamentos de notas";
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Usuários" },
+    ];
   }
 
   if (pathname.startsWith("/admin/committees")) {
-    return "Comitês";
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Comitês" },
+    ];
+  }
+
+  if (pathname.startsWith("/admin/news")) {
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Notícias" },
+    ];
+  }
+
+  if (pathname.startsWith("/admin/grades")) {
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Notas" },
+    ];
   }
 
   if (pathname.startsWith("/admin/documents")) {
-    return "Documentos";
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Documentos" },
+    ];
   }
 
   if (pathname.startsWith("/admin/reports")) {
-    return "Relatórios";
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Relatórios" },
+    ];
   }
 
-  return "Simulação da ONU";
+  if (pathname === "/news") {
+    return [{ label: "Notícias" }];
+  }
+
+  if (pathname.startsWith("/news/")) {
+    return [
+      { href: "/news", label: "Notícias" },
+      { label: "Notícia" },
+    ];
+  }
+
+  if (pathname.startsWith("/press/news")) {
+    return [{ label: "Notícias da imprensa" }];
+  }
+
+  if (pathname.startsWith("/grading")) {
+    return [{ label: "Lançamentos de notas" }];
+  }
+
+  return [{ label: "Simulação da ONU" }];
 }
 
 function SiteHeader() {
   const pathname = usePathname();
+  const breadcrumbItems = getPageBreadcrumbItems(pathname);
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b bg-background transition-[width,height] ease-linear">
@@ -403,9 +452,38 @@ function SiteHeader() {
           orientation="vertical"
           className="mx-2 data-[orientation=vertical]:h-4"
         />
-        <h1 className="truncate text-sm font-medium">
-          {getPageTitle(pathname)}
-        </h1>
+        <Breadcrumb className="min-w-0">
+          <BreadcrumbList className="min-w-0 flex-nowrap">
+            {breadcrumbItems.map((item, index) => {
+              const isLastItem = index === breadcrumbItems.length - 1;
+
+              return (
+                <Fragment key={`${item.href ?? item.label}-${index}`}>
+                  {index > 0 ? (
+                    <BreadcrumbSeparator className="hidden sm:block" />
+                  ) : null}
+                  <BreadcrumbItem
+                    className={
+                      isLastItem
+                        ? "min-w-0"
+                        : "hidden min-w-0 sm:inline-flex"
+                    }
+                  >
+                    {item.href && !isLastItem ? (
+                      <BreadcrumbLink asChild className="block truncate">
+                        <Link href={item.href}>{item.label}</Link>
+                      </BreadcrumbLink>
+                    ) : (
+                      <BreadcrumbPage className="block truncate text-sm font-medium">
+                        {item.label}
+                      </BreadcrumbPage>
+                    )}
+                  </BreadcrumbItem>
+                </Fragment>
+              );
+            })}
+          </BreadcrumbList>
+        </Breadcrumb>
       </div>
     </header>
   );
