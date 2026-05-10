@@ -52,5 +52,6 @@ export default defineSchema({
   })
     .index("by_member", ["member"])
     .index("by_kind", ["kind"])
-    .index("by_member_and_kind", ["member", "kind"]),
+    .index("by_member_and_kind", ["member", "kind"])
+    .index("by_member_and_kind_and_category", ["member", "kind", "category"]),
 });

@@ -53,6 +53,10 @@ type GradingManagementPanelProps = {
   showAdminLinks?: boolean;
 };
 
+const duplicateGradingEntryErrorCode = "duplicate_grading_entry";
+const duplicateGradingEntryMessage =
+  "Este lançamento já existe para este membro.";
+
 function normalizeRequiredString(value: string | undefined) {
   const trimmedValue = value?.trim();
 
@@ -99,6 +103,17 @@ function formatCreatedAt(value: number) {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
+}
+
+function getMutationErrorMessage(error: unknown, fallback: string) {
+  if (
+    error instanceof Error &&
+    error.message.includes(duplicateGradingEntryErrorCode)
+  ) {
+    return duplicateGradingEntryMessage;
+  }
+
+  return fallback;
 }
 
 function AmountInput({
@@ -185,6 +200,8 @@ function CategorySelectInput({
   kind,
   memberId,
   memberTypeById,
+  entries,
+  currentEntryId,
   graderType,
   isAdmin,
   value,
@@ -193,6 +210,8 @@ function CategorySelectInput({
   kind: GradingEntryKind;
   memberId: string | undefined;
   memberTypeById: Record<string, Doc<"members">["type"]>;
+  entries: GradingEntryRow[];
+  currentEntryId?: Doc<"gradingEntries">["_id"];
   graderType: GradingMemberType | undefined;
   isAdmin: boolean;
   value: string;
@@ -204,6 +223,16 @@ function CategorySelectInput({
     memberType,
     graderType,
     isAdmin,
+  );
+  const disabledCategoryValues = new Set(
+    entries
+      .filter(
+        (entry) =>
+          entry._id !== currentEntryId &&
+          entry.member === memberId &&
+          entry.kind === kind,
+      )
+      .map((entry) => entry.category),
   );
 
   if (!memberId) {
@@ -232,11 +261,28 @@ function CategorySelectInput({
         <SelectValue placeholder="Selecione uma categoria" />
       </SelectTrigger>
       <SelectContent>
-        {categories.map((category) => (
-          <SelectItem key={category.value} value={category.value}>
-            {formatCategoryLabel(category, kind)}
-          </SelectItem>
-        ))}
+        {categories.map((category) => {
+          const isDisabled = disabledCategoryValues.has(category.value);
+
+          return (
+            <SelectItem
+              key={category.value}
+              value={category.value}
+              disabled={isDisabled}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate">
+                  {formatCategoryLabel(category, kind)}
+                </span>
+                {isDisabled ? (
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    Já lançado
+                  </span>
+                ) : null}
+              </span>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );
@@ -351,6 +397,7 @@ function enrichEntryRows({
 
 function getEntryColumns({
   kind,
+  entries,
   memberTypeById,
   memberOptions,
   categoryLabel,
@@ -359,6 +406,7 @@ function getEntryColumns({
   showAdminLinks,
 }: {
   kind: GradingEntryKind;
+  entries: GradingEntryRow[];
   memberTypeById: Record<string, Doc<"members">["type"]>;
   memberOptions: AdminTableSelectOption[];
   categoryLabel: string;
@@ -408,11 +456,13 @@ function getEntryColumns({
 
         return category?.label ?? entry.category;
       },
-      formRender: ({ value, values, onChange }) => (
+      formRender: ({ value, values, onChange, row }) => (
         <CategorySelectInput
           kind={kind}
           memberId={values.member}
           memberTypeById={memberTypeById}
+          entries={entries}
+          currentEntryId={row?._id}
           graderType={graderType}
           isAdmin={isAdmin}
           value={value}
@@ -551,6 +601,7 @@ export function GradingManagementPanel({
 
   const gradeColumns = getEntryColumns({
     kind: "grade",
+    entries: rows,
     memberTypeById: metadata.memberTypeById,
     memberOptions: metadata.memberOptions,
     categoryLabel: "Categoria de pontuação",
@@ -560,6 +611,7 @@ export function GradingManagementPanel({
   });
   const deductionColumns = getEntryColumns({
     kind: "deduction",
+    entries: rows,
     memberTypeById: metadata.memberTypeById,
     memberOptions: metadata.memberOptions,
     categoryLabel: "Categoria de dedução",
@@ -581,11 +633,13 @@ export function GradingManagementPanel({
   }
 
   function validateEntryValues({
+    entryId,
     kind,
     member,
     category,
     amount,
   }: {
+    entryId?: Doc<"gradingEntries">["_id"];
     kind: GradingEntryKind;
     member: Doc<"members">["_id"] | null;
     category: string | null;
@@ -609,6 +663,19 @@ export function GradingManagementPanel({
 
     if (!memberType || !categoryDefinition) {
       toast.error("Selecione uma categoria disponível para este membro.");
+      return false;
+    }
+
+    const duplicateEntry = rows.find(
+      (entry) =>
+        entry._id !== entryId &&
+        entry.member === member &&
+        entry.kind === kind &&
+        entry.category === category,
+    );
+
+    if (duplicateEntry) {
+      toast.error(duplicateGradingEntryMessage);
       return false;
     }
 
@@ -656,8 +723,10 @@ export function GradingManagementPanel({
       }
 
       return false;
-    } catch {
-      toast.error("Não foi possível criar o lançamento.");
+    } catch (error) {
+      toast.error(
+        getMutationErrorMessage(error, "Não foi possível criar o lançamento."),
+      );
       return false;
     }
   }
@@ -672,7 +741,15 @@ export function GradingManagementPanel({
     const category = normalizeRequiredString(values.category);
     const amount = resolveEntryAmount(entry.kind, category, values.amount);
 
-    if (!validateEntryValues({ kind: entry.kind, member, category, amount })) {
+    if (
+      !validateEntryValues({
+        entryId: entry._id,
+        kind: entry.kind,
+        member,
+        category,
+        amount,
+      })
+    ) {
       return false;
     }
 
@@ -692,8 +769,10 @@ export function GradingManagementPanel({
       }
 
       return false;
-    } catch {
-      toast.error("Não foi possível atualizar o lançamento.");
+    } catch (error) {
+      toast.error(
+        getMutationErrorMessage(error, "Não foi possível atualizar o lançamento."),
+      );
       return false;
     }
   }

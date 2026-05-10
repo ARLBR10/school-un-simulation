@@ -308,6 +308,26 @@ async function validateGradingEntry(
   }
 }
 
+async function ensureUniqueGradingEntry(
+  ctx: MutationCtx,
+  entry: Pick<Doc<"gradingEntries">, "member" | "kind" | "category">,
+  ignoredEntryId?: Id<"gradingEntries">,
+) {
+  const duplicateEntry = await ctx.db
+    .query("gradingEntries")
+    .withIndex("by_member_and_kind_and_category", (q) =>
+      q
+        .eq("member", entry.member)
+        .eq("kind", entry.kind)
+        .eq("category", entry.category),
+    )
+    .first();
+
+  if (duplicateEntry && duplicateEntry._id !== ignoredEntryId) {
+    throw new Error("duplicate_grading_entry");
+  }
+}
+
 async function logGradingAction({
   ctx,
   actor,
@@ -414,6 +434,7 @@ export const create = mutation({
       "grading.create",
       { ...args, category, amount },
     );
+    await ensureUniqueGradingEntry(ctx, { ...args, category });
 
     const entryId = await ctx.db.insert("gradingEntries", {
       member: args.member,
@@ -478,6 +499,7 @@ export const update = mutation({
       "grading.update",
       nextEntry,
     );
+    await ensureUniqueGradingEntry(ctx, nextEntry, args.id);
 
     const normalizedNote = normalizeOptionalString(args.note);
     const entryPatch: Partial<
