@@ -363,11 +363,6 @@ function getEntryColumns({
       },
     },
     {
-      key: "memberCountry",
-      label: "País representado",
-      showInForm: false,
-    },
-    {
       key: "memberCommittee",
       label: "Comitê",
       showInForm: false,
