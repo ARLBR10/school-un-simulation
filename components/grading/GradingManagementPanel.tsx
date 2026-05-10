@@ -91,6 +91,16 @@ function formatAmount(value: number) {
   }).format(value);
 }
 
+function formatCreatedAt(value: number) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
 function AmountInput({
   value,
   maxAmount,
@@ -409,6 +419,12 @@ function getEntryColumns({
           onChange={onChange}
         />
       ),
+    },
+    {
+      key: "_creationTime",
+      label: "Criado em",
+      showInForm: false,
+      render: (entry) => formatCreatedAt(entry._creationTime),
     },
     {
       key: "amount",
