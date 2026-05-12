@@ -181,14 +181,21 @@ async function getEntriesForMembers(
   });
 }
 
-async function getScopeCommittees(ctx: QueryCtx, scope: GradingAccessScope) {
-  if (!scope.isCommitteeScoped) {
-    return [];
-  }
-
+async function getManageDataCommittees(
+  ctx: QueryCtx,
+  scope: GradingAccessScope,
+  members: Doc<"members">[],
+) {
+  const committeeIds = new Set<Id<"committees">>(scope.committeeIds);
   const committees: Pick<Doc<"committees">, "_id" | "theme">[] = [];
 
-  for (const committeeId of scope.committeeIds) {
+  for (const member of members) {
+    if (member.committee) {
+      committeeIds.add(member.committee);
+    }
+  }
+
+  for (const committeeId of committeeIds) {
     const committee = await ctx.db.get(committeeId);
 
     if (committee) {
@@ -392,7 +399,7 @@ export const getManageData = query({
 
     const members = await getManageableMembers(ctx, actor, scope);
     const entries = await getEntriesForMembers(ctx, actor, scope, members);
-    const committees = await getScopeCommittees(ctx, scope);
+    const committees = await getManageDataCommittees(ctx, scope, members);
 
     return {
       currentMember: actor,

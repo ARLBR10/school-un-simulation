@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
+import { ListChecks, MinusCircle, Pencil, PlusCircle, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -12,15 +14,44 @@ import {
 import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import {
@@ -37,6 +68,35 @@ type GradingEntryRow = Doc<"gradingEntries"> & {
   memberCountry: string;
   memberDetails: string;
   memberCommittee: string;
+};
+
+type MemberMetadata = ReturnType<typeof buildMemberMetadata>;
+
+type MemberSummary = {
+  member: Doc<"members">;
+  name: string;
+  details: string;
+  country: string;
+  committee: string;
+  entries: GradingEntryRow[];
+};
+
+type MemberSelectionRow = {
+  _id: Doc<"members">["_id"];
+  name: string;
+  details: string;
+  country: string;
+  committee: string;
+  gradeTotal: number;
+  deductionTotal: number;
+  balance: number;
+};
+
+type EntryFormValues = {
+  member?: string;
+  category?: string;
+  amount?: string;
+  note?: string;
 };
 
 type GradingManagementPanelProps = {
@@ -375,6 +435,53 @@ function enrichEntryRows({
   });
 }
 
+function buildMemberSummaries({
+  members,
+  rows,
+  metadata,
+}: {
+  members: Doc<"members">[];
+  rows: GradingEntryRow[];
+  metadata: MemberMetadata;
+}): MemberSummary[] {
+  return members
+    .map((member) => {
+      const entries = rows.filter((entry) => entry.member === member._id);
+
+      return {
+        member,
+        name: metadata.memberNameById[member._id] ?? member.name,
+        details: metadata.memberDetailsById[member._id] ?? "-",
+        country: metadata.memberCountryById[member._id] ?? "-",
+        committee: member.committee
+          ? (metadata.committeeLabelById[member.committee] ?? member.committee)
+          : "Sem comitê",
+        entries,
+      };
+    })
+    .sort((leftMember, rightMember) =>
+      leftMember.name.localeCompare(rightMember.name, "pt-BR", {
+        sensitivity: "base",
+      }),
+    );
+}
+
+function getKindLabel(kind: GradingEntryKind) {
+  return kind === "grade" ? "Pontuação" : "Dedução";
+}
+
+function getSignedAmountLabel(entry: Pick<GradingEntryRow, "kind" | "amount">) {
+  const prefix = entry.kind === "grade" ? "+" : "-";
+
+  return `${prefix}${formatAmount(entry.amount)}`;
+}
+
+function getEntryCategoryLabel(entry: Pick<GradingEntryRow, "kind" | "category">) {
+  return (
+    getCategoryDefinition(entry.kind, entry.category)?.label ?? entry.category
+  );
+}
+
 function getEntryColumns({
   kind,
   entries,
@@ -491,6 +598,656 @@ function getEntryColumns({
   ];
 }
 
+function EntryEditorForm({
+  kind,
+  member,
+  memberTypeById,
+  entries,
+  currentEntry,
+  graderType,
+  isAdmin,
+  submitLabel,
+  onCancel,
+  onSubmit,
+}: {
+  kind: GradingEntryKind;
+  member: Doc<"members">;
+  memberTypeById: Record<string, Doc<"members">["type"]>;
+  entries: GradingEntryRow[];
+  currentEntry?: GradingEntryRow;
+  graderType: GradingMemberType | undefined;
+  isAdmin: boolean;
+  submitLabel: string;
+  onCancel?: () => void;
+  onSubmit: (values: EntryFormValues) => Promise<boolean>;
+}) {
+  const [values, setValues] = useState({
+    category: currentEntry?.category ?? "",
+    amount: currentEntry ? String(currentEntry.amount) : "",
+    note: currentEntry?.note ?? "",
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const category = values.category
+    ? getCategoryDefinition(kind, values.category)
+    : undefined;
+
+  useEffect(() => {
+    setValues({
+      category: currentEntry?.category ?? "",
+      amount: currentEntry ? String(currentEntry.amount) : "",
+      note: currentEntry?.note ?? "",
+    });
+  }, [currentEntry, kind, member._id]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const saved = await onSubmit({
+        member: member._id,
+        category: values.category,
+        amount: values.amount,
+        note: values.note,
+      });
+
+      if (saved && !currentEntry) {
+        setValues({ category: "", amount: "", note: "" });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      <FieldGroup>
+        <Field>
+          <FieldLabel>
+            {kind === "grade"
+              ? "Categoria de pontuação"
+              : "Categoria de dedução"}
+          </FieldLabel>
+          <CategorySelectInput
+            kind={kind}
+            memberId={member._id}
+            memberTypeById={memberTypeById}
+            entries={entries}
+            currentEntryId={currentEntry?._id}
+            graderType={graderType}
+            isAdmin={isAdmin}
+            value={values.category}
+            onChange={(category) =>
+              setValues((currentValues) => ({
+                ...currentValues,
+                category,
+                amount: kind === "deduction" ? "" : currentValues.amount,
+              }))
+            }
+          />
+        </Field>
+
+        <Field>
+          <FieldLabel>
+            {kind === "deduction" ? "Valor da dedução" : "Pontos"}
+          </FieldLabel>
+          {kind === "deduction" ? (
+            <FixedAmountDisplay amount={category?.maxAmount} />
+          ) : (
+            <AmountInput
+              value={values.amount}
+              maxAmount={category?.maxAmount}
+              onChange={(amount) =>
+                setValues((currentValues) => ({ ...currentValues, amount }))
+              }
+            />
+          )}
+        </Field>
+
+        <Field>
+          <FieldLabel>Observação</FieldLabel>
+          <NoteInput
+            value={values.note}
+            onChange={(note) =>
+              setValues((currentValues) => ({ ...currentValues, note }))
+            }
+          />
+        </Field>
+      </FieldGroup>
+
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        {onCancel ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+        ) : null}
+        <Button type="submit" disabled={isSubmitting}>
+          {currentEntry ? (
+            <Pencil data-icon="inline-start" />
+          ) : (
+            <PlusCircle data-icon="inline-start" />
+          )}
+          {submitLabel}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function MemberSelectionTable({
+  summaries,
+  onSelect,
+}: {
+  summaries: MemberSummary[];
+  onSelect: (memberId: Doc<"members">["_id"]) => void;
+}) {
+  const memberRows = summaries.map<MemberSelectionRow>((summary) => {
+    const gradeTotal = summary.entries
+      .filter((entry) => entry.kind === "grade")
+      .reduce((total, entry) => total + entry.amount, 0);
+    const deductionTotal = summary.entries
+      .filter((entry) => entry.kind === "deduction")
+      .reduce((total, entry) => total + entry.amount, 0);
+
+    return {
+      _id: summary.member._id,
+      name: summary.name,
+      details: summary.details,
+      country: summary.country,
+      committee: summary.committee,
+      gradeTotal,
+      deductionTotal,
+      balance: gradeTotal - deductionTotal,
+    };
+  });
+  const memberColumns: AdminTableColumn<MemberSelectionRow>[] = [
+    {
+      key: "name",
+      label: "Membro",
+      render: (member) => (
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate font-semibold">{member.name}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {member.details}
+          </span>
+        </span>
+      ),
+    },
+    {
+      key: "country",
+      label: "País representado",
+    },
+    {
+      key: "committee",
+      label: "Comitê",
+    },
+    {
+      key: "gradeTotal",
+      label: "Pontuação",
+      hiddenByDefault: true,
+      render: (member) => `+${formatAmount(member.gradeTotal)}`,
+    },
+    {
+      key: "deductionTotal",
+      label: "Deduções",
+      hiddenByDefault: true,
+      render: (member) => `-${formatAmount(member.deductionTotal)}`,
+    },
+    {
+      key: "balance",
+      label: "Saldo",
+      hiddenByDefault: true,
+      render: (member) => (
+        <Badge variant={member.balance < 0 ? "destructive" : "secondary"}>
+          {formatAmount(member.balance)}
+        </Badge>
+      ),
+    },
+  ];
+
+  return (
+    <DynamicTable
+      columns={memberColumns}
+      data={memberRows}
+      rowKey="_id"
+      openLabel="Abrir"
+      onOpen={(member) => onSelect(member._id)}
+    />
+  );
+}
+
+function InlinePanel({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="flex flex-col gap-3 rounded-md border border-input bg-background p-3">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-sm font-medium">{title}</h2>
+        {description ? (
+          <p className="text-sm text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function MemberEntryListInput({
+  summary,
+  onEdit,
+  onDelete,
+}: {
+  summary: MemberSummary;
+  onEdit: (entry: GradingEntryRow) => void;
+  onDelete: (entry: GradingEntryRow) => Promise<boolean>;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-input bg-background p-3">
+      {summary.entries.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          Nenhum lançamento criado para este membro.
+        </p>
+      ) : (
+        summary.entries.map((entry) => {
+          const isDeduction = entry.kind === "deduction";
+
+          return (
+            <div
+              key={entry._id}
+              className="flex flex-col gap-3 rounded-md border border-border/70 bg-muted/20 p-3"
+            >
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 leading-6">
+                  <Badge variant={isDeduction ? "destructive" : "secondary"}>
+                    {getKindLabel(entry.kind)}
+                  </Badge>
+                  <span className="text-xs leading-5 text-muted-foreground">
+                    {formatCreatedAt(entry._creationTime)}
+                  </span>
+                </div>
+
+                <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onEdit(entry)}
+                  >
+                    Editar
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button type="button" variant="outline" size="sm">
+                        Remover
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remover lançamento?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Esta ação remove o lançamento da ficha do membro.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          onClick={() => void onDelete(entry)}
+                        >
+                          Remover
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+
+              <div className="min-w-0 rounded-md bg-background/60 px-3 py-2">
+                <p className="text-sm font-medium leading-6 break-words">
+                  {getEntryCategoryLabel(entry)}
+                </p>
+                <p className="text-xs leading-5 break-words text-muted-foreground">
+                  {getSignedAmountLabel(entry)} ponto(s)
+                  {entry.note ? ` · ${entry.note}` : ""}
+                </p>
+              </div>
+            </div>
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function EntryEditorDialog({
+  summary,
+  rows,
+  metadata,
+  graderType,
+  isAdmin,
+  entry,
+  open,
+  onOpenChange,
+  onCreateEntry,
+  onUpdateEntry,
+}: {
+  summary: MemberSummary;
+  rows: GradingEntryRow[];
+  metadata: MemberMetadata;
+  graderType: GradingMemberType | undefined;
+  isAdmin: boolean;
+  entry: GradingEntryRow | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreateEntry: (
+    kind: GradingEntryKind,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+  onUpdateEntry: (
+    entry: GradingEntryRow,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+}) {
+  const title = entry ? "Editar lançamento" : "Adicionar lançamento";
+  const description = entry
+    ? "Ajuste a categoria, os pontos ou a observação deste registro."
+    : "Escolha se o próximo registro aumenta ou desconta a pontuação.";
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        onOpenChange(nextOpen);
+      }}
+    >
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+
+        {entry ? (
+          <EntryEditorForm
+            kind={entry.kind}
+            member={summary.member}
+            memberTypeById={metadata.memberTypeById}
+            entries={rows}
+            graderType={graderType}
+            isAdmin={isAdmin}
+            currentEntry={entry}
+            submitLabel="Salvar alterações"
+            onCancel={() => onOpenChange(false)}
+            onSubmit={async (values) => {
+              const updated = await onUpdateEntry(entry, values);
+
+              if (updated) {
+                onOpenChange(false);
+              }
+
+              return updated;
+            }}
+          />
+        ) : (
+          <Tabs defaultValue="grade" className="gap-4">
+            <TabsList>
+              <TabsTrigger value="grade">
+                <PlusCircle data-icon="inline-start" />
+                Pontuação
+              </TabsTrigger>
+              <TabsTrigger value="deduction">
+                <MinusCircle data-icon="inline-start" />
+                Dedução
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="grade">
+              <EntryEditorForm
+                kind="grade"
+                member={summary.member}
+                memberTypeById={metadata.memberTypeById}
+                entries={rows}
+                graderType={graderType}
+                isAdmin={isAdmin}
+                submitLabel="Adicionar pontuação"
+                onCancel={() => onOpenChange(false)}
+                onSubmit={async (values) => {
+                  const created = await onCreateEntry("grade", values);
+
+                  if (created) {
+                    onOpenChange(false);
+                  }
+
+                  return created;
+                }}
+              />
+            </TabsContent>
+            <TabsContent value="deduction">
+              <EntryEditorForm
+                kind="deduction"
+                member={summary.member}
+                memberTypeById={metadata.memberTypeById}
+                entries={rows}
+                graderType={graderType}
+                isAdmin={isAdmin}
+                submitLabel="Adicionar dedução"
+                onCancel={() => onOpenChange(false)}
+                onSubmit={async (values) => {
+                  const created = await onCreateEntry("deduction", values);
+
+                  if (created) {
+                    onOpenChange(false);
+                  }
+
+                  return created;
+                }}
+              />
+            </TabsContent>
+          </Tabs>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MemberSelectionTab({
+  summaries,
+  rows,
+  metadata,
+  graderType,
+  isAdmin,
+  selectedMemberId,
+  onSelectMember,
+  onCreateEntry,
+  onUpdateEntry,
+  onDeleteEntry,
+}: {
+  summaries: MemberSummary[];
+  rows: GradingEntryRow[];
+  metadata: MemberMetadata;
+  graderType: GradingMemberType | undefined;
+  isAdmin: boolean;
+  selectedMemberId: Doc<"members">["_id"] | null;
+  onSelectMember: (memberId: Doc<"members">["_id"] | null) => void;
+  onCreateEntry: (
+    kind: GradingEntryKind,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+  onUpdateEntry: (
+    entry: GradingEntryRow,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+  onDeleteEntry: (entry: GradingEntryRow) => Promise<boolean>;
+}) {
+  const selectedSummary = selectedMemberId
+    ? summaries.find((summary) => summary.member._id === selectedMemberId) ?? null
+    : null;
+
+  return (
+    <section className="flex flex-col gap-4">
+      <MemberSelectionTable summaries={summaries} onSelect={onSelectMember} />
+
+      <MemberGradingSheet
+        summary={selectedSummary}
+        rows={rows}
+        metadata={metadata}
+        graderType={graderType}
+        isAdmin={isAdmin}
+        open={selectedSummary !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            onSelectMember(null);
+          }
+        }}
+        onCreateEntry={onCreateEntry}
+        onUpdateEntry={onUpdateEntry}
+        onDeleteEntry={onDeleteEntry}
+      />
+    </section>
+  );
+}
+
+function MemberGradingSheet({
+  summary,
+  rows,
+  metadata,
+  graderType,
+  isAdmin,
+  open,
+  onOpenChange,
+  onCreateEntry,
+  onUpdateEntry,
+  onDeleteEntry,
+}: {
+  summary: MemberSummary | null;
+  rows: GradingEntryRow[];
+  metadata: MemberMetadata;
+  graderType: GradingMemberType | undefined;
+  isAdmin: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onCreateEntry: (
+    kind: GradingEntryKind,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+  onUpdateEntry: (
+    entry: GradingEntryRow,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+  onDeleteEntry: (entry: GradingEntryRow) => Promise<boolean>;
+}) {
+  const [editorEntry, setEditorEntry] = useState<GradingEntryRow | null>(null);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setEditorEntry(null);
+      setIsEditorOpen(false);
+    }
+  }, [open, summary?.member._id]);
+
+  if (!summary) {
+    return <Sheet open={open} onOpenChange={onOpenChange} />;
+  }
+
+  async function handleDelete(entry: GradingEntryRow) {
+    const deleted = await onDeleteEntry(entry);
+
+    if (deleted && editorEntry?._id === entry._id) {
+      setEditorEntry(null);
+      setIsEditorOpen(false);
+    }
+
+    return deleted;
+  }
+
+  function handleOpenCreate() {
+    setEditorEntry(null);
+    setIsEditorOpen(true);
+  }
+
+  function handleOpenEdit(entry: GradingEntryRow) {
+    setEditorEntry(entry);
+    setIsEditorOpen(true);
+  }
+
+  function handleEditorOpenChange(nextOpen: boolean) {
+    setIsEditorOpen(nextOpen);
+
+    if (!nextOpen) {
+      setEditorEntry(null);
+    }
+  }
+
+  return (
+    <Sheet
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setEditorEntry(null);
+          setIsEditorOpen(false);
+        }
+
+        onOpenChange(nextOpen);
+      }}
+    >
+      <SheetContent
+        side="right"
+        className="w-full gap-0 overflow-y-auto border-border/70 bg-card p-0 sm:max-w-3xl"
+      >
+        <SheetHeader className="border-b border-border/70 px-6 py-4">
+          <SheetTitle className="text-lg font-semibold tracking-tight">
+            {summary.name}
+          </SheetTitle>
+          <SheetDescription>
+            {summary.details} · {summary.committee}
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="flex flex-col gap-5 px-4 py-4 sm:px-6">
+          <InlinePanel
+            title="Linha do tempo"
+            description="Pontuações e deduções aparecem juntas, com ações rápidas para adicionar, editar e remover."
+          >
+            <div className="flex justify-center rounded-md border border-input bg-background p-3">
+              <Button type="button" variant="outline" onClick={handleOpenCreate}>
+                Adicionar lançamento
+              </Button>
+            </div>
+            <MemberEntryListInput
+              summary={summary}
+              onEdit={handleOpenEdit}
+              onDelete={handleDelete}
+            />
+          </InlinePanel>
+
+          <EntryEditorDialog
+            summary={summary}
+            rows={rows}
+            metadata={metadata}
+            graderType={graderType}
+            isAdmin={isAdmin}
+            entry={editorEntry}
+            open={isEditorOpen}
+            onOpenChange={handleEditorOpenChange}
+            onCreateEntry={onCreateEntry}
+            onUpdateEntry={onUpdateEntry}
+          />
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 function LoadingPanel({
   title,
   description,
@@ -534,6 +1291,9 @@ export function GradingManagementPanel({
   restrictedDescription,
   showAdminLinks = false,
 }: GradingManagementPanelProps) {
+  const [selectedMemberId, setSelectedMemberId] = useState<
+    Doc<"members">["_id"] | null
+  >(null);
   const manageData = useQuery(api.grading.getManageData);
   const entryCreate = useMutation(api.grading.create);
   const entryUpdate = useMutation(api.grading.update);
@@ -566,14 +1326,9 @@ export function GradingManagementPanel({
     memberDetailsById: metadata.memberDetailsById,
     memberNameById: metadata.memberNameById,
   });
+  const memberSummaries = buildMemberSummaries({ members, rows, metadata });
   const grades = rows.filter((entry) => entry.kind === "grade");
   const deductions = rows.filter((entry) => entry.kind === "deduction");
-  const totalGrades = grades.reduce((total, grade) => total + grade.amount, 0);
-  const totalDeductions = deductions.reduce(
-    (total, deduction) => total + deduction.amount,
-    0,
-  );
-  const netTotal = totalGrades - totalDeductions;
   const scopeLabel = manageData.isCommitteeScoped
     ? committees.map((committee) => committee.theme).join(", ") ||
       "nenhum comitê atribuído"
@@ -676,7 +1431,7 @@ export function GradingManagementPanel({
 
   async function createEntry(
     kind: GradingEntryKind,
-    values: { member?: string; category?: string; amount?: string; note?: string },
+    values: EntryFormValues,
   ) {
     const member = normalizeRequiredString(values.member) as
       | Doc<"members">["_id"]
@@ -713,7 +1468,7 @@ export function GradingManagementPanel({
 
   async function updateEntry(
     entry: GradingEntryRow,
-    values: { member?: string; category?: string; amount?: string; note?: string },
+    values: EntryFormValues,
   ) {
     const member = normalizeRequiredString(values.member) as
       | Doc<"members">["_id"]
@@ -774,81 +1529,86 @@ export function GradingManagementPanel({
   }
 
   return (
-    <PageShell>
+    <PageShell className="gap-3 md:gap-4">
       <PageHeader title={title} description={description} />
 
-      <div className="grid gap-4 md:grid-cols-4" aria-live="polite">
-        <Card>
-          <CardHeader>
-            <CardTitle>Total de pontuações</CardTitle>
-            <CardDescription>Soma dos pontos no seu escopo.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">
-            {formatAmount(totalGrades)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Total de deduções</CardTitle>
-            <CardDescription>Soma dos descontos aplicados.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">
-            {formatAmount(totalDeductions)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Saldo geral</CardTitle>
-            <CardDescription>Pontuações menos deduções.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-2xl font-semibold">
-            {formatAmount(netTotal)}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Escopo</CardTitle>
-            <CardDescription>Comitês disponíveis para lançamento.</CardDescription>
-          </CardHeader>
-          <CardContent className="text-sm font-medium text-muted-foreground">
-            {scopeLabel}
-          </CardContent>
-        </Card>
-      </div>
-
-      <section className="flex flex-col gap-3">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">Pontuações</h2>
-          <p className="text-sm text-muted-foreground">
-            Lance pontos positivos para os membros disponíveis no seu escopo.
-          </p>
+      <Tabs defaultValue="members" className="gap-4">
+        <div className="flex justify-center">
+          <TabsList className="h-auto flex-wrap rounded-xl bg-muted/70 p-1">
+            <TabsTrigger value="members" className="px-3 py-1.5">
+              <Users data-icon="inline-start" />
+              Por membro
+            </TabsTrigger>
+            <TabsTrigger value="separated" className="px-3 py-1.5">
+              <ListChecks data-icon="inline-start" />
+              Visão separada
+            </TabsTrigger>
+          </TabsList>
         </div>
-        <DynamicTable
-          columns={gradeColumns}
-          data={grades}
-          searchParamKey="_id"
-          onCreate={(values) => createEntry("grade", values)}
-          onUpdate={updateEntry}
-          onDelete={deleteEntry}
-        />
-      </section>
 
-      <section className="flex flex-col gap-3">
-        <div className="space-y-1">
-          <h2 className="text-lg font-semibold tracking-tight">Deduções</h2>
-          <p className="text-sm text-muted-foreground">
-            Registre perdas de pontos com histórico auditável de alterações.
-          </p>
+        <div className="max-w-xl" aria-live="polite">
+          <Card>
+            <CardHeader>
+              <CardTitle>Escopo</CardTitle>
+              <CardDescription>Comitês disponíveis para lançamento.</CardDescription>
+            </CardHeader>
+            <CardContent className="text-sm font-medium text-muted-foreground">
+              {scopeLabel}
+            </CardContent>
+          </Card>
         </div>
-        <DynamicTable
-          columns={deductionColumns}
-          data={deductions}
-          searchParamKey="_id"
-          onCreate={(values) => createEntry("deduction", values)}
-          onUpdate={updateEntry}
-          onDelete={deleteEntry}
-        />
-      </section>
+
+        <TabsContent value="members">
+          <MemberSelectionTab
+            summaries={memberSummaries}
+            rows={rows}
+            metadata={metadata}
+            graderType={graderType}
+            isAdmin={isAdmin}
+            selectedMemberId={selectedMemberId}
+            onSelectMember={setSelectedMemberId}
+            onCreateEntry={createEntry}
+            onUpdateEntry={updateEntry}
+            onDeleteEntry={deleteEntry}
+          />
+        </TabsContent>
+
+        <TabsContent value="separated" className="flex flex-col gap-6">
+          <section className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold tracking-tight">Pontuações</h2>
+              <p className="text-sm text-muted-foreground">
+                Lance pontos positivos para os membros disponíveis no seu escopo.
+              </p>
+            </div>
+            <DynamicTable
+              columns={gradeColumns}
+              data={grades}
+              searchParamKey="_id"
+              onCreate={(values) => createEntry("grade", values)}
+              onUpdate={updateEntry}
+              onDelete={deleteEntry}
+            />
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-semibold tracking-tight">Deduções</h2>
+              <p className="text-sm text-muted-foreground">
+                Registre perdas de pontos com histórico auditável de alterações.
+              </p>
+            </div>
+            <DynamicTable
+              columns={deductionColumns}
+              data={deductions}
+              searchParamKey="_id"
+              onCreate={(values) => createEntry("deduction", values)}
+              onUpdate={updateEntry}
+              onDelete={deleteEntry}
+            />
+          </section>
+        </TabsContent>
+      </Tabs>
     </PageShell>
   );
 }

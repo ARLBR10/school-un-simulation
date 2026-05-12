@@ -130,9 +130,11 @@ type DynamicTableProps<T extends AdminTableRow> = {
   data: T[];
   isLoading?: boolean;
   className?: string;
+  openLabel?: ReactNode;
   rowKey?: keyof T;
   copyIdKey?: keyof T;
   searchParamKey?: SearchParamKey<T>;
+  onOpen?: (row: T, index: number) => void;
   onChange?: (
     data: T[],
     event: AdminTableChangeEvent<T>,
@@ -339,9 +341,11 @@ export function DynamicTable<T extends AdminTableRow>({
   data,
   isLoading = false,
   className,
+  openLabel = "Abrir",
   rowKey,
   copyIdKey,
   searchParamKey,
+  onOpen,
   onChange,
   onCreate,
   onUpdate,
@@ -521,6 +525,21 @@ export function DynamicTable<T extends AdminTableRow>({
       cell: ({ row }) => {
         const rowId = resolveCopyIdValue(row.original, copyIdKey, rowKey);
 
+        if (onOpen) {
+          return (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onOpen(row.original, row.index)}
+              >
+                {openLabel}
+              </Button>
+            </div>
+          );
+        }
+
         return (
           <div className="flex justify-end">
             <DropdownMenu>
@@ -590,7 +609,7 @@ export function DynamicTable<T extends AdminTableRow>({
       },
       enableHiding: false,
       enableSorting: false,
-      size: 48,
+      size: onOpen ? 88 : 48,
       meta: {
         headerClassName: "px-1 text-right",
         cellClassName: "px-1 text-right",
@@ -881,10 +900,12 @@ export function DynamicTable<T extends AdminTableRow>({
                   </Button>
                 }
               />
-              <Button type="button" size="sm" onClick={handleOpenCreate}>
-                <Plus data-icon="inline-start" />
-                Criar
-              </Button>
+              {onCreate || onChange ? (
+                <Button type="button" size="sm" onClick={handleOpenCreate}>
+                  <Plus data-icon="inline-start" />
+                  Criar
+                </Button>
+              ) : null}
             </div>
           </div>
 
