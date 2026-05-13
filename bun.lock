@@ -7,6 +7,7 @@
       "dependencies": {
         "@base-ui/react": "^1.4.1",
         "@convex-dev/better-auth": "^0.12.2",
+        "@convex-dev/workflow": "^0.3.12",
         "@daveyplate/better-auth-ui": "^3.4.0",
         "@dnd-kit/core": "^6.3.1",
         "@dnd-kit/modifiers": "^9.0.0",
@@ -192,6 +193,10 @@
     "@chevrotain/utils": ["@chevrotain/utils@12.0.0", "", {}, "sha512-lB59uJoaGIfOOL9knQqQRfhl9g7x8/wqFkp13zTdkRu1huG9kg6IJs1O8hqj9rs6h7orGxHJUKb+mX3rPbWGhA=="],
 
     "@convex-dev/better-auth": ["@convex-dev/better-auth@0.12.2", "", { "dependencies": { "@better-fetch/fetch": "^1.1.18", "common-tags": "^1.8.2", "convex-helpers": "^0.1.95", "jose": "^6.1.0", "remeda": "^2.32.0", "semver": "^7.7.3", "type-fest": "^5.0.0", "zod": "^4.0.0" }, "peerDependencies": { "better-auth": ">=1.6.9 <1.7.0", "convex": "^1.25.0", "react": "^18.3.1 || ^19.0.0" } }, "sha512-6L8LkXCB5rp9XmQplRj2EVNeD6mkG0b5PPQpm9fooEJ/L3ThGN4jRE4oMfWeBs+9E20eBciWVP0HJooemSgS0w=="],
+
+    "@convex-dev/workflow": ["@convex-dev/workflow@0.3.12", "", { "dependencies": { "async-channel": "^0.2.0" }, "peerDependencies": { "@convex-dev/workpool": "^0.3.0 || ^0.4.0", "convex": "^1.31.7", "convex-helpers": "^0.1.99" } }, "sha512-4c4eSe2sXnhxE6Td4benRg6OMJahWkOHdLv++FxpjZVZUANFmJqYKZxx8Bxqs0SB4ECGd2j0MZalNppLPKxQ7Q=="],
+
+    "@convex-dev/workpool": ["@convex-dev/workpool@0.4.6", "", { "peerDependencies": { "convex": "^1.31.7", "convex-helpers": "^0.1.94" } }, "sha512-e+cIgQePx5rrGizvzaYocWQCsDFbFlYqR1ZbtFPLa909izwc5GvoasPJPANeFhHRWaA5NBipNVqNtfHySi7Ldw=="],
 
     "@date-fns/tz": ["@date-fns/tz@1.4.1", "", {}, "sha512-P5LUNhtbj6YfI3iJjw5EL9eUAG6OitD0W3fWQcpQjDRc/QIsL0tRNuO1PcDvPccWL1fSTXXdE1ds+l95DV/OFA=="],
 
@@ -1050,6 +1055,8 @@
     "ast-types": ["ast-types@0.16.1", "", { "dependencies": { "tslib": "^2.0.1" } }, "sha512-6t10qk83GOG8p0vKmaCr8eiilZwO171AvbROMtvvNiwrTly62t+7XkA8RdIIVbpMhCASAsxgAzdRSwh6nw/5Dg=="],
 
     "ast-types-flow": ["ast-types-flow@0.0.8", "", {}, "sha512-OH/2E5Fg20h2aPrbe+QL8JZQFko0YZaF+j4mnQ7BGhfavO7OpSLa8a0y9sBwomHdSbkhTS8TQNayBfnW5DwbvQ=="],
+
+    "async-channel": ["async-channel@0.2.0", "", {}, "sha512-BJyjI/sfKlyijaBt2hbOSxT28xGNtLR0QLzAKO1Hlnv5BULY7sAoYoTPW3lfr1ZIC7y+FxabxO9T8GXpyoofGg=="],
 
     "async-function": ["async-function@1.0.0", "", {}, "sha512-hsU18Ae8CDTR6Kgu9DYf0EbCr/a5iGL0rytQDobUcdpYOKokk8LEjVphnXkDkgpi0wYVsqrXuP0bZxJaTqdgoA=="],
 
