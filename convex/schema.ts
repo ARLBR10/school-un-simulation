@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { memberTypes } from "./members";
 import { countriesConvexSchema } from "@/lib/country-list";
+import { uploadthingSchema } from "./documents";
 
 const gradingEntryKind = v.union(v.literal("grade"), v.literal("deduction"));
 
@@ -20,17 +21,20 @@ export default defineSchema({
     .index("by_delegatedCountry", ["delegatedCountry"]),
   docs: defineTable({
     member: v.id("members"),
-    delegate: v.optional(v.id("members")),
     type: v.union(
       v.literal("position_paper"), // AKA: Documento de Posição Oficial (DPO)
       v.literal("final_resolution"),
       v.string(), // Less headache?
     ),
-    document_id: v.id("_storage"), // This could be wrong.
-    google_docs: v.optional(v.string()),
-  })
-    .index("by_delegate", ["delegate"])
-    .index("by_member", ["member"]),
+    uploadthing: v.object(uploadthingSchema),
+    aiAnalysis: v.optional(
+      v.object({
+        jobId: v.string(),
+        scores: v.optional(v.any()),
+        observations: v.optional(v.string()),
+      }),
+    ),
+  }).index("by_member", ["member"]),
   committees: defineTable({
     clerks: v.array(v.id("members")),
     theme: v.string(),
