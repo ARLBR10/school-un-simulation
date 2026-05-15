@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { memberTypes } from "./members";
 import { countriesConvexSchema } from "@/lib/country-list";
-import { uploadthingSchema } from "./documents";
+import { uploadthingSchema } from "./uploadthing";
 
 const gradingEntryKind = v.union(v.literal("grade"), v.literal("deduction"));
 
@@ -30,6 +30,7 @@ export default defineSchema({
     aiAnalysis: v.optional(
       v.object({
         jobId: v.string(),
+        markdown: v.optional(v.array(v.any())),
         scores: v.optional(v.any()),
         observations: v.optional(v.string()),
       }),

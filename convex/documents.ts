@@ -1,25 +1,26 @@
-import { api, components, internal } from "./_generated/api";
 import { WorkflowManager } from "@convex-dev/workflow";
 import { v } from "convex/values";
-import { internalQuery, mutation } from "./_generated/server";
-import { getPostHog } from "./posthog";
-import uploadthing from "./uploadthing";
 
-export const uploadthingSchema = ({
-  name: v.string(),
-  size: v.number(),
-  key: v.string(),
-  ufsUrl: v.string(),
-  hash: v.string()
-})
+import { api, components, internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
+import {
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+} from "./_generated/server";
+import { getPostHog } from "./posthog";
+import { uploadthingSchema } from "./uploadthing";
+import { getMistralClient } from "./ai";
+import { sanitizeOcrPages, type OcrPage } from "@/lib/ocr";
 
 export const documentUploaded = mutation({
   args: {
     ...uploadthingSchema,
-    type: v.union(v.literal("position_paper"))
+    type: v.union(v.literal("position_paper")),
   },
   async handler(ctx, args) {
-    const userInfo = await ctx.runQuery(api.auth.getCurrentUser)
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
     if (!userInfo) {
       await getPostHog().capture(ctx, {
@@ -44,28 +45,32 @@ export const documentUploaded = mutation({
     }
 
     const documentId = await ctx.db.insert("docs", {
-      member: userInfo.member.id,
+      member: userInfo.member._id,
       type: args.type,
       uploadthing: {
         name: args.name,
         size: args.size,
         hash: args.hash,
         key: args.key,
-        ufsUrl: args.ufsUrl
-      }
-    })
-    const jobId = await workflow.start(ctx, internal.documentAnalysis.documentAnalysisWorkflow, {
-      documentId
-    })
+        ufsUrl: args.ufsUrl,
+      },
+    });
+    const jobId = await workflow.start(
+      ctx,
+      internal.documents.documentAnalysisWorkflow,
+      {
+        documentId,
+      },
+    );
 
     await ctx.db.patch("docs", documentId, {
       aiAnalysis: {
-        jobId
-      }
-    })
-    return true
+        jobId,
+      },
+    });
+    return true;
   },
-})
+});
 
 /**
  * Limits
@@ -79,36 +84,144 @@ export const workflow = new WorkflowManager(components.workflow, {
     defaultRetryBehavior: {
       initialBackoffMs: 10000,
       base: 2,
-      maxAttempts: 5
-    }
-  }
-})
+      maxAttempts: 5,
+    },
+  },
+});
 
 /**
  * The document Anaylsis should be a "standard" way of taking a PDF link and extracting it to MD (using Mistral OCR) then have a LLM (with a very strict system prompt) output a object with a score (through out each evaluating parameter) and maybe some observations.
  */
 export const documentAnalysisWorkflow = workflow.define({
   args: {
-    documentId: v.id("docs")
+    documentId: v.id("docs"),
   },
   returns: v.any(), // Temp
   handler: async (step, args) => {
-    const document = await step.runQuery(internal.documents.get, {
-      documentId: args.documentId
-    })
-    const file = await uploadthing.getFile(step, {
-      key: document!.uploadthing.key
-    })
+    const document: Doc<"docs"> | null = await step.runQuery(
+      internal.documents.get,
+      {
+        documentId: args.documentId,
+      },
+    );
+    // Can't use Uploadthing Track for an "admin" view. Freaking stupid...
 
-    
-  }
-})
+    if (!document) {
+      throw new Error("Document was not found for analysis.");
+    }
+
+    const markdownPages: OcrPage[] = await step.runAction(
+      internal.documents.extractMd,
+      {
+        documentId: args.documentId,
+        url: document.uploadthing.ufsUrl,
+      },
+    );
+
+    console.log(markdownPages);
+  },
+});
 
 export const get = internalQuery({
   args: {
-    documentId: v.id("docs")
+    documentId: v.id("docs"),
   },
   async handler(ctx, args) {
-    return ctx.db.get("docs", args.documentId)
+    return ctx.db.get("docs", args.documentId);
   },
-})
+});
+
+export const extractMd = internalAction({
+  args: {
+    documentId: v.id("docs"),
+    url: v.string(),
+  },
+  async handler(ctx, args) {
+    const startedAt = Date.now();
+    const mistralClient = getMistralClient();
+    const ocr = await mistralClient.ocr.process({
+      model: "mistral-ocr-latest",
+      document: {
+        type: "document_url",
+        documentUrl: args.url,
+      },
+      bboxAnnotationFormat: {
+        type: "json_schema",
+        jsonSchema: {
+          name: "response_schema",
+          schemaDefinition: {
+            type: "object",
+            title: "SimpleResponse",
+            properties: {
+              about: {
+                type: "string",
+                description: "What is this image about?",
+              },
+              nationRepresentation: {
+                description: "Is this image a representation of a nation?",
+                type: "boolean",
+              },
+            },
+            required: ["about", "nationRepresentation"],
+          },
+          strict: true,
+        },
+      },
+      tableFormat: "markdown", // HTML is better for more complex documents, this is a simple report so no crazy data here
+    });
+
+    console.log(ocr.pages);
+    const markdownPages = sanitizeOcrPages(ocr.pages);
+    const removedPageCount = ocr.pages.length - markdownPages.length;
+
+    await Promise.all([
+      getPostHog().capture(ctx, {
+        distinctId: "system:documents",
+        event: "mistral_ocr_usage",
+        properties: {
+          action: "documents.extractMd",
+          model: ocr.model,
+          pagesProcessed: ocr.usageInfo.pagesProcessed,
+          docSizeBytes: ocr.usageInfo.docSizeBytes,
+          pageCount: ocr.pages.length,
+          storedPageCount: markdownPages.length,
+          removedPageCount,
+          durationMs: Date.now() - startedAt,
+        },
+      }),
+      ctx.runMutation(internal.documents.updateDocs, {
+        documentId: args.documentId,
+        aiAnalysis: {
+          markdown: markdownPages,
+        },
+      }),
+    ]);
+
+    return markdownPages;
+  },
+});
+
+export const updateDocs = internalMutation({
+  args: {
+    documentId: v.id("docs"),
+    aiAnalysis: v.object({
+      markdown: v.optional(v.array(v.any())),
+      scores: v.optional(v.any()),
+      observations: v.optional(v.string()),
+    }),
+  },
+  async handler(ctx, args) {
+    const document = await ctx.db.get("docs", args.documentId);
+
+    if (!document?.aiAnalysis?.jobId) {
+      throw new Error("Document analysis job was not initialized.");
+    }
+
+    await ctx.db.patch("docs", args.documentId, {
+      aiAnalysis: {
+        ...document.aiAnalysis,
+        ...args.aiAnalysis,
+      },
+    });
+  },
+});
