@@ -4,15 +4,13 @@ import { v } from "convex/values";
 import { api, components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
-  internalAction,
   internalMutation,
   internalQuery,
   mutation,
 } from "./_generated/server";
 import { getPostHog } from "./posthog";
 import { uploadthingSchema } from "./uploadthing";
-import { getMistralClient } from "./ai";
-import { sanitizeOcrPages, type OcrPage } from "@/lib/ocr";
+import type { OcrPage } from "@/lib/ocr";
 
 export const documentUploaded = mutation({
   args: {
@@ -20,28 +18,34 @@ export const documentUploaded = mutation({
     type: v.union(v.literal("position_paper")),
   },
   async handler(ctx, args) {
-    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+    // const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
-    if (!userInfo) {
-      await getPostHog().capture(ctx, {
-        event: "unauthorized_upload",
-        properties: {
-          mutation: "documentAnalysis.uploadedCallback",
-          type: "No userInfo provided.",
-          dataReceived: args,
-        },
-      });
-      return null;
-    } else if (!userInfo.member) {
-      await getPostHog().capture(ctx, {
-        event: "unauthorized_upload",
-        properties: {
-          mutation: "documentAnalysis.uploadedCallback",
-          type: "No membership provided.",
-          dataReceived: args,
-        },
-      });
-      return null;
+    // if (!userInfo) {
+    //   await getPostHog().capture(ctx, {
+    //     event: "unauthorized_upload",
+    //     properties: {
+    //       mutation: "documentAnalysis.uploadedCallback",
+    //       type: "No userInfo provided.",
+    //       dataReceived: args,
+    //     },
+    //   });
+    //   return null;
+    // } else if (!userInfo.member) {
+    //   await getPostHog().capture(ctx, {
+    //     event: "unauthorized_upload",
+    //     properties: {
+    //       mutation: "documentAnalysis.uploadedCallback",
+    //       type: "No membership provided.",
+    //       dataReceived: args,
+    //     },
+    //   });
+    //   return null;
+    // }
+
+    const userInfo = {
+      member: {
+        _id: "jd75pgeghg73fpts0tv39gmhdn85xc78"
+      }
     }
 
     const documentId = await ctx.db.insert("docs", {
@@ -111,7 +115,7 @@ export const documentAnalysisWorkflow = workflow.define({
     }
 
     const markdownPages: OcrPage[] = await step.runAction(
-      internal.documents.extractMd,
+      internal.documentsActions.extractMd,
       {
         documentId: args.documentId,
         url: document.uploadthing.ufsUrl,
@@ -119,6 +123,10 @@ export const documentAnalysisWorkflow = workflow.define({
     );
 
     console.log(markdownPages);
+
+    const aiOutput = await step.runAction(internal.documentsActions.aisdkAnalysis, {
+      documentId: args.documentId
+    })
   },
 });
 
@@ -131,73 +139,12 @@ export const get = internalQuery({
   },
 });
 
-export const extractMd = internalAction({
+export const getDoc = internalQuery({
   args: {
     documentId: v.id("docs"),
-    url: v.string(),
   },
   async handler(ctx, args) {
-    const startedAt = Date.now();
-    const mistralClient = getMistralClient();
-    const ocr = await mistralClient.ocr.process({
-      model: "mistral-ocr-latest",
-      document: {
-        type: "document_url",
-        documentUrl: args.url,
-      },
-      bboxAnnotationFormat: {
-        type: "json_schema",
-        jsonSchema: {
-          name: "response_schema",
-          schemaDefinition: {
-            type: "object",
-            title: "SimpleResponse",
-            properties: {
-              about: {
-                type: "string",
-                description: "What is this image about?",
-              },
-              nationRepresentation: {
-                description: "Is this image a representation of a nation?",
-                type: "boolean",
-              },
-            },
-            required: ["about", "nationRepresentation"],
-          },
-          strict: true,
-        },
-      },
-      tableFormat: "markdown", // HTML is better for more complex documents, this is a simple report so no crazy data here
-    });
-
-    console.log(ocr.pages);
-    const markdownPages = sanitizeOcrPages(ocr.pages);
-    const removedPageCount = ocr.pages.length - markdownPages.length;
-
-    await Promise.all([
-      getPostHog().capture(ctx, {
-        distinctId: "system:documents",
-        event: "mistral_ocr_usage",
-        properties: {
-          action: "documents.extractMd",
-          model: ocr.model,
-          pagesProcessed: ocr.usageInfo.pagesProcessed,
-          docSizeBytes: ocr.usageInfo.docSizeBytes,
-          pageCount: ocr.pages.length,
-          storedPageCount: markdownPages.length,
-          removedPageCount,
-          durationMs: Date.now() - startedAt,
-        },
-      }),
-      ctx.runMutation(internal.documents.updateDocs, {
-        documentId: args.documentId,
-        aiAnalysis: {
-          markdown: markdownPages,
-        },
-      }),
-    ]);
-
-    return markdownPages;
+    return ctx.db.get("docs", args.documentId);
   },
 });
 

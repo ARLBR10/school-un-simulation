@@ -2,7 +2,7 @@ import { v } from "convex/values";
 
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query } from "./_generated/server";
 import { getPostHog } from "./posthog";
 
 export type CommitteeClerkSummary = {
@@ -254,3 +254,12 @@ export const purge = mutation({
     return true;
   },
 });
+
+export const get = internalQuery({
+  args: {
+    id: v.id("committees")
+  }, 
+  async handler(ctx, args) {
+    return await ctx.db.get("committees", args.id)
+  },
+})
