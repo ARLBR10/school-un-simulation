@@ -195,7 +195,7 @@ ${committee!.theme!}
 The committee topics are:
 ${committee!.topics!}
 
-Use this runtime context when evaluating whether the document is coherent with the represented country, the committee, and the proposed debate theme.
+Use this runtime (on observations just call it Instruções) context when evaluating whether the document is coherent with the represented country, the committee, and the proposed debate theme.
 
 If the document refers to a different country, ignores the committee theme, or presents arguments unrelated to this context, mention it in "observations" and consider setting "needs_human_review" to true.
 
@@ -212,8 +212,8 @@ Do not replace the student’s arguments with your own knowledge of the country.
       throw new Error("Document markdown was not found for analysis.");
     }
 
-    console.log(evaluatingParams.system)
-    console.log(documentContent)
+    console.log(evaluatingParams.system);
+    console.log(documentContent);
 
     const { output } = await generateText({
       model: openrouter("gpt-5.4-nano"),
@@ -228,14 +228,14 @@ Do not replace the student’s arguments with your own knowledge of the country.
         },
       ],
       output: Output.object({
-        schema: evaluatingParams.schema
+        schema: evaluatingParams.schema,
       }),
       tools: {
         webSearch: webSearch(),
       },
     });
 
-    console.log(output)
+    console.log(output);
 
     return null;
   },

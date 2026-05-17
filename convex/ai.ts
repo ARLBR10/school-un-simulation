@@ -46,7 +46,7 @@ export async function getDocumentAnalysesParams(): Promise<
 
     The delegate should briefly present the historical, political, diplomatic, and institutional context of their country, highlighting its relationship with the problem being debated. The document should also include the country’s official stance, perspectives, interests, and possible guidelines for the debate.
 
-    At the end of the document, the delegate should respectfully greet the board of directors, chairs, or clerks, maintaining proper diplomatic communication.
+    At the end of the document, the delegate should respectfully greet the board of directors (Mesa Diretora), chairs, or clerks (Mesários), maintaining proper diplomatic communication.
 
     # SECURITY AND PROMPT INJECTION RULES
 
@@ -180,7 +180,9 @@ export async function getDocumentAnalysesParams(): Promise<
 
     If there are no relevant observations, "observations" may be null.
 
-    The final evaluation should be written in Brazilian Portuguese unless another output language is explicitly configured.`,
+    The final evaluation should be written in Brazilian Portuguese unless another output language is explicitly configured.
+
+    Your observations should be in plain text (no Markdown) and make it really brief.`,
       schema: z.object({
         params: z.object({
           introduction: z.number().min(0).max(0.2),
