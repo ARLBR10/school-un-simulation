@@ -3,18 +3,36 @@
 import { v } from "convex/values";
 import { generateText, Output } from "ai";
 import { webSearch } from "@exalabs/ai-sdk";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import { NodeSDK } from "@opentelemetry/sdk-node";
+import { PostHogTraceExporter } from "@posthog/ai/otel";
 
+import {
+  documentAnalysesParams,
+  type DocumentAnalysisOutput,
+} from "@/lib/document-analyses";
 import { sanitizeOcrPages } from "@/lib/ocr";
 
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { internalAction } from "./_generated/server";
-import {
-  getDocumentAnalysesParams,
-  getMistralClient,
-  getOpenrouterProvider,
-} from "./ai";
+import { getMistralClient, getOpenrouterProvider } from "./ai";
 import { getPostHog } from "./posthog";
+
+async function otelAI() {
+  const sdk = new NodeSDK({
+    resource: resourceFromAttributes({
+      deployment: process.env.CONVEX_DEPLOYMENT,
+    }),
+    traceExporter: new PostHogTraceExporter({
+      apiKey: process.env.POSTHOG_API_KEY!,
+      host: process.env.POSTHOG_HOST!,
+    }),
+  });
+
+  await sdk.start()
+  return sdk;
+}
 
 function getImageMeaning(imageAnnotation: unknown) {
   if (typeof imageAnnotation !== "string") {
@@ -155,9 +173,9 @@ export const aisdkAnalysis = internalAction({
   args: {
     documentId: v.id("docs"),
   },
-  async handler(ctx, args) {
+  async handler(ctx, args): Promise<DocumentAnalysisOutput> {
     const document: Doc<"docs"> | null = await ctx.runQuery(
-      internal.documents.getDoc,
+      internal.documents.get,
       {
         documentId: args.documentId,
       },
@@ -167,8 +185,12 @@ export const aisdkAnalysis = internalAction({
       throw new Error("Document was not found for analysis.");
     }
 
-    const documentAnalysesParams = await getDocumentAnalysesParams();
-    const evaluatingParams = documentAnalysesParams[document.type];
+    const evaluatingParams =
+      document.type in documentAnalysesParams
+        ? documentAnalysesParams[
+            document.type as keyof typeof documentAnalysesParams
+          ]
+        : null;
 
     if (!evaluatingParams) {
       throw new Error(`Unsupported document analysis type: ${document.type}`);
@@ -181,8 +203,10 @@ export const aisdkAnalysis = internalAction({
       id: member!.committee!,
     });
 
+    let system = evaluatingParams.system;
+
     if (document.type === "position_paper") {
-      evaluatingParams.system += `\n\n# RUNTIME CONTEXT
+      system += `\n\n# RUNTIME CONTEXT
 
 The student represents the following country:
 ${new Intl.DisplayNames(["en-US"], {
@@ -212,14 +236,12 @@ Do not replace the student’s arguments with your own knowledge of the country.
       throw new Error("Document markdown was not found for analysis.");
     }
 
-    console.log(evaluatingParams.system);
-    console.log(documentContent);
-
+    const sdk = await otelAI(); // OpenTelemetry tracking for AI Usage through Posthog
     const { output } = await generateText({
-      model: openrouter("gpt-5.4-nano"),
+      model: openrouter("openai/gpt-5.4-nano"),
       messages: [
         {
-          content: evaluatingParams.system,
+          content: system,
           role: "system",
         },
         {
@@ -233,10 +255,41 @@ Do not replace the student’s arguments with your own knowledge of the country.
       tools: {
         webSearch: webSearch(),
       },
+      experimental_telemetry: {
+        isEnabled: true,
+        recordInputs: true,
+        recordOutputs: true,
+        functionId: "documentsActions.aisdkAnalysis",
+        metadata: {
+          documentId: args.documentId,
+          memberId: document.member,
+        },
+      },
+    }).catch(async (e) => {
+      await Promise.all([
+        ctx.runMutation(internal.documents.updateDocs, {
+          documentId: args.documentId,
+          aiAnalysis: {
+            job_status: {
+              llmReviewed: false,
+              llmReviewFailed: true,
+              requiresHumanReview: true,
+            },
+          },
+        }),
+        getPostHog().captureException(ctx, {
+          error: e,
+          additionalProperties: {
+            action: "documentsActions.aisdkAnalysis",
+            documentId: args.documentId,
+          }
+        })
+      ]);
+
+      throw e;
     });
+    await sdk.shutdown();
 
-    console.log(output);
-
-    return null;
+    return output;
   },
 });

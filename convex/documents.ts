@@ -2,15 +2,17 @@ import { WorkflowManager } from "@convex-dev/workflow";
 import { v } from "convex/values";
 
 import { api, components, internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
-import {
-  internalMutation,
-  internalQuery,
-  mutation,
-} from "./_generated/server";
+import type { Doc } from "./_generated/dataModel";
+import { internalMutation, internalQuery, mutation } from "./_generated/server";
 import { getPostHog } from "./posthog";
 import { uploadthingSchema } from "./uploadthing";
-import type { OcrPage } from "@/lib/ocr";
+
+export const aiAnalysisStatusSchema = v.object({
+  ocrProcessed: v.optional(v.nullable(v.boolean())),
+  llmReviewFailed: v.optional(v.boolean()),
+  llmReviewed: v.optional(v.boolean()), // An request can fail so we need to know if the review worked or not.
+  requiresHumanReview: v.optional(v.boolean()),
+});
 
 export const documentUploaded = mutation({
   args: {
@@ -18,34 +20,28 @@ export const documentUploaded = mutation({
     type: v.union(v.literal("position_paper")),
   },
   async handler(ctx, args) {
-    // const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
-    // if (!userInfo) {
-    //   await getPostHog().capture(ctx, {
-    //     event: "unauthorized_upload",
-    //     properties: {
-    //       mutation: "documentAnalysis.uploadedCallback",
-    //       type: "No userInfo provided.",
-    //       dataReceived: args,
-    //     },
-    //   });
-    //   return null;
-    // } else if (!userInfo.member) {
-    //   await getPostHog().capture(ctx, {
-    //     event: "unauthorized_upload",
-    //     properties: {
-    //       mutation: "documentAnalysis.uploadedCallback",
-    //       type: "No membership provided.",
-    //       dataReceived: args,
-    //     },
-    //   });
-    //   return null;
-    // }
-
-    const userInfo = {
-      member: {
-        _id: "jd75pgeghg73fpts0tv39gmhdn85xc78"
-      }
+    if (!userInfo) {
+      await getPostHog().capture(ctx, {
+        event: "unauthorized_upload",
+        properties: {
+          mutation: "documentAnalysis.uploadedCallback",
+          type: "No userInfo provided.",
+          dataReceived: args,
+        },
+      });
+      return null;
+    } else if (!userInfo.member) {
+      await getPostHog().capture(ctx, {
+        event: "unauthorized_upload",
+        properties: {
+          mutation: "documentAnalysis.uploadedCallback",
+          type: "No membership provided.",
+          dataReceived: args,
+        },
+      });
+      return null;
     }
 
     const documentId = await ctx.db.insert("docs", {
@@ -67,11 +63,13 @@ export const documentUploaded = mutation({
       },
     );
 
-    await ctx.db.patch("docs", documentId, {
+    await ctx.runMutation(internal.documents.updateDocs, {
+      documentId,
       aiAnalysis: {
         jobId,
-      },
-    });
+        job_status: {},
+      }
+    })
     return true;
   },
 });
@@ -101,7 +99,7 @@ export const documentAnalysisWorkflow = workflow.define({
     documentId: v.id("docs"),
   },
   returns: v.any(), // Temp
-  handler: async (step, args) => {
+  handler: async (step, args): Promise<any> => {
     const document: Doc<"docs"> | null = await step.runQuery(
       internal.documents.get,
       {
@@ -113,20 +111,42 @@ export const documentAnalysisWorkflow = workflow.define({
     if (!document) {
       throw new Error("Document was not found for analysis.");
     }
-
-    const markdownPages: OcrPage[] = await step.runAction(
-      internal.documentsActions.extractMd,
-      {
+    
+    if (!document.aiAnalysis?.markdown) {
+      await step.runAction(internal.documentsActions.extractMd, {
         documentId: args.documentId,
         url: document.uploadthing.ufsUrl,
+      });
+      await step.runMutation(internal.documents.updateDocs, {
+        documentId: args.documentId,
+        aiAnalysis: {
+          job_status: {
+            ocrProcessed: true,
+          },
+        },
+      })
+    }
+
+    const aiOutput = await step.runAction(
+      internal.documentsActions.aisdkAnalysis,
+      {
+        documentId: args.documentId,
       },
     );
+    await step.runMutation(internal.documents.updateDocs, {
+      documentId: args.documentId,
+      aiAnalysis: {
+        job_status: {
+          llmReviewFailed: false,
+          llmReviewed: true,
+          requiresHumanReview: aiOutput.needs_human_review,
+        },
+        scores: aiOutput.params,
+        observations: aiOutput.observations ?? undefined,
+      },
+    });
 
-    console.log(markdownPages);
-
-    const aiOutput = await step.runAction(internal.documentsActions.aisdkAnalysis, {
-      documentId: args.documentId
-    })
+    return aiOutput
   },
 });
 
@@ -139,19 +159,12 @@ export const get = internalQuery({
   },
 });
 
-export const getDoc = internalQuery({
-  args: {
-    documentId: v.id("docs"),
-  },
-  async handler(ctx, args) {
-    return ctx.db.get("docs", args.documentId);
-  },
-});
-
 export const updateDocs = internalMutation({
   args: {
     documentId: v.id("docs"),
     aiAnalysis: v.object({
+      jobId: v.optional(v.string()),
+      job_status: v.optional(aiAnalysisStatusSchema),
       markdown: v.optional(v.array(v.any())),
       scores: v.optional(v.any()),
       observations: v.optional(v.string()),
@@ -159,15 +172,28 @@ export const updateDocs = internalMutation({
   },
   async handler(ctx, args) {
     const document = await ctx.db.get("docs", args.documentId);
+    const currentAiAnalysis = document?.aiAnalysis;
+    const jobId = args.aiAnalysis.jobId ?? currentAiAnalysis?.jobId;
 
-    if (!document?.aiAnalysis?.jobId) {
+    if (!document) {
+      throw new Error("Document was not found for update.");
+    }
+
+    if (!jobId) {
       throw new Error("Document analysis job was not initialized.");
     }
 
     await ctx.db.patch("docs", args.documentId, {
       aiAnalysis: {
-        ...document.aiAnalysis,
+        ...currentAiAnalysis,
         ...args.aiAnalysis,
+        jobId,
+        job_status: args.aiAnalysis.job_status
+          ? {
+              ...currentAiAnalysis?.job_status,
+              ...args.aiAnalysis.job_status,
+            }
+          : currentAiAnalysis?.job_status,
       },
     });
   },

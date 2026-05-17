@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { memberTypes } from "./members";
 import { countriesConvexSchema } from "@/lib/country-list";
 import { uploadthingSchema } from "./uploadthing";
+import { aiAnalysisStatusSchema } from "./documents";
 
 const gradingEntryKind = v.union(v.literal("grade"), v.literal("deduction"));
 
@@ -30,6 +31,7 @@ export default defineSchema({
     aiAnalysis: v.optional(
       v.object({
         jobId: v.string(),
+        job_status: v.optional(aiAnalysisStatusSchema),
         markdown: v.optional(v.array(v.any())),
         scores: v.optional(v.any()),
         observations: v.optional(v.string()),
