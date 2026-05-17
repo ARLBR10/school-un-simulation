@@ -198,7 +198,7 @@ function AppSidebarFooter() {
       </SidebarMenu>
       <div className="flex items-center justify-between border-t border-sidebar-border px-2 pt-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
         <span className="truncate text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
-          Programado por Meg (e IA!)
+          Programado pelo Meg (e IA!)
         </span>
         <Link
           href="https://github.com/ARLBR10/school-un-simulation"
