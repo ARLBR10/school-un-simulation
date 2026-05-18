@@ -1,9 +1,35 @@
 import { z, type ZodObject } from "zod";
 
+import type { Doc } from "@/convex/_generated/dataModel";
+
+export type DocumentType = "position_paper" | "final_resolution";
+
+export type UploadedPdfMetadata = {
+  name: string;
+  size: number;
+  key: string;
+  ufsUrl: string;
+  hash: string;
+};
+
 type DocumentAnalysesParamsTypes = {
   system: string;
   schema: ZodObject;
+  scoreLabels: Record<string, string>;
+  maxScore: number;
 };
+
+export const maxDocumentPdfSize = 8 * 1024 * 1024;
+
+export const documentTypeLabels: Record<DocumentType, string> = {
+  position_paper: "Documento de posição",
+  final_resolution: "Resolução final",
+};
+
+export const documentTypeOptions = [
+  { value: "position_paper", label: documentTypeLabels.position_paper },
+  { value: "final_resolution", label: documentTypeLabels.final_resolution },
+];
 
 export const documentAnalysesParams = {
   position_paper: {
@@ -164,11 +190,192 @@ export const documentAnalysesParams = {
       needs_human_review: z.boolean(),
       observations: z.nullable(z.string()),
     }),
+    scoreLabels: {
+      introduction: "Introdução",
+      objectives: "Objetivos",
+      arguments_basis: "Base argumentativa",
+      conclusion: "Conclusão",
+    },
+    maxScore: 0.7,
   },
-} satisfies Record<string, DocumentAnalysesParamsTypes>;
+} satisfies Partial<Record<DocumentType, DocumentAnalysesParamsTypes>>;
 
 export type DocumentAnalysisType = keyof typeof documentAnalysesParams;
 
 export type DocumentAnalysisOutput = z.output<
   (typeof documentAnalysesParams)[DocumentAnalysisType]["schema"]
 >;
+
+export function hasDocumentAnalysisConfig(
+  type: string,
+): type is DocumentAnalysisType {
+  return type in documentAnalysesParams;
+}
+
+export function isDocumentType(value: string): value is DocumentType {
+  return value === "position_paper" || value === "final_resolution";
+}
+
+export function formatDocumentFileSize(size: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 1,
+  }).format(size / (1024 * 1024));
+}
+
+export function serializeUploadedPdf(file: UploadedPdfMetadata) {
+  return JSON.stringify(file);
+}
+
+export function parseUploadedPdf(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsedValue = JSON.parse(value) as Partial<UploadedPdfMetadata>;
+
+    if (
+      typeof parsedValue.name !== "string" ||
+      typeof parsedValue.size !== "number" ||
+      typeof parsedValue.key !== "string" ||
+      typeof parsedValue.ufsUrl !== "string" ||
+      typeof parsedValue.hash !== "string"
+    ) {
+      return null;
+    }
+
+    return parsedValue as UploadedPdfMetadata;
+  } catch {
+    return null;
+  }
+}
+
+export function getDocumentTypeLabel(type: string) {
+  return isDocumentType(type) ? documentTypeLabels[type] : type;
+}
+
+export function hasCompletedDocumentAnalysis(
+  aiAnalysis: Doc<"docs">["aiAnalysis"],
+) {
+  return Boolean(
+    aiAnalysis?.job_status?.llmReviewed ||
+      aiAnalysis?.scores ||
+      aiAnalysis?.observations,
+  );
+}
+
+export function isDocumentAnalysisProcessing(
+  aiAnalysis: Doc<"docs">["aiAnalysis"],
+) {
+  return Boolean(
+    aiAnalysis?.jobId &&
+      !hasCompletedDocumentAnalysis(aiAnalysis) &&
+      !aiAnalysis.job_status?.llmReviewFailed,
+  );
+}
+
+export function getDocumentAnalysisSummary(aiAnalysis: Doc<"docs">["aiAnalysis"]) {
+  if (isDocumentAnalysisProcessing(aiAnalysis)) {
+    return "Processando";
+  }
+
+  if (aiAnalysis?.job_status?.llmReviewFailed) {
+    return "Falhou";
+  }
+
+  if (hasCompletedDocumentAnalysis(aiAnalysis)) {
+    return "Concluída";
+  }
+
+  return "Indisponível";
+}
+
+export function getDocumentAnalysisMaxScore(type: string) {
+  return hasDocumentAnalysisConfig(type)
+    ? documentAnalysesParams[type].maxScore
+    : undefined;
+}
+
+export function getDocumentScoreEntries(scores: unknown, type: string) {
+  if (!scores || typeof scores !== "object" || Array.isArray(scores)) {
+    return [];
+  }
+
+  const scoreLabels: Record<string, string> = hasDocumentAnalysisConfig(type)
+    ? documentAnalysesParams[type].scoreLabels
+    : {};
+
+  return Object.entries(scores)
+    .filter((entry): entry is [string, number] => typeof entry[1] === "number")
+    .map(([key, value]) => ({
+      key,
+      label: scoreLabels[key] ?? key,
+      value,
+    }));
+}
+
+export function formatDocumentScore(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 0,
+  }).format(value);
+}
+
+export function formatDocumentMarkdownPage(page: unknown, pageIndex: number) {
+  if (typeof page === "string") {
+    return `# Página ${pageIndex + 1}\n\n${page}`;
+  }
+
+  if (!page || typeof page !== "object") {
+    return `# Página ${pageIndex + 1}`;
+  }
+
+  const markdown =
+    "markdown" in page && typeof page.markdown === "string"
+      ? page.markdown
+      : "";
+  const index =
+    "index" in page && typeof page.index === "number" ? page.index : pageIndex;
+
+  return `# Página ${index + 1}\n\n${markdown}`;
+}
+
+export function getDocumentScoreTotal(
+  aiAnalysis: Doc<"docs">["aiAnalysis"],
+  type: string,
+) {
+  const entries = getDocumentScoreEntries(aiAnalysis?.scores, type);
+
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return entries.reduce((total, entry) => total + entry.value, 0);
+}
+
+export function formatDocumentScoreCell(
+  aiAnalysis: Doc<"docs">["aiAnalysis"],
+  type: string,
+) {
+  const total = getDocumentScoreTotal(aiAnalysis, type);
+
+  if (total === null) {
+    return "—";
+  }
+
+  const maxScore = getDocumentAnalysisMaxScore(type);
+
+  return typeof maxScore === "number"
+    ? `${formatDocumentScore(total)} / ${formatDocumentScore(maxScore)}`
+    : formatDocumentScore(total);
+}
+
+export function getDocumentHumanReviewValue(
+  aiAnalysis: Doc<"docs">["aiAnalysis"],
+) {
+  if (!hasCompletedDocumentAnalysis(aiAnalysis)) {
+    return "—";
+  }
+
+  return aiAnalysis?.job_status?.requiresHumanReview ? "true" : "false";
+}

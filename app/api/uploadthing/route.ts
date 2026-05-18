@@ -11,7 +11,7 @@ if (!convexSiteUrl) {
 }
 
 // The route can't have POST, because that route is used for UploadThing Webhook
-export const { GET } = createRouteHandler({
+export const { GET, POST } = createRouteHandler({
   router: ourFileRouter,
   config: {
     callbackUrl: `${convexSiteUrl}/webhooks/uploadthing`,

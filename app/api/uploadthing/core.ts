@@ -14,7 +14,7 @@ export const ourFileRouter = {
         maxFileSize: "8MB",
         maxFileCount: 1,
         minFileCount: 1,
-        acl: "private",
+        acl: "public-read", // private are not allowed in free tier!
       },
     },
     { awaitServerData: false },

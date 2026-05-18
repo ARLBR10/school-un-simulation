@@ -3,9 +3,22 @@ import { v } from "convex/values";
 
 import { api, components, internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { getPostHog } from "./posthog";
 import { uploadthingSchema } from "./uploadthing";
+import { hasDocumentAnalysisConfig } from "@/lib/document-config";
+
+type DocumentPatch = Partial<Pick<Doc<"docs">, "member" | "type" | "uploadthing">>;
+
+export const documentTypes = v.union(
+  v.literal("position_paper"),
+  v.literal("final_resolution"),
+);
 
 export const aiAnalysisStatusSchema = v.object({
   ocrProcessed: v.optional(v.nullable(v.boolean())),
@@ -17,7 +30,7 @@ export const aiAnalysisStatusSchema = v.object({
 export const documentUploaded = mutation({
   args: {
     ...uploadthingSchema,
-    type: v.union(v.literal("position_paper")),
+    type: documentTypes,
   },
   async handler(ctx, args) {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
@@ -55,21 +68,253 @@ export const documentUploaded = mutation({
         ufsUrl: args.ufsUrl,
       },
     });
+
+    if (hasDocumentAnalysisConfig(args.type)) {
+      const jobId = await workflow.start(
+        ctx,
+        internal.documents.documentAnalysisWorkflow,
+        {
+          documentId,
+        },
+      );
+
+      await ctx.runMutation(internal.documents.updateDocs, {
+        documentId,
+        aiAnalysis: {
+          jobId,
+          job_status: {},
+        }
+      });
+    }
+    return true;
+  },
+});
+
+export const getAll = query({
+  args: {},
+  async handler(ctx): Promise<Doc<"docs">[] | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (userInfo?.member?.type !== "admin") {
+      return null;
+    }
+
+    return await ctx.db.query("docs").order("desc").take(999);
+  },
+});
+
+export const create = mutation({
+  args: {
+    member: v.id("members"),
+    type: documentTypes,
+    ...uploadthingSchema,
+  },
+  async handler(ctx, args): Promise<null | boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (userInfo?.member?.type !== "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "documents.create",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
+      return null;
+    }
+
+    const member = await ctx.db.get(args.member);
+
+    if (!member) {
+      return null;
+    }
+
+    await ctx.db.insert("docs", {
+      member: args.member,
+      type: args.type,
+      uploadthing: {
+        name: args.name,
+        size: args.size,
+        hash: args.hash,
+        key: args.key,
+        ufsUrl: args.ufsUrl,
+      },
+    });
+
+    await getPostHog().capture(ctx, {
+      event: "admin_create_document",
+      properties: {
+        member: args.member,
+        type: args.type,
+        uploadthingKey: args.key,
+      },
+    });
+
+    return true;
+  },
+});
+
+export const update = mutation({
+  args: {
+    id: v.id("docs"),
+    member: v.optional(v.id("members")),
+    type: v.optional(documentTypes),
+    uploadthing: v.optional(v.object(uploadthingSchema)),
+  },
+  async handler(ctx, args): Promise<null | boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (userInfo?.member?.type !== "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "documents.update",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
+      return null;
+    }
+
+    const document = await ctx.db.get(args.id);
+
+    if (!document) {
+      return null;
+    }
+
+    const documentPatch: DocumentPatch = {};
+
+    if (args.member !== undefined) {
+      const member = await ctx.db.get(args.member);
+
+      if (!member) {
+        return null;
+      }
+
+      documentPatch.member = args.member;
+    }
+
+    if (args.type !== undefined) {
+      documentPatch.type = args.type;
+    }
+
+    if (args.uploadthing !== undefined) {
+      documentPatch.uploadthing = args.uploadthing;
+    }
+
+    await ctx.db.patch("docs", args.id, documentPatch);
+
+    await getPostHog().capture(ctx, {
+      event: "admin_update_document",
+      properties: {
+        id: args.id,
+        dataReceived: args,
+      },
+    });
+
+    return true;
+  },
+});
+
+export const purge = mutation({
+  args: {
+    id: v.id("docs"),
+  },
+  async handler(ctx, args): Promise<null | boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (userInfo?.member?.type !== "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "documents.purge",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
+      return null;
+    }
+
+    await ctx.db.delete(args.id);
+    await getPostHog().capture(ctx, {
+      event: "admin_delete_document",
+      properties: {
+        id: args.id,
+      },
+    });
+    return true;
+  },
+});
+
+export const rerunAnalysis = mutation({
+  args: {
+    id: v.id("docs"),
+  },
+  async handler(ctx, args): Promise<null | boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (userInfo?.member?.type !== "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "documents.rerunAnalysis",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
+      return null;
+    }
+
+    const document = await ctx.db.get(args.id);
+
+    if (!document || !hasDocumentAnalysisConfig(document.type)) {
+      return null;
+    }
+
+    const currentAnalysis = document.aiAnalysis;
+    const currentAnalysisFinished = Boolean(
+      currentAnalysis?.job_status?.llmReviewed ||
+        currentAnalysis?.job_status?.llmReviewFailed ||
+        currentAnalysis?.scores ||
+        currentAnalysis?.observations,
+    );
+
+    if (currentAnalysis?.jobId && !currentAnalysisFinished) {
+      return null;
+    }
+
     const jobId = await workflow.start(
       ctx,
       internal.documents.documentAnalysisWorkflow,
       {
-        documentId,
+        documentId: args.id,
       },
     );
 
-    await ctx.runMutation(internal.documents.updateDocs, {
-      documentId,
+    await ctx.db.patch("docs", args.id, {
       aiAnalysis: {
         jobId,
         job_status: {},
-      }
-    })
+      },
+    });
+
+    await getPostHog().capture(ctx, {
+      event: "admin_rerun_document_analysis",
+      properties: {
+        id: args.id,
+        type: document.type,
+      },
+    });
+
     return true;
   },
 });

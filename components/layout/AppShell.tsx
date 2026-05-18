@@ -87,7 +87,6 @@ const adminNavigationLinks: NavigationItem[] = [
   { href: "/admin/news", label: "Notícias", icon: Newspaper },
   { href: "/admin/grades", label: "Notas", icon: ClipboardCheck },
   { href: "/admin/documents", label: "Documentos", icon: FileText },
-  { href: "/admin/reports", label: "Relatórios", icon: BarChart3 },
 ];
 
 const pressNavigationLinks: NavigationItem[] = [

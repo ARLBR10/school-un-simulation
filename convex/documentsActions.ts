@@ -9,8 +9,9 @@ import { PostHogTraceExporter } from "@posthog/ai/otel";
 
 import {
   documentAnalysesParams,
+  hasDocumentAnalysisConfig,
   type DocumentAnalysisOutput,
-} from "@/lib/document-analyses";
+} from "@/lib/document-config";
 import { sanitizeOcrPages } from "@/lib/ocr";
 
 import { internal } from "./_generated/api";
@@ -185,12 +186,9 @@ export const aisdkAnalysis = internalAction({
       throw new Error("Document was not found for analysis.");
     }
 
-    const evaluatingParams =
-      document.type in documentAnalysesParams
-        ? documentAnalysesParams[
-            document.type as keyof typeof documentAnalysesParams
-          ]
-        : null;
+    const evaluatingParams = hasDocumentAnalysisConfig(document.type)
+      ? documentAnalysesParams[document.type]
+      : null;
 
     if (!evaluatingParams) {
       throw new Error(`Unsupported document analysis type: ${document.type}`);
