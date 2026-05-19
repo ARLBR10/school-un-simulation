@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useRef } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { ConvexReactClient } from "convex/react";
 import { authClient } from "@/lib/auth-client";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
@@ -33,12 +33,22 @@ export function ConvexClientProvider({
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const [showCredentials, setShowCredentials] = useState(false);
+
+  useEffect(() => {
+    setShowCredentials(
+      new URLSearchParams(window.location.search).get("credentials") === "true",
+    );
+  }, []);
+
   return (
     <AuthUIProvider
       authClient={authClient}
       navigate={router.push}
       replace={router.replace}
       localization={AuthLang_PT_BR}
+      credentials={showCredentials}
+      social={{ providers: ["google"] }}
       onSessionChange={() => {
         // Clear router cache (protected routes)
         router.refresh();

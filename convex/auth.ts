@@ -30,6 +30,15 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       enabled: true,
       requireEmailVerification: false,
     },
+    socialProviders: {
+      google:
+        process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+          ? {
+              clientId: process.env.GOOGLE_CLIENT_ID as string,
+              clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+            }
+          : undefined,
+    },
     plugins: [
       convex({ authConfig }),
       auditLog({
