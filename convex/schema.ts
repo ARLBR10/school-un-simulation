@@ -6,6 +6,7 @@ import { uploadthingSchema } from "./uploadthing";
 import { aiAnalysisStatusSchema } from "./documents";
 
 const gradingEntryKind = v.union(v.literal("grade"), v.literal("deduction"));
+const attendanceStatus = v.union(v.literal("present"), v.literal("absent"));
 
 export default defineSchema({
   members: defineTable({
@@ -61,4 +62,15 @@ export default defineSchema({
     .index("by_kind", ["kind"])
     .index("by_member_and_kind", ["member", "kind"])
     .index("by_member_and_kind_and_category", ["member", "kind", "category"]),
+  attendanceEntries: defineTable({
+    member: v.id("members"),
+    committee: v.id("committees"),
+    dateKey: v.string(),
+    status: attendanceStatus,
+    note: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index("by_member_and_dateKey", ["member", "dateKey"])
+    .index("by_dateKey", ["dateKey"])
+    .index("by_dateKey_and_committee", ["dateKey", "committee"]),
 });

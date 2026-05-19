@@ -9,17 +9,17 @@ import {
 } from "@daveyplate/better-auth-ui";
 import { useQuery } from "convex/react";
 import {
-  BarChart3,
   BookOpen,
   ClipboardCheck,
+  ClipboardList,
   FileText,
   Globe,
-  Home,
   Landmark,
   LogIn,
   Newspaper,
   NotebookPen,
   UserCog,
+  UserCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -86,6 +86,7 @@ const adminNavigationLinks: NavigationItem[] = [
   { href: "/admin/committees", label: "Comitês", icon: Globe },
   { href: "/admin/news", label: "Notícias", icon: Newspaper },
   { href: "/admin/grades", label: "Notas", icon: ClipboardCheck },
+  { href: "/admin/attendance", label: "Presenças", icon: UserCheck },
   { href: "/admin/documents", label: "Documentos", icon: FileText },
 ];
 
@@ -95,6 +96,11 @@ const pressNavigationLinks: NavigationItem[] = [
 
 const gradingNavigationLinks: NavigationItem[] = [
   { href: "/grading", label: "Notas", icon: NotebookPen },
+];
+
+const operationsNavigationLinks: NavigationItem[] = [
+  ...gradingNavigationLinks,
+  { href: "/attendance", label: "Presenças", icon: ClipboardList },
 ];
 
 function isActivePath(pathname: string, item: NavigationItem) {
@@ -238,6 +244,10 @@ function AppSidebar() {
   const isUserInfoLoading = userInfo === undefined;
   const isAdmin = userInfo?.member?.type === "admin";
   const isPress = userInfo?.member?.type === "press" || isAdmin;
+  const canManageAttendance =
+    isAdmin ||
+    userInfo?.member?.type === "logistics" ||
+    userInfo?.member?.type === "clerk";
   const canManageGrades = userInfo?.member
     ? getAllowedMemberTypesForGraderType(
         userInfo.member.type as GradingMemberType,
@@ -322,20 +332,32 @@ function AppSidebar() {
           </SidebarGroup>
         ) : null}
 
-        {!isUserInfoLoading && canManageGrades ? (
+        {!isUserInfoLoading && (canManageGrades || canManageAttendance) ? (
           <SidebarGroup>
             <SidebarGroupLabel className="h-9 text-sm font-semibold">
               Operação
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {gradingNavigationLinks.map((item) => (
-                  <AppSidebarLink
-                    key={item.href}
-                    item={item}
-                    isActive={isActivePath(pathname, item)}
-                  />
-                ))}
+                {operationsNavigationLinks
+                  .filter((item) => {
+                    if (item.href === "/grading") {
+                      return canManageGrades;
+                    }
+
+                    if (item.href === "/attendance") {
+                      return canManageAttendance;
+                    }
+
+                    return true;
+                  })
+                  .map((item) => (
+                    <AppSidebarLink
+                      key={item.href}
+                      item={item}
+                      isActive={isActivePath(pathname, item)}
+                    />
+                  ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -403,6 +425,13 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
     ];
   }
 
+  if (pathname.startsWith("/admin/attendance")) {
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Presenças" },
+    ];
+  }
+
   if (pathname.startsWith("/admin/documents")) {
     return [
       { href: "/admin", label: "Administração" },
@@ -434,6 +463,10 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
 
   if (pathname.startsWith("/grading")) {
     return [{ label: "Lançamentos de notas" }];
+  }
+
+  if (pathname.startsWith("/attendance")) {
+    return [{ label: "Presenças" }];
   }
 
   return [{ label: "Simulação da ONU" }];

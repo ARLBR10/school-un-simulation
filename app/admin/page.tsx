@@ -52,6 +52,15 @@ export default function AdminPage() {
             Registre lançamentos para acompanhar o desempenho dos membros.
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Presenças</CardTitle>
+            <CardDescription>Presença diária por comitê.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Marque presentes e ausentes entre delegados, mesários, logística e imprensa.
+          </CardContent>
+        </Card>
       </div>
     </PageShell>
   );
