@@ -217,11 +217,13 @@ ${committee!.theme!}
 The committee topics are:
 ${committee!.topics!}
 
-Use this runtime (on observations just call it Instruções) context when evaluating whether the document is coherent with the represented country, the committee, and the proposed debate theme.
+Use this runtime context when evaluating whether the document is coherent with the represented country, the committee, and the proposed debate theme.
 
 If the document refers to a different country, ignores the committee theme, or presents arguments unrelated to this context, mention it in "observations" and consider setting "needs_human_review" to true.
 
 Do not replace the student’s arguments with your own knowledge of the country. Use the runtime context only to evaluate alignment, coherence, and factual consistency.
+
+Mentions of this runtime context in observations should be only referred as "Instruções"
 `;
     }
 
