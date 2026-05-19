@@ -13,7 +13,19 @@ export const ourFileRouter = {
       pdf: {
         maxFileSize: "8MB",
         maxFileCount: 1,
-        minFileCount: 1,
+        minFileCount: 0,
+        acl: "public-read", // private are not allowed in free tier!
+      },
+      image: {
+        maxFileSize: "8MB",
+        maxFileCount: 1,
+        minFileCount: 0,
+        acl: "public-read", // private are not allowed in free tier!
+      },
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {
+        maxFileSize: "8MB",
+        maxFileCount: 1,
+        minFileCount: 0,
         acl: "public-read", // private are not allowed in free tier!
       },
     },

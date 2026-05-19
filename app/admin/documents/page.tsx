@@ -10,8 +10,8 @@ import {
   type AdminTableSelectOption,
 } from "@/components/admin/DynamicTable";
 import { BooleanCell } from "@/components/admin/DynamicTableFields";
+import { DocumentFileUploadInput } from "@/components/admin/documents/DocumentFileUploadInput";
 import { DocumentAnalysisDialog } from "@/components/admin/documents/DocumentAnalysisDialog";
-import { PdfUploadInput } from "@/components/admin/documents/PdfUploadInput";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
@@ -24,17 +24,17 @@ import {
   getDocumentHumanReviewValue,
   getDocumentTypeLabel,
   isDocumentType,
-  parseUploadedPdf,
-  serializeUploadedPdf,
+  parseUploadedDocumentFile,
+  serializeUploadedDocumentFile,
 } from "@/lib/document-config";
 
 type DocumentAdminRow = {
   _id: Doc<"docs">["_id"];
   _creationTime: number;
   member: Doc<"members">["_id"];
-  pdfName: string;
-  pdfUrl: string;
-  pdfSize: string;
+  fileName: string;
+  fileUrl: string;
+  fileSize: string;
   type: string;
   analysis: string;
   humanReview: string;
@@ -47,14 +47,14 @@ function createDocumentRow(document: Doc<"docs">): DocumentAdminRow {
     _id: document._id,
     _creationTime: document._creationTime,
     member: document.member,
-    pdfName: document.uploadthing.name,
-    pdfUrl: document.uploadthing.ufsUrl,
-    pdfSize: `${formatDocumentFileSize(document.uploadthing.size)} MB`,
+    fileName: document.uploadthing.name,
+    fileUrl: document.uploadthing.ufsUrl,
+    fileSize: `${formatDocumentFileSize(document.uploadthing.size)} MB`,
     type: document.type,
     analysis: getDocumentAnalysisSummary(document.aiAnalysis),
     humanReview: getDocumentHumanReviewValue(document.aiAnalysis),
     score: formatDocumentScoreCell(document.aiAnalysis, document.type),
-    upload: serializeUploadedPdf(document.uploadthing),
+    upload: serializeUploadedDocumentFile(document.uploadthing),
   };
 }
 
@@ -94,17 +94,17 @@ export default function DocumentsPage() {
 
   const documentColumns: AdminTableColumn<DocumentAdminRow>[] = [
     {
-      key: "pdfName",
-      label: "PDF",
+      key: "fileName",
+      label: "Arquivo",
       showInForm: false,
       render: (document) => (
         <Link
-          href={document.pdfUrl}
+          href={document.fileUrl}
           target="_blank"
           rel="noreferrer"
           className="font-semibold text-foreground underline-offset-4 hover:underline"
         >
-          {document.pdfName}
+          {document.fileName}
         </Link>
       ),
     },
@@ -132,7 +132,7 @@ export default function DocumentsPage() {
       ),
     },
     {
-      key: "pdfSize",
+      key: "fileSize",
       label: "Tamanho",
       showInForm: false,
       hiddenByDefault: true,
@@ -161,17 +161,17 @@ export default function DocumentsPage() {
       render: (document) => (
         <DocumentAnalysisDialog
           document={documentById.get(document._id) ?? null}
-          pdfName={document.pdfName}
+          fileName={document.fileName}
           type={document.type}
         />
       ),
     },
     {
       key: "upload",
-      label: "Arquivo PDF",
+      label: "Arquivo",
       showInTable: false,
       formRender: ({ value, onChange }) => (
-        <PdfUploadInput value={value} onChange={onChange} />
+        <DocumentFileUploadInput value={value} onChange={onChange} />
       ),
     },
   ];
@@ -180,19 +180,19 @@ export default function DocumentsPage() {
     <PageShell>
       <PageHeader
         title="Documentos"
-        description="Gerencie PDFs oficiais da simulação e seus tipos."
+        description="Gerencie arquivos oficiais da simulação e seus tipos."
       />
 
       <DynamicTable
         columns={documentColumns}
         data={documentRows}
         isLoading={documentsData === undefined || membersData === undefined}
-        rowKey="pdfName"
+        rowKey="fileName"
         searchParamKey="_id"
         onCreate={async (values) => {
           const member = values.member?.trim();
           const type = values.type?.trim();
-          const uploadedPdf = parseUploadedPdf(values.upload);
+          const uploadedFile = parseUploadedDocumentFile(values.upload);
 
           if (!member) {
             toast.error("Selecione o membro vinculado ao documento.");
@@ -204,14 +204,16 @@ export default function DocumentsPage() {
             return false;
           }
 
-          if (!uploadedPdf) {
-            toast.error("Envie um PDF antes de criar o documento.");
+          if (!uploadedFile) {
+            toast.error(
+              "Envie um PDF, DOCX ou imagem antes de criar o documento.",
+            );
             return false;
           }
 
           try {
             const created = await documentCreate({
-              ...uploadedPdf,
+              ...uploadedFile,
               member: member as Doc<"members">["_id"],
               type,
             });
@@ -230,7 +232,7 @@ export default function DocumentsPage() {
         onUpdate={async (document, values) => {
           const member = values.member?.trim();
           const type = values.type?.trim();
-          const uploadedPdf = parseUploadedPdf(values.upload);
+          const uploadedFile = parseUploadedDocumentFile(values.upload);
 
           if (member && !memberOptions.some((option) => option.value === member)) {
             toast.error("Selecione um membro válido para o documento.");
@@ -242,8 +244,8 @@ export default function DocumentsPage() {
             return false;
           }
 
-          if (!uploadedPdf) {
-            toast.error("O documento precisa manter um PDF vinculado.");
+          if (!uploadedFile) {
+            toast.error("O documento precisa manter um arquivo vinculado.");
             return false;
           }
 
@@ -252,7 +254,7 @@ export default function DocumentsPage() {
               id: document._id,
               member: member ? (member as Doc<"members">["_id"]) : undefined,
               type: type && isDocumentType(type) ? type : undefined,
-              uploadthing: uploadedPdf ?? undefined,
+              uploadthing: uploadedFile ?? undefined,
             });
 
             if (updated === true) {

@@ -57,11 +57,11 @@ type DocumentAiAnalysis = NonNullable<Doc<"docs">["aiAnalysis"]>;
 
 export function DocumentAnalysisDialog({
   document,
-  pdfName,
+  fileName,
   type,
 }: {
   document: Doc<"docs"> | null;
-  pdfName: string;
+  fileName: string;
   type: string;
 }) {
   const rerunAnalysis = useMutation(api.documents.rerunAnalysis);
@@ -114,7 +114,7 @@ export function DocumentAnalysisDialog({
         <DialogHeader>
           <DialogTitle>Detalhes da análise</DialogTitle>
           <DialogDescription>
-            Resultado da análise automática de {pdfName}.
+            Resultado da análise automática de {fileName}.
           </DialogDescription>
         </DialogHeader>
 

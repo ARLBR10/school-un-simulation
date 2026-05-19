@@ -4,12 +4,15 @@ import type { Doc } from "@/convex/_generated/dataModel";
 
 export type DocumentType = "position_paper" | "final_resolution";
 
-export type UploadedPdfMetadata = {
+export type UploadedDocumentFileKind = "pdf" | "image" | "docx";
+
+export type UploadedDocumentFileMetadata = {
   name: string;
   size: number;
   key: string;
   ufsUrl: string;
   hash: string;
+  mimeType?: string;
 };
 
 type DocumentAnalysesParamsTypes = {
@@ -19,7 +22,11 @@ type DocumentAnalysesParamsTypes = {
   maxScore: number;
 };
 
-export const maxDocumentPdfSize = 8 * 1024 * 1024;
+export const maxDocumentFileSize = 8 * 1024 * 1024;
+
+const supportedDocumentImageExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+const docxMimeType =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 export const documentTypeLabels: Record<DocumentType, string> = {
   position_paper: "Documento de posição",
@@ -222,29 +229,77 @@ export function formatDocumentFileSize(size: number) {
   }).format(size / (1024 * 1024));
 }
 
-export function serializeUploadedPdf(file: UploadedPdfMetadata) {
+export function getUploadedDocumentFileKind(
+  file: Pick<UploadedDocumentFileMetadata, "name"> & { mimeType?: string },
+): UploadedDocumentFileKind | null {
+  const mimeType = file.mimeType?.toLocaleLowerCase("pt-BR") ?? "";
+  const fileName = file.name.toLocaleLowerCase("pt-BR");
+
+  if (mimeType === "application/pdf" || fileName.endsWith(".pdf")) {
+    return "pdf";
+  }
+
+  if (mimeType === docxMimeType || fileName.endsWith(".docx")) {
+    return "docx";
+  }
+
+  if (
+    mimeType.startsWith("image/") ||
+    supportedDocumentImageExtensions.some((extension) => fileName.endsWith(extension))
+  ) {
+    return "image";
+  }
+
+  return null;
+}
+
+export function getUploadedDocumentFileKindLabel(
+  file: Pick<UploadedDocumentFileMetadata, "name"> & { mimeType?: string },
+) {
+  const kind = getUploadedDocumentFileKind(file);
+
+  if (kind === "image") {
+    return "Imagem";
+  }
+
+  if (kind === "docx") {
+    return "DOCX";
+  }
+
+  return "PDF";
+}
+
+export function serializeUploadedDocumentFile(
+  file: UploadedDocumentFileMetadata,
+) {
   return JSON.stringify(file);
 }
 
-export function parseUploadedPdf(value: string | undefined) {
+export function parseUploadedDocumentFile(value: string | undefined) {
   if (!value) {
     return null;
   }
 
   try {
-    const parsedValue = JSON.parse(value) as Partial<UploadedPdfMetadata>;
+    const parsedValue = JSON.parse(value) as Partial<UploadedDocumentFileMetadata>;
 
     if (
       typeof parsedValue.name !== "string" ||
       typeof parsedValue.size !== "number" ||
       typeof parsedValue.key !== "string" ||
       typeof parsedValue.ufsUrl !== "string" ||
-      typeof parsedValue.hash !== "string"
+      typeof parsedValue.hash !== "string" ||
+      (parsedValue.mimeType !== undefined &&
+        typeof parsedValue.mimeType !== "string")
     ) {
       return null;
     }
 
-    return parsedValue as UploadedPdfMetadata;
+    if (!getUploadedDocumentFileKind(parsedValue as UploadedDocumentFileMetadata)) {
+      return null;
+    }
+
+    return parsedValue as UploadedDocumentFileMetadata;
   } catch {
     return null;
   }

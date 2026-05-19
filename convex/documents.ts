@@ -66,6 +66,7 @@ export const documentUploaded = mutation({
         hash: args.hash,
         key: args.key,
         ufsUrl: args.ufsUrl,
+        mimeType: args.mimeType,
       },
     });
 
@@ -141,6 +142,7 @@ export const create = mutation({
         hash: args.hash,
         key: args.key,
         ufsUrl: args.ufsUrl,
+        mimeType: args.mimeType,
       },
     });
 
@@ -361,6 +363,8 @@ export const documentAnalysisWorkflow = workflow.define({
       await step.runAction(internal.documentsActions.extractMd, {
         documentId: args.documentId,
         url: document.uploadthing.ufsUrl,
+        fileName: document.uploadthing.name,
+        mimeType: document.uploadthing.mimeType,
       });
       await step.runMutation(internal.documents.updateDocs, {
         documentId: args.documentId,

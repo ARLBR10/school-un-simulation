@@ -12,4 +12,5 @@ export const uploadthingSchema = {
   key: v.string(),
   ufsUrl: v.string(),
   hash: v.string(),
+  mimeType: v.optional(v.string()),
 };

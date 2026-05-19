@@ -5,6 +5,7 @@ import {
   CircleAlert,
   CloudUpload,
   FileText,
+  ImageIcon,
   RotateCcw,
   Upload,
   X,
@@ -14,14 +15,16 @@ import { Button } from "@/components/ui/button";
 import { useUploadThing } from "@/components/uploadthing";
 import {
   formatDocumentFileSize,
-  maxDocumentPdfSize,
-  parseUploadedPdf,
-  serializeUploadedPdf,
-  type UploadedPdfMetadata,
+  getUploadedDocumentFileKind,
+  getUploadedDocumentFileKindLabel,
+  maxDocumentFileSize,
+  parseUploadedDocumentFile,
+  serializeUploadedDocumentFile,
+  type UploadedDocumentFileMetadata,
 } from "@/lib/document-config";
 import { cn } from "@/lib/utils";
 
-export function PdfUploadInput({
+export function DocumentFileUploadInput({
   value,
   onChange,
 }: {
@@ -31,9 +34,10 @@ export function PdfUploadInput({
   const inputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadedFile, setUploadedFile] = useState<UploadedPdfMetadata | null>(
-    () => parseUploadedPdf(value),
-  );
+  const [uploadedFile, setUploadedFile] =
+    useState<UploadedDocumentFileMetadata | null>(() =>
+      parseUploadedDocumentFile(value),
+    );
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const { startUpload, isUploading } = useUploadThing("documentUploader", {
@@ -47,21 +51,22 @@ export function PdfUploadInput({
         return;
       }
 
-      const nextUploadedFile: UploadedPdfMetadata = {
+      const nextUploadedFile: UploadedDocumentFileMetadata = {
         name: file.name,
         size: file.size,
         key: file.key,
         ufsUrl: file.ufsUrl,
         hash: file.fileHash,
+        mimeType: file.type,
       };
 
       setUploadedFile(nextUploadedFile);
       setUploadProgress(100);
       setUploadError(null);
-      onChange(serializeUploadedPdf(nextUploadedFile));
+      onChange(serializeUploadedDocumentFile(nextUploadedFile));
     },
     onUploadError: (error) => {
-      setUploadError(error.message || "Não foi possível enviar o PDF.");
+      setUploadError(error.message || "Não foi possível enviar o arquivo.");
       setUploadedFile(null);
       onChange("");
     },
@@ -69,6 +74,22 @@ export function PdfUploadInput({
 
   const displayFileName = uploadedFile?.name ?? selectedFile?.name;
   const displayFileSize = uploadedFile?.size ?? selectedFile?.size;
+  const displayFileKind = uploadedFile
+    ? getUploadedDocumentFileKind(uploadedFile)
+    : selectedFile
+      ? getUploadedDocumentFileKind({
+          name: selectedFile.name,
+          mimeType: selectedFile.type,
+        })
+      : null;
+  const displayFileKindLabel = uploadedFile
+    ? getUploadedDocumentFileKindLabel(uploadedFile)
+    : selectedFile
+      ? getUploadedDocumentFileKindLabel({
+          name: selectedFile.name,
+          mimeType: selectedFile.type,
+        })
+      : "Arquivo";
   const hasFile = Boolean(displayFileName);
 
   useEffect(() => {
@@ -76,24 +97,25 @@ export function PdfUploadInput({
       return;
     }
 
-    setUploadedFile(parseUploadedPdf(value));
+    setUploadedFile(parseUploadedDocumentFile(value));
     setSelectedFile(null);
     setUploadProgress(0);
     setUploadError(null);
   }, [value]);
 
   async function uploadFile(file: File) {
-    const isPdf =
-      file.type === "application/pdf" ||
-      file.name.toLocaleLowerCase("pt-BR").endsWith(".pdf");
+    const fileKind = getUploadedDocumentFileKind({
+      name: file.name,
+      mimeType: file.type,
+    });
 
-    if (!isPdf) {
-      setUploadError("Envie apenas arquivos PDF.");
+    if (!fileKind) {
+      setUploadError("Envie apenas arquivos PDF, DOCX ou imagens.");
       return;
     }
 
-    if (file.size > maxDocumentPdfSize) {
-      setUploadError("O PDF deve ter no máximo 8 MB.");
+    if (file.size > maxDocumentFileSize) {
+      setUploadError("O arquivo deve ter no máximo 8 MB.");
       return;
     }
 
@@ -107,11 +129,11 @@ export function PdfUploadInput({
       const uploadedFiles = await startUpload([file]);
 
       if (!uploadedFiles) {
-        setUploadError("Não foi possível iniciar o envio do PDF.");
+        setUploadError("Não foi possível iniciar o envio do arquivo.");
       }
     } catch (error) {
       setUploadError(
-        error instanceof Error ? error.message : "Não foi possível enviar o PDF.",
+        error instanceof Error ? error.message : "Não foi possível enviar o arquivo.",
       );
     }
   }
@@ -166,7 +188,7 @@ export function PdfUploadInput({
         <input
           ref={inputRef}
           type="file"
-          accept="application/pdf,.pdf"
+          accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*,.pdf,.docx,.jpg,.jpeg,.png,.webp"
           className="sr-only"
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -182,14 +204,18 @@ export function PdfUploadInput({
             <div className="flex flex-col gap-4 rounded-lg bg-muted/40 p-4">
               <div className="flex min-w-0 items-start gap-3">
                 <div className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <FileText className="size-6" />
+                  {displayFileKind === "image" ? (
+                    <ImageIcon className="size-6" />
+                  ) : (
+                    <FileText className="size-6" />
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="break-words text-sm font-medium leading-5">
                     {displayFileName}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    PDF
+                    {displayFileKindLabel}
                     {displayFileSize
                       ? ` - ${formatDocumentFileSize(displayFileSize)} MB`
                       : ""}
@@ -207,7 +233,7 @@ export function PdfUploadInput({
                   disabled={isUploading}
                 >
                   <Upload data-icon="inline-start" />
-                  Trocar PDF
+                  Trocar arquivo
                 </Button>
                 <Button
                   type="button"
@@ -226,7 +252,7 @@ export function PdfUploadInput({
             {isUploading ? (
               <div className="flex flex-col gap-2" aria-live="polite">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Enviando PDF...</span>
+                  <span>Enviando arquivo...</span>
                   <span>{Math.round(uploadProgress)}%</span>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -249,12 +275,12 @@ export function PdfUploadInput({
             </span>
 
             <span className="space-y-2">
-              <span className="block text-lg font-semibold">Enviar PDF</span>
+              <span className="block text-lg font-semibold">Enviar arquivo</span>
               <span className="block text-sm text-muted-foreground">
                 Arraste um arquivo para cá ou clique para selecionar.
               </span>
               <span className="block text-xs text-muted-foreground">
-                Formato aceito: PDF - Tamanho máximo: 8 MB
+                Formatos aceitos: PDF, DOCX ou imagem - Tamanho máximo: 8 MB
               </span>
             </span>
 

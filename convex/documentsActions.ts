@@ -9,6 +9,7 @@ import { PostHogTraceExporter } from "@posthog/ai/otel";
 
 import {
   documentAnalysesParams,
+  getUploadedDocumentFileKind,
   hasDocumentAnalysisConfig,
   type DocumentAnalysisOutput,
 } from "@/lib/document-config";
@@ -105,16 +106,30 @@ export const extractMd = internalAction({
   args: {
     documentId: v.id("docs"),
     url: v.string(),
+    fileName: v.optional(v.string()),
+    mimeType: v.optional(v.string()),
   },
   async handler(ctx, args) {
     const startedAt = Date.now();
     const mistralClient = await getMistralClient();
+    const documentKind = getUploadedDocumentFileKind({
+      name: args.fileName ?? args.url,
+      mimeType: args.mimeType,
+    });
+    const ocrDocument =
+      documentKind === "image"
+        ? {
+            type: "image_url" as const,
+            imageUrl: args.url,
+          }
+        : {
+            type: "document_url" as const,
+            documentUrl: args.url,
+          };
+
     const ocr = await mistralClient.ocr.process({
       model: "mistral-ocr-latest",
-      document: {
-        type: "document_url",
-        documentUrl: args.url,
-      },
+      document: ocrDocument,
       bboxAnnotationFormat: {
         type: "json_schema",
         jsonSchema: {
