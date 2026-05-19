@@ -17,7 +17,10 @@ export default function MembershipRequired({
   const router = useRouter();
   const pathname = usePathname();
   const isPublicPath =
-    pathname.startsWith("/auth") || pathname.startsWith("/error");
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/error") ||
+    pathname === "/terms" ||
+    pathname === "/privacy";
 
   useEffect(() => {
     if (userInfo !== undefined) {

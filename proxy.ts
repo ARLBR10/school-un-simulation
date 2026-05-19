@@ -9,7 +9,7 @@ const signInRoutes = [
 ];
 
 // Public routes that don't require authentication
-const publicRoutes = [] as string[];
+const publicRoutes = ["/terms", "/privacy"] as string[];
 
 // Just check cookie, recommended approach
 export async function proxy(request: NextRequest) {

@@ -450,6 +450,14 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
     return [{ label: "Notícias" }];
   }
 
+  if (pathname === "/terms") {
+    return [{ label: "Termos de Serviço" }];
+  }
+
+  if (pathname === "/privacy") {
+    return [{ label: "Política de Privacidade" }];
+  }
+
   if (pathname.startsWith("/news/")) {
     return [
       { href: "/news", label: "Notícias" },
@@ -525,7 +533,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isAuthPath = pathname.startsWith("/auth");
   const isStandalonePath =
-    isAuthPath || pathname.startsWith("/error");
+    isAuthPath || pathname.startsWith("/error") || pathname === ("/terms") || pathname === ("/privacy");
 
   if (isStandalonePath) {
     return (
