@@ -1,7 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    optimizePackageImports: [
+      "@daveyplate/better-auth-ui",
+      "@lexical/react",
+      "framer-motion",
+      "radix-ui",
+      "streamdown",
+    ],
+  },
 };
 
 export default nextConfig;
