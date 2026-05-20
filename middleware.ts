@@ -1,5 +1,6 @@
 import { getSessionCookie } from "better-auth/cookies";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 const signInRoutes = [
   "/auth/sign-in",
@@ -12,7 +13,7 @@ const signInRoutes = [
 const publicRoutes = ["/terms", "/privacy"] as string[];
 
 // Just check cookie, recommended approach
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const sessionCookie = getSessionCookie(request);
 
   const isSignInRoute = signInRoutes.includes(request.nextUrl.pathname);
