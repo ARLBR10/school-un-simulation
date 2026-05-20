@@ -3,13 +3,19 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "build": "next build",
     "dev": "concurrently -c gray,yellow --names next-dev,convex-dev \"bun run next:dev\" \"bun run convex:dev\"",
     "next:dev": "next dev",
     "convex:dev": "convex dev",
     "next:build": "next build",
     "next:start": "next start",
     "betterauth:gen": "cd convex/betterAuth && bunx @better-auth/cli generate -y --output generatedSchema.ts",
-    "lint": "eslint"
+    "lint": "eslint",
+    "opennext:build": "opennextjs-cloudflare build",
+    "opennext:preview": "opennextjs-cloudflare preview",
+    "opennext:deploy": "opennextjs-cloudflare deploy",
+    "opennext:upload": "opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
@@ -40,6 +46,7 @@
     "@lexical/utils": "^0.44.0",
     "@mistralai/mistralai": "^2.2.1",
     "@mzedstudio/uploadthingtrack": "^0.4.1",
+    "@opennextjs/cloudflare": "^1.19.11",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "@opentelemetry/resources": "^2.7.1",
     "@opentelemetry/sdk-node": "^0.218.0",
@@ -94,7 +101,8 @@
     "eslint": "^10.4.0",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4.3.0",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "wrangler": "^4.93.0"
   },
   "ignoreScripts": [
     "sharp",
