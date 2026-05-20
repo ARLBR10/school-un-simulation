@@ -54,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         router.refresh();
       }}
       Link={Link}
+      baseURL={process.env.NEXT_PUBLIC_CONVEX_SITE_URL}
     >
       {children}
     </AuthUIProvider>

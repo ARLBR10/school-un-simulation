@@ -1,16 +1,17 @@
+"use client";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { AdminPageTransition } from "@/components/admin/AdminPageTransition";
 import { api } from "@/convex/_generated/api";
-import { fetchAuthQuery } from "@/lib/auth-server";
+import { useQuery } from "convex/react";
 
 export default async function AdminLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  const userInfo = await fetchAuthQuery(api.auth.getCurrentUser, {});
+  const userInfo = useQuery(api.auth.getCurrentUser);
 
   if (userInfo?.member?.type !== "admin") {
     redirect("/");
