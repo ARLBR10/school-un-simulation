@@ -18,6 +18,7 @@ export default defineSchema({
     committee: v.optional(v.id("committees")),
   })
     .index("by_userId", ["userId"])
+    .index("by_tuitionId", ["tuitionId"])
     .index("by_type", ["type"])
     .index("by_committee", ["committee"])
     .index("by_delegatedCountry", ["delegatedCountry"]),

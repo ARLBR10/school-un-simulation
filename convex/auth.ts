@@ -1,5 +1,7 @@
 import { createClient, type GenericCtx } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
+import { isRunMutationCtx } from "@convex-dev/better-auth/utils";
+import { createAuthMiddleware } from "better-auth/api";
 import { betterAuth } from "better-auth/minimal";
 import { components, internal } from "./_generated/api";
 import { DataModel, Doc } from "./_generated/dataModel";
@@ -17,6 +19,7 @@ import {
 } from "@posthog/core";
 
 const siteUrl = process.env.SITE_URL!;
+const studentEmailDomains = process.env.ALLOWED_DOMAIN?.split(",") ?? []
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -26,6 +29,42 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
   return betterAuth({
     baseURL: siteUrl,
     database: authComponent.adapter(ctx),
+    hooks: {
+      after: createAuthMiddleware(async (hookCtx) => {
+        const newSession = hookCtx.context.newSession;
+        const email = newSession?.user.email.trim().toLowerCase();
+
+        if (
+          !newSession ||
+          !email ||
+          !studentEmailDomains.some((domain) => email.endsWith(`@${domain}`))
+        ) {
+          return;
+        }
+
+        if (!isRunMutationCtx(ctx)) {
+          hookCtx.context.logger.warn(
+            "Skipping student membership assignment outside a Convex mutation/action context.",
+          );
+          return;
+        }
+
+        try {
+          await ctx.runMutation(
+            internal.members.assignStudentMembershipFromEmail,
+            {
+              userId: newSession.session.userId,
+              email,
+            },
+          );
+        } catch (error) {
+          hookCtx.context.logger.error(
+            "Failed to assign student membership after auth session creation.",
+            error,
+          );
+        }
+      }),
+    },
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,

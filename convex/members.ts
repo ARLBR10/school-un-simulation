@@ -3,7 +3,12 @@ import { countriesConvexSchema } from "@/lib/country-list";
 
 import { api, internal } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
-import { internalQuery, mutation, query } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  mutation,
+  query,
+} from "./_generated/server";
 import { getPostHog } from "./posthog";
 
 type MemberPatch = Partial<Omit<Doc<"members">, "_id" | "_creationTime">>;
@@ -39,6 +44,41 @@ export const get = internalQuery({
   },
   async handler(ctx, args): Promise<null | Doc<"members">> {
     return ctx.db.get(args.id);
+  },
+});
+
+export const assignStudentMembershipFromEmail = internalMutation({
+  args: {
+    userId: v.string(),
+    email: v.string(),
+  },
+  async handler(ctx, args) {
+    console.log('before')
+    const [emailName, emailTuitionId] = args.email
+      .replace(/@.*/, "")
+      .split(".") as string[];
+
+    console.log(args)
+    
+    if (!(emailName && emailTuitionId)) {
+      return null;
+    }
+
+    const userByTuitionId = await ctx.db
+      .query("members")
+      .withIndex("by_tuitionId", (q) => q.eq("tuitionId", emailTuitionId))
+      .unique();
+
+    if (userByTuitionId && userByTuitionId.userId === undefined) {
+      await ctx.db.patch("members", userByTuitionId!._id!, {
+        userId: args.userId
+      });
+    } else if (userByTuitionId?.userId) {
+      getPostHog().captureException(ctx, {
+        error: new Error("User with institutional email sign-up and couldn't be associated to an existing member"),
+        distinctId: args.userId
+      })
+    }
   },
 });
 
@@ -148,7 +188,9 @@ export const update = mutation({
 
     const memberPatch: MemberPatch = {
       type:
-        args.type === "admin" ? memberInfo.type : (args.type ?? memberInfo.type),
+        args.type === "admin"
+          ? memberInfo.type
+          : (args.type ?? memberInfo.type),
     };
 
     if ("delegatedCountry" in args) {
