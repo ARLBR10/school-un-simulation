@@ -42,40 +42,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const navigate = useNavigate();
   const [showCredentials, setShowCredentials] = useState(false);
-  const [redirectTo, setRedirectTo] = useState("/");
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const nextRedirectTo = searchParams.get("redirectTo");
 
     setShowCredentials(searchParams.get("credentials") === "true");
-    setRedirectTo(
-      nextRedirectTo?.startsWith("/") && !nextRedirectTo.startsWith("//")
-        ? nextRedirectTo
-        : "/",
-    );
   }, []);
-
-  function goTo(url: string) {
-    void navigate({ to: url });
-  }
-
-  function replaceWith(url: string) {
-    void navigate({ to: url, replace: true });
-  }
 
   return (
     <AuthUIProvider
       authClient={authClient}
-      navigate={goTo}
-      replace={replaceWith}
       localization={AuthLang_PT_BR}
+      redirectTo="/"
       credentials={showCredentials}
-      redirectTo={redirectTo}
       social={{ providers: ["google"] }}
-      onSessionChange={() => {
-        void router.invalidate();
-      }}
       Link={({ href, ...props }) => <Link to={href} {...props} />}
     >
       {children}
