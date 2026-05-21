@@ -6,6 +6,9 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { TanStackDevtools } from "@tanstack/react-devtools"
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
+
 
 import appCss from "./globals.css?url";
 
@@ -107,6 +110,19 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body className="flex min-h-full flex-col bg-black text-white">
         {children}
+
+        <TanStackDevtools
+                  config={{
+                    position: "bottom-right"
+                  }}
+                  plugins={[
+                    {
+                      name: "TanStack Router",
+                      render: <TanStackRouterDevtoolsPanel />
+                    }
+                  ]}
+                />
+        
         <Scripts />
       </body>
     </html>
