@@ -5,17 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -c gray,yellow --names vite-dev,convex-dev \"bun run vite:dev\" \"bun run convex:dev\"",
-    "vite:dev": "vite dev",
+    "vite:dev": "vite dev && tsc --noEmit",
     "vite:build": "vite build",
-    "vite:start": "bun .output/server/index.mjs",
+    "vite:preview": "vite preview",
     "convex:dev": "convex dev",
     "betterauth:gen": "cd convex/betterAuth && bunx @better-auth/cli generate -y --output generatedSchema.ts",
     "lint": "eslint",
+    "cf-deploy": "wrangler deploy",
     "cf-build": "convex deploy --check-build-environment disable --cmd \"convex codegen && bun run vite:build\""
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
     "@convex-dev/better-auth": "^0.12.2",
+    "@convex-dev/react-query": "^0.1.0",
     "@convex-dev/workflow": "^0.3.12",
     "@daveyplate/better-auth-ui": "^3.4.0",
     "@dnd-kit/core": "^6.3.1",
@@ -48,7 +50,9 @@
     "@posthog/ai": "^7.18.7",
     "@posthog/convex": "^0.2.30",
     "@posthog/core": "^1.29.2",
+    "@tanstack/react-query": "^5.100.11",
     "@tanstack/react-router": "^1.170.6",
+    "@tanstack/react-router-ssr-query": "^1.167.0",
     "@tanstack/react-start": "^1.168.9",
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/react-virtual": "^3.13.24",
@@ -92,6 +96,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.37.3",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/eslint-config": "^0.4.0",
     "@types/lodash": "^4.17.24",
@@ -101,7 +106,7 @@
     "eslint": "^10.4.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
-    "wrangler": "^4.93.0"
+    "wrangler": "^4.93.1"
   },
   "ignoreScripts": [
     "sharp",

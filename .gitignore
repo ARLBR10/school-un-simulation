@@ -49,3 +49,6 @@ convex/_generated
 .wrangler
 .dev.vars*
 !.dev.vars.example
+
+# tanstack
+.output/
