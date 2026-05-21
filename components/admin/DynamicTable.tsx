@@ -35,7 +35,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 
 import {
   AdminTableFormDialog,
@@ -351,9 +351,10 @@ export function DynamicTable<T extends AdminTableRow>({
   onUpdate,
   onDelete,
 }: DynamicTableProps<T>) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const pathname = location.pathname;
+  const searchParams = new URLSearchParams(location.searchStr);
   const [tableData, setTableData] = useState<T[]>(data);
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() =>
@@ -705,7 +706,7 @@ export function DynamicTable<T extends AdminTableRow>({
     const nextQuery = nextSearchParams.toString();
     const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
 
-    router.replace(nextUrl);
+    void navigate({ to: nextUrl, replace: true });
   }
 
   function handleOpenCreate() {

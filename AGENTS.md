@@ -1,11 +1,10 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+<!-- BEGIN:tanstack-start-agent-rules -->
+# This Is TanStack Start
 
-This repo uses Next.js 16.2.4 with App Router, React 19, and Tailwind CSS 4.
-Before changing framework code, read the relevant guide in `node_modules/next/dist/docs/`.
-Assume APIs, conventions, and file structure may differ from older Next.js versions.
-Heed deprecation notices and prefer current framework patterns over training-data habits.
-<!-- END:nextjs-agent-rules -->
+This repo uses TanStack Start with React 19, TanStack Router file routes, Vite, Nitro, and Tailwind CSS 4.
+Route files live in `src/app/` and must export `Route` from `createFileRoute` or `createRootRoute`.
+Do not add Next.js APIs, `next/link`, `next/navigation`, `next/font`, App Router metadata exports, or `page.tsx`/`layout.tsx` route files.
+<!-- END:tanstack-start-agent-rules -->
 
 <!-- convex-ai-start -->
 
@@ -25,15 +24,16 @@ Convex agent skills for common tasks can be installed by running
 
 ## Repo Snapshot
 - Package manager: Bun.
-- Frontend: Next.js App Router in `app/`.
+- Frontend: TanStack Start routes in `src/app/`.
 - Language: TypeScript with `strict: true`.
-- Styling: Tailwind CSS 4, shadcn/radix-nova, and reui data-grid components, all driven by tokens in `app/globals.css`.
+- Styling: Tailwind CSS 4, shadcn/radix-nova, and reui data-grid components, all driven by tokens in `src/app/globals.css`.
 - Interface architecture: persistent application chrome in `components/layout/AppShell.tsx`, page spacing and headers via `components/layout/PageShell.tsx`.
 - Backend: Convex, with generated code under `convex/_generated/`.
 - The app has an established admin/public interface style; preserve it for new pages instead of introducing one-off layouts.
 
 ## Directory Guide
-- `app/`: routes, layouts, and global CSS.
+- `src/app/`: TanStack Start file routes, root route, server routes, and global CSS.
+- `src/server/`: server-only helpers used by TanStack Start server routes.
 - `components/`: shared React components and providers.
 - `components/layout/`: app shell, footer, membership guard, and page scaffolding primitives.
 - `components/ui/`: shadcn-style primitives; preserve upstream structure when possible.
@@ -47,12 +47,12 @@ Convex agent skills for common tasks can be installed by running
 ## Commands
 - Install: `bun install`
 - Full dev stack: `bun run dev`
-- Next.js only: `bun run next:dev`
+- TanStack Start only: `bun run vite:dev`
 - Convex only: `bun run convex:dev`
-- Production build: `bun run next:build`
-- Production server: `bun run next:start`
+- Production build: `bun run vite:build`
+- Production server: `bun run vite:start`
 - Full lint: `bun run lint .`
-- Single-file lint: `bun run lint app/page.tsx`
+- Single-file lint: `bun run lint src/app/index.tsx`
 - There is no configured test suite yet.
 - `bun test` currently fails with "0 test files matching ..." because no tests exist.
 - There is no meaningful single-test command today because there are no tests.
@@ -61,23 +61,23 @@ Convex agent skills for common tasks can be installed by running
 
 ## Tooling Facts
 - `tsconfig.json` uses `strict: true`, `moduleResolution: "bundler"`, and the `@/*` path alias.
-- ESLint is configured in `eslint.config.mjs` with Next core-web-vitals and TypeScript presets.
+- ESLint is configured in `eslint.config.mjs` with TanStack presets.
 - There is no Prettier, Biome, Jest, Vitest, Playwright, or Cypress config checked in.
 - `components.json` uses shadcn aliases, the `radix-nova` style, Lucide icons, and the `@reui` registry.
 - Admin tables use `@tanstack/react-table` through `components/reui/data-grid/*`.
 - Motion on public-facing list/detail views uses `framer-motion`; keep transitions subtle and short.
-- `NEXT_PUBLIC_CONVEX_URL` is required by the current provider setup.
+- `VITE_CONVEX_URL` is required by the current provider setup; `VITE_CONVEX_SITE_URL` is required for auth and UploadThing.
 
 ## Current Validation Status
-- `bun run next:build` succeeds in this repo.
-- `bun run lint .` is clean for app code but shows 3 warnings in generated Convex files.
-- Treat those warnings as generated/config noise unless the repo later ignores `convex/_generated`.
+- `bun run vite:build` succeeds in this repo.
+- `bunx tsc --noEmit` succeeds in this repo.
+- `bun run lint .` currently exhausts Node heap in this repo and is deferred.
 
 ## Code Style Expectations
 
 ### General
 - Follow the nearest existing file unless there is a clear repo-wide pattern to apply.
-- Keep changes small, local, and App Router friendly.
+- Keep changes small, local, and TanStack Start friendly.
 - Prefer straightforward code over abstraction-heavy helpers.
 - Do not edit generated output unless the task is specifically about generation.
 
@@ -98,7 +98,7 @@ Convex agent skills for common tasks can be installed by running
 ### Types
 - Do not weaken `strict` settings.
 - Avoid `any`; use explicit props, unions, utility types, or framework types.
-- Reuse framework types such as `Metadata` and `ReactNode` where appropriate.
+- Reuse framework types and `ReactNode` where appropriate.
 - Prefer narrow unions and exact object shapes over loose strings or records.
 - Use non-null assertions only when a boot-time invariant is truly required and obvious.
 - For Convex data, prefer generated types such as `Id<"table">`, `Doc<"table">`, `api`, and `internal`.
@@ -107,18 +107,17 @@ Convex agent skills for common tasks can be installed by running
 - Use PascalCase for React components.
 - Use camelCase for functions, variables, and helpers.
 - Keep code identifiers in English, including variables, functions, components, types, props, tables, and similar names.
-- Keep Next route filenames framework-standard: `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, and similar.
+- Keep route filenames TanStack Router compatible, such as `index.tsx`, `$id.tsx`, `__root.tsx`, and path segment files.
 - Keep shadcn primitive filenames lowercase in `components/ui/` unless the generator requires otherwise.
 - Prefer descriptive names over abbreviations.
 
-### React And Next.js
+### React And TanStack Start
 - Default to Server Components; add `"use client"` only when state, effects, refs, or browser APIs require it.
-- Keep route metadata typed and exported from route/layout files.
+- Configure route metadata with the `head` option in TanStack route definitions.
 - Put cross-app providers in `components/Providers.tsx` or an equally explicit wrapper.
 - Keep global application chrome in `AppShell`; do not recreate sidebars, site headers, auth footers, or shell-level backgrounds in individual pages.
 - Auth and error routes are standalone paths in `AppShell`; preserve that split when adding more auth/error screens.
-- Prefer App Router APIs and current Next.js patterns over Pages Router habits.
-- Use `next/image` and other built-ins when they fit the feature.
+- Use TanStack Router APIs such as `Link`, `useNavigate`, `useLocation`, route params, and route search instead of Next.js APIs.
 
 ### Interface Architecture
 - Build normal route content with `PageShell`; use `PageShell className="mx-auto w-full max-w-*"` for centered public/detail pages and plain `PageShell` for admin sections.
@@ -147,13 +146,13 @@ Convex agent skills for common tasks can be installed by running
 
 ### Styling
 - Use Tailwind utilities for component-level styling.
-- Reuse tokens from `app/globals.css` instead of inventing ad hoc color variables.
+- Reuse tokens from `src/app/globals.css` instead of inventing ad hoc color variables.
 - Prefer semantic classes and design tokens such as `bg-background`, `bg-card`, `text-muted-foreground`, `border-border`, `ring-ring`, `bg-sidebar`, `text-sidebar-foreground`, and status tokens over one-off raw colors.
 - Preserve the dark-first visual language: neutral black/foreground foundation, subtle blue-violet primary accents, rounded card surfaces, light borders/rings, and restrained hover states like `hover:bg-muted/30`.
 - Keep layout rhythm close to the existing shells: `gap-4`, `md:gap-6`, `px-4`, `py-4`, `lg:px-6`, rounded `xl` cards, and compact `h-9` sidebar/menu controls.
 - Prefer responsive flex/grid utilities already used in the app, such as `flex flex-col gap-* sm:flex-row`, `grid gap-4 md:grid-cols-*`, `min-w-0`, `truncate`, and `max-w-*` content widths.
 - Use `cn()` from `@/lib/utils` for conditional class merging.
-- Keep all custom components in `app/` and `components/` (except `components/ui/*`) shadcn-compliant by accepting `className`, merging with `cn()`, and preferring shadcn primitives for interactive UI when available.
+- Keep all custom components in `src/app/` and `components/` (except `components/ui/*`) shadcn-compliant by accepting `className`, merging with `cn()`, and preferring shadcn primitives for interactive UI when available.
 - Keep `components/ui/*` compatible with `class-variance-authority`, Radix Slot, and shadcn conventions.
 - Preserve vendored formatting in `components/ui/*` and `components/reui/*`, even when it differs from project-authored files.
 
@@ -182,14 +181,14 @@ Convex agent skills for common tasks can be installed by running
 
 ## Practical Agent Workflow
 - Read `package.json`, this file, and nearby config before changing behavior.
-- For frontend work, inspect `app/layout.tsx`, `app/globals.css`, `components/layout/AppShell.tsx`, `components/layout/PageShell.tsx`, and nearby components before inventing patterns.
+- For frontend work, inspect `src/app/__root.tsx`, `src/app/globals.css`, `components/layout/AppShell.tsx`, `components/layout/PageShell.tsx`, and nearby components before inventing patterns.
 - For new pages, first decide whether the page is shell-managed, standalone auth/error content, public centered content, or admin content, then follow the matching existing route.
-- For new admin CRUD pages, inspect `components/admin/DynamicTable.tsx` and the closest `app/admin/*/page.tsx` before adding custom table or form code.
+- For new admin CRUD pages, inspect `components/admin/DynamicTable.tsx` and the closest `src/app/admin/*.tsx` before adding custom table or form code.
 - Before adding tests, choose and configure a test runner explicitly; do not assume one exists.
-- Before changing lint behavior, remember the current warnings come from generated Convex files.
+- Before changing lint behavior, remember current full-project linting can exhaust Node heap.
 - If you add new workflow rules, update this file immediately so later agents see them.
 
 ## Validation Checklist
-- Run `bun run lint .` after TS/TSX changes.
-- Run `bun run next:build` before shipping larger frontend work.
+- Run `bunx tsc --noEmit` after TS/TSX changes.
+- Run `bun run vite:build` before shipping larger frontend work.
 - If tests are added later, document both full-suite and single-test commands here right away.

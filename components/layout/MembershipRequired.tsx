@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { usePathname, useRouter } from "next/navigation";
 
 import { api } from "@/convex/_generated/api";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,8 +14,8 @@ export default function MembershipRequired({
 }>) {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const [hasLoadedUserInfo, setHasLoadedUserInfo] = useState(false);
-  const router = useRouter();
-  const pathname = usePathname();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
   const isPublicPath =
     pathname.startsWith("/auth") ||
     pathname.startsWith("/error") ||
@@ -30,9 +30,9 @@ export default function MembershipRequired({
 
   useEffect(() => {
     if (userInfo && !userInfo.member && !isPublicPath) {
-      router.replace("/error/not_authorized");
+      void navigate({ to: "/error/not_authorized", replace: true });
     }
-  }, [router, userInfo, isPublicPath]);
+  }, [navigate, userInfo, isPublicPath]);
 
   if (isPublicPath || userInfo === null || userInfo?.member) {
     return <>{children}</>;

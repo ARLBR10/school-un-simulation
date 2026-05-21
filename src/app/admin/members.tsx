@@ -1,0 +1,621 @@
+"use client";
+
+import { useRef } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useMutation, useQuery } from "convex/react";
+import { toast } from "sonner";
+
+import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
+import {
+  DynamicTable,
+  type AdminTableColumn,
+  type AdminTableSelectOption,
+} from "@/components/admin/DynamicTable";
+import { createSelectColumn } from "@/components/admin/DynamicTableFields";
+import { PageHeader, PageShell } from "@/components/layout/PageShell";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import type { AuthUser } from "@/convex/auth";
+import { api } from "@/convex/_generated/api";
+import type { Doc } from "@/convex/_generated/dataModel";
+import { countries, type CountryCode } from "@/lib/country-list";
+import {
+  getAllowedCategoriesForMemberType,
+  getCategoryDefinition,
+} from "@/lib/grading-categories";
+
+const memberTypeLabels: Record<Doc<"members">["type"], string> = {
+  delegate: "Delegado",
+  logistics: "Logística",
+  press: "Imprensa",
+  clerk: "Mesário",
+  teacher: "Professor",
+  admin: "Administrador",
+};
+
+export const Route = createFileRoute("/admin/members")({
+  component: MembersPage,
+});
+
+const memberTypes: Doc<"members">["type"][] = [
+  "delegate",
+  "logistics",
+  "press",
+  "clerk",
+  "teacher",
+  "admin",
+];
+
+const memberTypeOptions: AdminTableSelectOption[] = memberTypes.map((type) => ({
+  value: type,
+  label: memberTypeLabels[type],
+  disabled: type === "admin",
+}));
+
+const noUserOptionValue = "__no_user__";
+const noCommitteeOptionValue = "__no_committee__";
+
+const countryOptions = countries.map((country) => ({
+  value: country.code,
+  label: `${country.name} (${country.code})`,
+}));
+
+function formatAmount(value: number) {
+  return new Intl.NumberFormat("pt-BR", {
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
+function formatCreatedAt(value: number) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
+}
+
+function getGradingCategoryLabel(entry: Doc<"gradingEntries">) {
+  return getCategoryDefinition(entry.kind, entry.category)?.label ?? entry.category;
+}
+
+function hasGradingAvailable(memberType: Doc<"members">["type"]) {
+  return (
+    getAllowedCategoriesForMemberType("grade", memberType).length > 0 ||
+    getAllowedCategoriesForMemberType("deduction", memberType).length > 0
+  );
+}
+
+function isMemberType(value: string): value is Doc<"members">["type"] {
+  return memberTypes.includes(value as Doc<"members">["type"]);
+}
+
+function normalizeOptionalString(value: string | undefined) {
+  const trimmedValue = value?.trim();
+
+  if (!trimmedValue) {
+    return undefined;
+  }
+
+  return trimmedValue;
+}
+
+function normalizeOptionalUserId(value: string | undefined) {
+  if (value === noUserOptionValue) {
+    return undefined;
+  }
+
+  return normalizeOptionalString(value);
+}
+
+function normalizeNullableString(value: string | undefined) {
+  return normalizeOptionalString(value) ?? null;
+}
+
+function normalizeNullableUserId(value: string | undefined) {
+  if (value === noUserOptionValue) {
+    return null;
+  }
+
+  return normalizeNullableString(value);
+}
+
+function normalizeOptionalCommitteeId(value: string | undefined) {
+  if (value === noCommitteeOptionValue) {
+    return undefined;
+  }
+
+  return normalizeOptionalString(value) as Doc<"committees">["_id"] | undefined;
+}
+
+function normalizeNullableCommitteeId(value: string | undefined) {
+  if (value === noCommitteeOptionValue) {
+    return null;
+  }
+
+  const normalizedValue = normalizeOptionalString(value);
+
+  return normalizedValue ? (normalizedValue as Doc<"committees">["_id"]) : null;
+}
+
+function isCountryCode(value: string): value is CountryCode {
+  return countryOptions.some((option) => option.value === value);
+}
+
+function normalizeOptionalCountryCode(value: string | undefined) {
+  const normalizedValue = normalizeOptionalString(value);
+
+  if (!normalizedValue) {
+    return undefined;
+  }
+
+  return isCountryCode(normalizedValue) ? normalizedValue : undefined;
+}
+
+function normalizeNullableCountryCode(value: string | undefined) {
+  const normalizedValue = normalizeOptionalString(value);
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return isCountryCode(normalizedValue) ? normalizedValue : null;
+}
+
+function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
+  return user.email && user.name
+    ? `${user.name?.trim()} (${user.email?.trim()})`
+    : user.email?.trim() || user._id;
+}
+
+function DelegatedCountryCombobox({
+  disabled,
+  value,
+  onChange,
+}: {
+  disabled: boolean;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const comboboxPortalContainerRef = useRef<HTMLDivElement>(null);
+  const selectedCountryOption =
+    countryOptions.find((option) => option.value === value) ?? null;
+
+  return (
+    <div ref={comboboxPortalContainerRef}>
+      <Combobox
+        items={countryOptions}
+        itemToStringValue={(option) => option.label}
+        value={disabled ? null : selectedCountryOption}
+        onValueChange={(option) => onChange(option?.value ?? "")}
+        autoHighlight
+      >
+        <ComboboxInput
+          placeholder={
+            disabled
+              ? "Selecione um comitê primeiro"
+              : "Nome do país (código de duas letras)"
+          }
+          disabled={disabled}
+          showClear
+          className="h-10 w-full rounded-md bg-background text-foreground shadow-sm hover:bg-background dark:bg-background"
+        />
+        <ComboboxContent portalContainer={comboboxPortalContainerRef}>
+          <ComboboxEmpty>Nenhum país encontrado.</ComboboxEmpty>
+          <ComboboxList>
+            {(option) => (
+              <ComboboxItem key={option.value} value={option}>
+                {option.label}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+    </div>
+  );
+}
+
+function MemberGradingDialog({
+  member,
+  entries,
+  disabled = false,
+}: {
+  member: Doc<"members">;
+  entries: Doc<"gradingEntries">[];
+  disabled?: boolean;
+}) {
+  const orderedEntries = [...entries].sort(
+    (leftEntry, rightEntry) => leftEntry._creationTime - rightEntry._creationTime,
+  );
+  const totalGrades = orderedEntries.reduce(
+    (total, entry) => total + (entry.kind === "grade" ? entry.amount : 0),
+    0,
+  );
+  const totalDeductions = orderedEntries.reduce(
+    (total, entry) => total + (entry.kind === "deduction" ? entry.amount : 0),
+    0,
+  );
+  const netTotal = totalGrades - totalDeductions;
+  let runningTotal = 0;
+  const orderedEntriesWithTotals = orderedEntries.map((entry) => {
+    const signedAmount = entry.kind === "grade" ? entry.amount : -entry.amount;
+    runningTotal += signedAmount;
+
+    return { entry, signedAmount, runningTotal };
+  });
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm" disabled={disabled}>
+          Ver notas
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Histórico de notas de {member.name}</DialogTitle>
+          <DialogDescription>
+            Contagem completa de pontuações e deduções em ordem cronológica.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3 sm:grid-cols-3" aria-live="polite">
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Pontuações adicionadas
+            </p>
+            <p className="text-lg font-semibold">{formatAmount(totalGrades)}</p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Deduções removidas
+            </p>
+            <p className="text-lg font-semibold">{formatAmount(totalDeductions)}</p>
+          </div>
+          <div className="rounded-xl border bg-muted/20 p-3">
+            <p className="text-xs font-medium text-muted-foreground">Total</p>
+            <p className="text-lg font-semibold">{formatAmount(netTotal)}</p>
+          </div>
+        </div>
+
+        <div className="max-h-[60vh] overflow-auto rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Data</TableHead>
+                <TableHead>Movimento</TableHead>
+                <TableHead>Categoria</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="text-right">Total parcial</TableHead>
+                <TableHead>Observação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {orderedEntries.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="py-6 text-center text-muted-foreground"
+                  >
+                    Nenhuma pontuação ou dedução lançada para este membro.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                orderedEntriesWithTotals.map(
+                  ({ entry, signedAmount, runningTotal: currentTotal }) => {
+                    return (
+                      <TableRow key={entry._id}>
+                        <TableCell>{formatCreatedAt(entry._creationTime)}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              entry.kind === "grade" ? "secondary" : "destructive"
+                            }
+                          >
+                            {entry.kind === "grade" ? "Adicionado" : "Removido"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{getGradingCategoryLabel(entry)}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {signedAmount > 0 ? "+" : "-"}
+                          {formatAmount(Math.abs(signedAmount))}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatAmount(currentTotal)}
+                        </TableCell>
+                        <TableCell className="max-w-64 whitespace-normal text-muted-foreground">
+                          {entry.note ?? "-"}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  },
+                )
+              )}
+            </TableBody>
+            {orderedEntries.length > 0 && (
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={4}>Total final</TableCell>
+                  <TableCell className="text-right">
+                    {formatAmount(netTotal)}
+                  </TableCell>
+                  <TableCell />
+                </TableRow>
+              </TableFooter>
+            )}
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MembersPage() {
+  const membersData = useQuery(api.members.getAll);
+  const committeesData = useQuery(api.committees.getAll);
+  const usersData = useQuery(api.auth_admin.getAll);
+  const gradingData = useQuery(api.grading.getAll);
+  const memberCreate = useMutation(api.members.create);
+  const memberUpdate = useMutation(api.members.update);
+  const memberDelete = useMutation(api.members.purge);
+
+  const committeeLabelById: Record<string, string> = {};
+  const committeeOptions: AdminTableSelectOption[] = [
+    { value: noCommitteeOptionValue, label: "Sem comitê" },
+  ];
+
+  for (const committee of committeesData ?? []) {
+    committeeLabelById[committee._id] = committee.theme;
+    committeeOptions.push({
+      value: committee._id,
+      label: committee.theme,
+    });
+  }
+
+  const userLabelById: Record<string, string> = {};
+  const userOptions: AdminTableSelectOption[] = [
+    { value: noUserOptionValue, label: "Sem usuário" },
+  ];
+
+  for (const user of usersData ?? []) {
+    const userLabel = getUserDisplayName(user);
+
+    userLabelById[user._id] = userLabel;
+    userOptions.push({
+      value: user._id,
+      label: userLabel,
+    });
+  }
+
+  // Preserve stale references so existing rows remain editable after user deletion.
+  for (const member of membersData ?? []) {
+    const userId = member.userId?.trim();
+
+    if (!userId || userLabelById[userId]) {
+      continue;
+    }
+
+    userLabelById[userId] = userId;
+    userOptions.push({
+      value: userId,
+      label: userId,
+    });
+  }
+
+  // Preserve stale references so existing rows remain editable after committee deletion.
+  for (const member of membersData ?? []) {
+    const committeeId = member.committee?.trim();
+
+    if (!committeeId || committeeLabelById[committeeId]) {
+      continue;
+    }
+
+    committeeLabelById[committeeId] = committeeId;
+    committeeOptions.push({
+      value: committeeId,
+      label: committeeId,
+    });
+  }
+
+  const membersColumns: AdminTableColumn<Doc<"members">>[] = [
+    { key: "name", label: "Nome" },
+    { key: "tuitionId", label: "Matrícula" },
+    createSelectColumn({
+      key: "committee",
+      label: "Comitê",
+      options: committeeOptions,
+      placeholder: "Selecione um comitê",
+      showInTable: false,
+    }),
+    {
+      key: "delegatedCountry",
+      label: "País representado",
+      showInTable: false,
+      formRender: ({ value, values, onChange }) => {
+        const hasCommittee = Boolean(normalizeOptionalCommitteeId(values.committee));
+
+        return (
+          <DelegatedCountryCombobox
+            disabled={!hasCommittee}
+            value={hasCommittee ? value : ""}
+            onChange={onChange}
+          />
+        );
+      },
+    },
+    createSelectColumn({
+      key: "type",
+      label: "Tipo",
+      options: memberTypeOptions,
+      placeholder: "Selecione um tipo",
+    }),
+    {
+      key: "userId",
+      label: "Usuário",
+      render(row) {
+        if (!row.userId) {
+          return "-";
+        }
+
+        return (
+          <Link
+            to="/admin/users"
+            search={{ _id: row.userId }}
+            className="font-semibold"
+          >
+            {userLabelById[row.userId] ?? row.userId}
+          </Link>
+        );
+      },
+      formRender: ({ value, onChange, mode }) => (
+        <AdminTableSelectInput
+          fieldKey="userId"
+          mode={mode}
+          options={userOptions}
+          placeholder="Selecione um usuário"
+          value={value}
+          onChange={(nextValue) =>
+            onChange(nextValue === noUserOptionValue ? "" : nextValue)
+          }
+        />
+      ),
+    },
+    {
+      key: "_id",
+      label: "Notas",
+      showInForm: false,
+      render: (member) => (
+        <MemberGradingDialog
+          member={member}
+          entries={(gradingData ?? []).filter((entry) => entry.member === member._id)}
+          disabled={!hasGradingAvailable(member.type)}
+        />
+      ),
+    },
+  ];
+
+  return (
+    <PageShell>
+      <PageHeader
+        title="Gerenciador de Membros"
+        description="Cadastre participantes, defina funções e vincule delegados aos comitês."
+      />
+
+      <DynamicTable
+        columns={membersColumns}
+        data={membersData ?? []}
+        isLoading={
+          membersData === undefined ||
+          usersData === undefined ||
+          committeesData === undefined ||
+          gradingData === undefined
+        }
+        rowKey="name"
+        searchParamKey="_id"
+        onCreate={async (values) => {
+          const name = normalizeOptionalString(values.name);
+          const tuitionId = normalizeOptionalString(values.tuitionId);
+          const committee = normalizeOptionalCommitteeId(values.committee);
+          const type = values.type?.trim();
+
+          if (!name || !type || !isMemberType(type)) {
+            toast.error("Preencha nome e tipo para criar o membro.");
+            return false;
+          }
+
+          try {
+            const created = await memberCreate({
+              name,
+              tuitionId,
+              type,
+              userId: normalizeOptionalUserId(values.userId),
+              delegatedCountry: committee
+                ? normalizeOptionalCountryCode(values.delegatedCountry)
+                : undefined,
+              committee,
+            });
+
+            if (created === true) {
+              toast.success("Membro criado com sucesso.");
+              return true;
+            }
+
+            return false;
+          } catch {
+            toast.error("Não foi possível criar o membro.");
+            return false;
+          }
+        }}
+        onUpdate={async (member, values) => {
+          const committee = normalizeNullableCommitteeId(values.committee);
+          const type = values.type?.trim();
+
+          try {
+            const updated = await memberUpdate({
+              id: member._id,
+              name: normalizeOptionalString(values.name),
+              tuitionId: normalizeNullableString(values.tuitionId),
+              type: type && isMemberType(type) ? type : undefined,
+              userId: normalizeNullableUserId(values.userId),
+              delegatedCountry: committee
+                ? normalizeNullableCountryCode(values.delegatedCountry)
+                : null,
+              committee,
+            });
+
+            if (updated === true) {
+              toast.success("Membro atualizado com sucesso.");
+              return true;
+            }
+
+            return false;
+          } catch {
+            toast.error("Não foi possível atualizar o membro.");
+            return false;
+          }
+        }}
+        onDelete={async (member) => {
+          try {
+            const deleted = await memberDelete({ id: member._id });
+
+            if (deleted === true) {
+              toast.success("Membro excluído com sucesso.");
+              return true;
+            }
+
+            return false;
+          } catch {
+            toast.error("Não foi possível excluir o membro.");
+            return false;
+          }
+        }}
+      />
+    </PageShell>
+  );
+}

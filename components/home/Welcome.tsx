@@ -1,7 +1,7 @@
 "use client";
 
 import { type ComponentProps, useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ export function Welcome({ className, ...props }: ComponentProps<"section">) {
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button asChild>
-              <Link href="/committees">Ver comitês</Link>
+              <Link to="/committees">Ver comitês</Link>
             </Button>
           </div>
         </CardHeader>
