@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -c gray,yellow --names vite-dev,convex-dev \"bun run vite:dev\" \"bun run convex:dev\"",
-    "vite:dev": "vite dev && tsc --noEmit",
-    "vite:build": "vite build",
+    "dev": "concurrently -c gray,yellow --names vite-dev,convex-dev \"bun run vite:dev --clearScreen false\" \"bun run convex:dev\"",
+    "vite:dev": "vite dev",
+    "vite:build": "vite build && tsc --noEmit",
     "vite:preview": "vite preview",
     "convex:dev": "convex dev",
     "betterauth:gen": "cd convex/betterAuth && bunx @better-auth/cli generate -y --output generatedSchema.ts",

@@ -52,3 +52,4 @@ convex/_generated
 
 # tanstack
 .output/
+dist/
