@@ -5,7 +5,6 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
-import { cloudflare } from "@cloudflare/vite-plugin";
 
 export default defineConfig({
   server: {
@@ -17,7 +16,6 @@ export default defineConfig({
     },
   },
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),
     tanstackStart({
       srcDirectory: "src", // This is the default
@@ -31,6 +29,6 @@ export default defineConfig({
       },
     }),
     viteReact(),
-    nitro(),
+    nitro()
   ],
 });

@@ -96,7 +96,6 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "^1.37.3",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/eslint-config": "^0.4.0",
     "@types/lodash": "^4.17.24",
