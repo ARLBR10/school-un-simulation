@@ -1,14 +1,16 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
-import { Link, useNavigate, useRouter } from "@tanstack/react-router";
-import { ConvexReactClient } from "convex/react";
-import { authClient } from "@/lib/auth-client";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
-import { AuthLang_PT_BR } from "@/lib/better-auth-ui-lang";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { ConvexReactClient } from "convex/react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+
+import { authClient } from "@/lib/auth-client";
+import { AuthLang_PT_BR } from "@/lib/better-auth-ui-lang";
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL;
 
@@ -40,10 +42,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const navigate = useNavigate();
   const [showCredentials, setShowCredentials] = useState(false);
+  const [redirectTo, setRedirectTo] = useState("/");
 
   useEffect(() => {
-    setShowCredentials(
-      new URLSearchParams(window.location.search).get("credentials") === "true",
+    const searchParams = new URLSearchParams(window.location.search);
+    const nextRedirectTo = searchParams.get("redirectTo");
+
+    setShowCredentials(searchParams.get("credentials") === "true");
+    setRedirectTo(
+      nextRedirectTo?.startsWith("/") && !nextRedirectTo.startsWith("//")
+        ? nextRedirectTo
+        : "/",
     );
   }, []);
 
@@ -62,12 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       replace={replaceWith}
       localization={AuthLang_PT_BR}
       credentials={showCredentials}
+      redirectTo={redirectTo}
       social={{ providers: ["google"] }}
       onSessionChange={() => {
         void router.invalidate();
       }}
       Link={({ href, ...props }) => <Link to={href} {...props} />}
-      baseURL={import.meta.env.VITE_CONVEX_SITE_URL}
     >
       {children}
     </AuthUIProvider>
@@ -124,11 +133,19 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   return <PHProvider client={posthog}>{children}</PHProvider>;
 }
 
-export default function AllProviders({ children }: { children: ReactNode }) {
+export default function AllProviders({
+  children,
+  initialToken,
+}: {
+  children: ReactNode;
+  initialToken?: string | null;
+}) {
   return (
     <PostHogProvider>
       <AuthProvider>
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <ConvexClientProvider initialToken={initialToken}>
+          {children}
+        </ConvexClientProvider>
       </AuthProvider>
     </PostHogProvider>
   );

@@ -1,15 +1,6 @@
-import { createClient, type GenericCtx } from "@convex-dev/better-auth";
-import { convex, crossDomain } from "@convex-dev/better-auth/plugins";
+import { createClient } from "@convex-dev/better-auth";
+import { convex } from "@convex-dev/better-auth/plugins";
 import { isRunMutationCtx } from "@convex-dev/better-auth/utils";
-import { createAuthMiddleware } from "better-auth/api";
-import { betterAuth } from "better-auth/minimal";
-import { components, internal } from "./_generated/api";
-import { DataModel, Doc } from "./_generated/dataModel";
-import { query } from "./_generated/server";
-import authConfig from "./auth.config";
-import { auditLog, AuditLogEntry } from "better-auth-audit-logs";
-import { getPostHog } from "./posthog";
-import { GenericActionCtx } from "convex/server";
 import {
   detectBrowser,
   detectBrowserVersion,
@@ -17,9 +8,22 @@ import {
   detectDeviceType,
   detectOS,
 } from "@posthog/core";
+import { createAuthMiddleware } from "better-auth/api";
+import { auditLog } from "better-auth-audit-logs";
+import { betterAuth } from "better-auth/minimal";
+
+import { components, internal } from "./_generated/api";
+import { query } from "./_generated/server";
+import authConfig from "./auth.config";
+import { getPostHog } from "./posthog";
+
+import type { GenericCtx } from "@convex-dev/better-auth";
+import type { AuditLogEntry } from "better-auth-audit-logs";
+import type { GenericActionCtx } from "convex/server";
+import type { DataModel, Doc } from "./_generated/dataModel";
 
 const siteUrl = process.env.SITE_URL!;
-const studentEmailDomains = process.env.ALLOWED_DOMAIN?.split(",") ?? []
+const studentEmailDomains = process.env.ALLOWED_DOMAIN?.split(",") ?? [];
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -73,14 +77,13 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       google:
         process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
           ? {
-              clientId: process.env.GOOGLE_CLIENT_ID as string,
-              clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+              clientId: process.env.GOOGLE_CLIENT_ID,
+              clientSecret: process.env.GOOGLE_CLIENT_SECRET,
             }
           : undefined,
     },
     plugins: [
       convex({ authConfig }),
-      crossDomain({ siteUrl }),
       auditLog({
         capture: {
           ipAddress: true,

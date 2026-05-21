@@ -3,14 +3,31 @@ import {
   Outlet,
   Scripts,
   createRootRoute,
+  redirect,
 } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+
+import appCss from "./globals.css?url";
+
 import type { ReactNode } from "react";
 
 import { ClientRoot } from "@/components/layout/ClientRoot";
 import { NotFound } from "@/src/app/-not-found";
+import { getToken } from "@/src/server/auth";
 import { cn } from "@/lib/utils";
 
-import appCss from "./globals.css?url";
+const getAuthToken = createServerFn({ method: "GET" }).handler(async () => {
+  return await getToken();
+});
+
+function isPublicRoute(pathname: string) {
+  return (
+    pathname === "/terms" ||
+    pathname === "/privacy" ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/api/")
+  );
+}
 
 export const Route = createRootRoute({
   head: () => ({
@@ -41,14 +58,37 @@ export const Route = createRootRoute({
       { rel: "icon", href: "/favicon.ico" },
     ],
   }),
+  beforeLoad: async ({ location }) => {
+    if (isPublicRoute(location.pathname)) {
+      return {
+        token: null,
+      };
+    }
+
+    const token = await getAuthToken().catch(() => null);
+
+    if (!token) {
+      throw redirect({
+        to: "/auth/$path",
+        params: { path: "sign-in" },
+        search: { redirectTo: location.href },
+      });
+    }
+
+    return {
+      token,
+    };
+  },
   notFoundComponent: NotFound,
   component: RootComponent,
 });
 
 function RootComponent() {
+  const { token } = Route.useRouteContext();
+
   return (
     <RootDocument>
-      <ClientRoot>
+      <ClientRoot initialToken={token ?? null}>
         <Outlet />
       </ClientRoot>
     </RootDocument>

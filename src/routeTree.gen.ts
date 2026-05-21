@@ -35,6 +35,7 @@ import { Route as AdminDocumentsRouteImport } from './app/admin/documents'
 import { Route as AdminCommitteesRouteImport } from './app/admin/committees'
 import { Route as AdminAttendanceRouteImport } from './app/admin/attendance'
 import { Route as AccountPathRouteImport } from './app/account/$path'
+import { Route as ApiAuthSplatRouteImport } from './app/api/auth/$'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
@@ -166,6 +167,11 @@ const AccountPathRoute = AccountPathRouteImport.update({
   path: '/account/$path',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -194,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/committees/': typeof CommitteesIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/committees': typeof CommitteesIndexRoute
   '/news': typeof NewsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -250,6 +258,7 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/committees/': typeof CommitteesIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/committees/'
     | '/news/'
+    | '/api/auth/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/committees'
     | '/news'
+    | '/api/auth/$'
   id:
     | '__root__'
     | '/'
@@ -335,6 +346,7 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/committees/'
     | '/news/'
+    | '/api/auth/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -356,6 +368,7 @@ export interface RootRouteChildren {
   PressNewsRoute: typeof PressNewsRoute
   CommitteesIndexRoute: typeof CommitteesIndexRoute
   NewsIndexRoute: typeof NewsIndexRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -542,6 +555,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountPathRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -588,6 +608,7 @@ const rootRouteChildren: RootRouteChildren = {
   PressNewsRoute: PressNewsRoute,
   CommitteesIndexRoute: CommitteesIndexRoute,
   NewsIndexRoute: NewsIndexRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

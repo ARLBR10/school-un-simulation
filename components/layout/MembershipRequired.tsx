@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import { api } from "@/convex/_generated/api";
 import { Spinner } from "@/components/ui/spinner";
@@ -16,11 +17,12 @@ export default function MembershipRequired({
   const [hasLoadedUserInfo, setHasLoadedUserInfo] = useState(false);
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const isPublicPath =
+  const isLoginPublicPath =
     pathname.startsWith("/auth") ||
-    pathname.startsWith("/error") ||
     pathname === "/terms" ||
     pathname === "/privacy";
+  const isMembershipPublicPath =
+    isLoginPublicPath || pathname.startsWith("/error");
 
   useEffect(() => {
     if (userInfo !== undefined) {
@@ -29,16 +31,31 @@ export default function MembershipRequired({
   }, [userInfo]);
 
   useEffect(() => {
-    if (userInfo && !userInfo.member && !isPublicPath) {
+    if (userInfo === null && !isLoginPublicPath) {
+      void navigate({
+        to: "/auth/$path",
+        params: { path: "sign-in" },
+        search: { redirectTo: pathname },
+        replace: true,
+      });
+    }
+  }, [navigate, pathname, userInfo, isLoginPublicPath]);
+
+  useEffect(() => {
+    if (userInfo && !userInfo.member && !isMembershipPublicPath) {
       void navigate({ to: "/error/not_authorized", replace: true });
     }
-  }, [navigate, userInfo, isPublicPath]);
+  }, [navigate, userInfo, isMembershipPublicPath]);
 
-  if (isPublicPath || userInfo === null || userInfo?.member) {
+  if (
+    isLoginPublicPath ||
+    (pathname.startsWith("/error") && userInfo) ||
+    userInfo?.member
+  ) {
     return <>{children}</>;
   }
 
-  if (userInfo && !userInfo.member) {
+  if (userInfo === null || (userInfo && !userInfo.member)) {
     return null;
   }
 

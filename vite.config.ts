@@ -27,6 +27,7 @@ export default defineConfig({
       },
       prerender: {
         enabled: true,
+        filter: ({ path }) => path === "/terms" || path === "/privacy",
       },
     }),
     viteReact(),
