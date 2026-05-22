@@ -7,9 +7,6 @@ import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  server: {
-    port: 3000,
-  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL(".", import.meta.url)),
@@ -24,7 +21,7 @@ export default defineConfig({
         routesDirectory: "app", // Defaults to "routes", relative to srcDirectory
       },
       prerender: {
-        enabled: true,
+        enabled: false,
         filter: ({ path }) => path === "/terms" || path === "/privacy",
       },
     }),
