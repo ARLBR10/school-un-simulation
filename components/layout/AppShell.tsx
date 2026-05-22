@@ -14,6 +14,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileText,
+  FileUp,
   Globe,
   Landmark,
   LogIn,
@@ -66,6 +67,7 @@ type NavigationItem = {
     | "/committees"
     | "/news"
     | "/rules"
+    | "/dpo"
     | "/admin/members"
     | "/admin/users"
     | "/admin/committees"
@@ -90,6 +92,10 @@ const publicNavigationLinks: NavigationItem[] = [
   { href: "/committees", label: "Comitês", icon: Globe },
   { href: "/news", label: "Notícias", icon: Newspaper },
   { href: "/rules", label: "Regras", icon: BookOpen },
+];
+
+const delegateNavigationLinks: NavigationItem[] = [
+  { href: "/dpo", label: "Enviar DPO", icon: FileUp },
 ];
 
 const adminNavigationLinks: NavigationItem[] = [
@@ -256,6 +262,7 @@ function AppSidebar() {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const isUserInfoLoading = userInfo === undefined;
   const isAdmin = userInfo?.member?.type === "admin";
+  const isDelegate = userInfo?.member?.type === "delegate";
   const isPress = userInfo?.member?.type === "press" || isAdmin;
   const canManageAttendance =
     isAdmin ||
@@ -315,6 +322,25 @@ function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminNavigationLinks.map((item) => (
+                  <AppSidebarLink
+                    key={item.href}
+                    item={item}
+                    isActive={isActivePath(pathname, item)}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
+
+        {!isUserInfoLoading && isDelegate ? (
+          <SidebarGroup>
+            <SidebarGroupLabel className="h-9 text-sm font-semibold">
+              Delegação
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {delegateNavigationLinks.map((item) => (
                   <AppSidebarLink
                     key={item.href}
                     item={item}
@@ -461,6 +487,10 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
 
   if (pathname === "/news") {
     return [{ label: "Notícias" }];
+  }
+
+  if (pathname === "/dpo") {
+    return [{ label: "Enviar DPO" }];
   }
 
   if (pathname === "/terms") {

@@ -39,7 +39,9 @@ export default defineSchema({
         observations: v.optional(v.string()),
       }),
     ),
-  }).index("by_member", ["member"]),
+  })
+    .index("by_member", ["member"])
+    .index("by_member_and_type", ["member", "type"]),
   committees: defineTable({
     clerks: v.array(v.id("members")),
     theme: v.string(),

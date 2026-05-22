@@ -57,8 +57,23 @@ export const documentUploaded = mutation({
       return null;
     }
 
+    const member = userInfo.member;
+
+    if (args.type === "position_paper") {
+      const existingPositionPaper = await ctx.db
+        .query("docs")
+        .withIndex("by_member_and_type", (q) =>
+          q.eq("member", member._id).eq("type", "position_paper"),
+        )
+        .take(1);
+
+      if (existingPositionPaper.length > 0) {
+        return null;
+      }
+    }
+
     const documentId = await ctx.db.insert("docs", {
-      member: userInfo.member._id,
+      member: member._id,
       type: args.type,
       uploadthing: {
         name: args.name,
@@ -84,9 +99,101 @@ export const documentUploaded = mutation({
         aiAnalysis: {
           jobId,
           job_status: {},
-        }
+        },
       });
     }
+    return true;
+  },
+});
+
+export const getMyPositionPaper = query({
+  args: {},
+  async handler(ctx): Promise<Doc<"docs"> | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (!userInfo?.member) {
+      return null;
+    }
+
+    const member = userInfo.member;
+
+    const documents = await ctx.db
+      .query("docs")
+      .withIndex("by_member_and_type", (q) =>
+        q.eq("member", member._id).eq("type", "position_paper"),
+      )
+      .order("desc")
+      .take(1);
+
+    return documents[0] ?? null;
+  },
+});
+
+export const submitPositionPaper = mutation({
+  args: uploadthingSchema,
+  async handler(ctx, args): Promise<null | boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (!userInfo?.member || userInfo.member.type !== "delegate") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "documents.submitPositionPaper",
+          user_type_required: "delegate",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: args,
+        },
+      });
+      return null;
+    }
+
+    const member = userInfo.member;
+
+    const existingPositionPaper = await ctx.db
+      .query("docs")
+      .withIndex("by_member_and_type", (q) =>
+        q.eq("member", member._id).eq("type", "position_paper"),
+      )
+      .take(1);
+
+    if (existingPositionPaper.length > 0) {
+      return false;
+    }
+
+    const documentId = await ctx.db.insert("docs", {
+      member: member._id,
+      type: "position_paper",
+      uploadthing: {
+        name: args.name,
+        size: args.size,
+        hash: args.hash,
+        key: args.key,
+        ufsUrl: args.ufsUrl,
+        mimeType: args.mimeType,
+      },
+    });
+
+    const jobId = await workflow.start(ctx, internal.documents.documentAnalysisWorkflow, {
+      documentId,
+    });
+
+    await ctx.runMutation(internal.documents.updateDocs, {
+      documentId,
+      aiAnalysis: {
+        jobId,
+        job_status: {},
+      },
+    });
+
+    await getPostHog().capture(ctx, {
+      event: "delegate_submit_position_paper",
+      properties: {
+        member: member._id,
+        uploadthingKey: args.key,
+      },
+    });
+
     return true;
   },
 });
