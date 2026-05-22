@@ -12,6 +12,7 @@ import {
 import { getPostHog } from "./posthog";
 
 type MemberPatch = Partial<Omit<Doc<"members">, "_id" | "_creationTime">>;
+type MemberCreateInput = Omit<Doc<"members">, "_id" | "_creationTime">;
 
 export const memberTypes = v.union(
   v.literal("delegate"),
@@ -21,6 +22,16 @@ export const memberTypes = v.union(
   v.literal("teacher"),
   v.literal("admin"), // Coordenação, Secretary General, Meg Dev (@ARLBR10)
 );
+
+const memberCreateArgs = {
+  // Keep this up-to-date with the members table.
+  userId: v.optional(v.string()),
+  name: v.string(),
+  tuitionId: v.optional(v.string()),
+  type: memberTypes,
+  delegatedCountry: v.optional(countriesConvexSchema),
+  committee: v.optional(v.id("committees")),
+};
 
 export const getByUserId = internalQuery({
   args: {
@@ -99,15 +110,7 @@ export const getAll = query({
 // The admin type shouldn't be set by ANY mutation, that job should only occur at the Convex Admin
 
 export const create = mutation({
-  args: {
-    // Keep this up-to-date the table.
-    userId: v.optional(v.string()),
-    name: v.string(),
-    tuitionId: v.optional(v.string()),
-    type: memberTypes,
-    delegatedCountry: v.optional(countriesConvexSchema),
-    committee: v.optional(v.id("committees")),
-  },
+  args: memberCreateArgs,
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 
@@ -126,7 +129,7 @@ export const create = mutation({
       return null;
     }
 
-    const newMember: Omit<Doc<"members">, "_id" | "_creationTime"> = {
+    const newMember: MemberCreateInput = {
       type: args.type === "admin" ? "delegate" : args.type,
       name: args.name,
       ...(args.delegatedCountry !== undefined
@@ -147,6 +150,57 @@ export const create = mutation({
       },
     });
     return true;
+  },
+});
+
+export const bulkCreate = mutation({
+  args: {
+    members: v.array(v.object(memberCreateArgs)),
+  },
+  async handler(ctx, args): Promise<null | { created: number }> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (userInfo?.member?.type != "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "member.bulkCreate",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: { count: args.members.length },
+        },
+      });
+      return null;
+    }
+
+    if (args.members.length > 500) {
+      throw new Error("Crie no máximo 500 membros por importação.");
+    }
+
+    for (const member of args.members) {
+      const newMember: MemberCreateInput = {
+        type: member.type === "admin" ? "delegate" : member.type,
+        name: member.name,
+        ...(member.delegatedCountry !== undefined
+          ? { delegatedCountry: member.delegatedCountry }
+          : {}),
+        ...(member.committee !== undefined ? { committee: member.committee } : {}),
+        ...(member.userId !== undefined ? { userId: member.userId } : {}),
+        ...(member.tuitionId !== undefined ? { tuitionId: member.tuitionId } : {}),
+      };
+
+      await ctx.db.insert("members", newMember);
+    }
+
+    await getPostHog().capture(ctx, {
+      event: "admin_bulk_create_members",
+      properties: {
+        createdCount: args.members.length,
+      },
+    });
+
+    return { created: args.members.length };
   },
 });
 

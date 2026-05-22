@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
@@ -25,8 +25,10 @@ import {
 } from "@/components/ui/combobox";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -40,6 +42,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import type { AuthUser } from "@/convex/auth";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -93,6 +96,33 @@ const countryOptions = countries.map((country) => ({
   value: country.code,
   label: `${country.name} (${country.code})`,
 }));
+
+const bulkMembersExample = JSON.stringify(
+  [
+    {
+      name: "Maria Silva",
+      tuitionId: "12345",
+      type: "delegate",
+      delegatedCountry: "BR",
+    },
+    {
+      name: "João Santos",
+      tuitionId: "67890",
+      type: "press",
+    },
+  ],
+  null,
+  2,
+);
+
+type BulkMemberInput = {
+  name: string;
+  tuitionId?: string;
+  type: Doc<"members">["type"];
+  userId?: string;
+  delegatedCountry?: CountryCode;
+  committee?: Doc<"committees">["_id"];
+};
 
 function formatAmount(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -185,6 +215,70 @@ function normalizeOptionalCountryCode(value: string | undefined) {
   }
 
   return isCountryCode(normalizedValue) ? normalizedValue : undefined;
+}
+
+function getOptionalStringField(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+
+  if (typeof value === "string") {
+    return normalizeOptionalString(value);
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return undefined;
+}
+
+function parseBulkMembersInput(value: string): BulkMemberInput[] {
+  const parsedValue = JSON.parse(value) as unknown;
+
+  if (!Array.isArray(parsedValue)) {
+    throw new Error("O conteúdo precisa ser uma lista JSON.");
+  }
+
+  if (parsedValue.length === 0) {
+    throw new Error("Informe pelo menos um membro para importar.");
+  }
+
+  if (parsedValue.length > 500) {
+    throw new Error("Importe no máximo 500 membros por vez.");
+  }
+
+  return parsedValue.map((item, index) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      throw new Error(`O item ${index + 1} precisa ser um objeto.`);
+    }
+
+    const record = item as Record<string, unknown>;
+    const name = getOptionalStringField(record, "name");
+    const type = getOptionalStringField(record, "type");
+    const delegatedCountry = getOptionalStringField(record, "delegatedCountry");
+
+    if (!name) {
+      throw new Error(`O item ${index + 1} precisa de um nome.`);
+    }
+
+    if (!type || !isMemberType(type)) {
+      throw new Error(`O item ${index + 1} precisa de um tipo válido.`);
+    }
+
+    if (delegatedCountry && !isCountryCode(delegatedCountry)) {
+      throw new Error(`O item ${index + 1} tem um país inválido.`);
+    }
+
+    const committee = getOptionalStringField(record, "committee");
+
+    return {
+      name,
+      type,
+      tuitionId: getOptionalStringField(record, "tuitionId"),
+      userId: getOptionalStringField(record, "userId"),
+      committee: committee as Doc<"committees">["_id"] | undefined,
+      delegatedCountry: delegatedCountry as CountryCode | undefined,
+    };
+  });
 }
 
 function normalizeNullableCountryCode(value: string | undefined) {
@@ -385,12 +479,81 @@ function MemberGradingDialog({
   );
 }
 
+function BulkCreateMembersDialog({
+  onBulkCreate,
+}: {
+  onBulkCreate: (members: BulkMemberInput[]) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(bulkMembersExample);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    setIsSubmitting(true);
+
+    try {
+      const members = parseBulkMembersInput(value);
+      const created = await onBulkCreate(members);
+
+      if (created) {
+        setOpen(false);
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível interpretar a lista de membros.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm">
+          Importar em lote
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Importar membros em lote</DialogTitle>
+          <DialogDescription>
+            Cole uma lista JSON com até 500 membros. Use os mesmos nomes de campos
+            da tabela: name, tuitionId, type, userId, committee e delegatedCountry.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Textarea
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          className="min-h-96 font-mono text-xs"
+          aria-label="Lista JSON de membros"
+        />
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isSubmitting}>
+              Cancelar
+            </Button>
+          </DialogClose>
+          <Button type="button" disabled={isSubmitting} onClick={handleSubmit}>
+            Importar membros
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function MembersPage() {
   const membersData = useQuery(api.members.getAll);
   const committeesData = useQuery(api.committees.getAll);
   const usersData = useQuery(api.auth_admin.getAll);
   const gradingData = useQuery(api.grading.getAll);
   const memberCreate = useMutation(api.members.create);
+  const memberBulkCreate = useMutation(api.members.bulkCreate);
   const memberUpdate = useMutation(api.members.update);
   const memberDelete = useMutation(api.members.purge);
 
@@ -534,6 +697,29 @@ function MembersPage() {
       <PageHeader
         title="Gerenciador de Membros"
         description="Cadastre participantes, defina funções e vincule delegados aos comitês."
+        action={
+          <BulkCreateMembersDialog
+            onBulkCreate={async (members) => {
+              try {
+                const result = await memberBulkCreate({ members });
+
+                if (result) {
+                  toast.success(`${result.created} membros importados com sucesso.`);
+                  return true;
+                }
+
+                return false;
+              } catch (error) {
+                toast.error(
+                  error instanceof Error
+                    ? error.message
+                    : "Não foi possível importar os membros.",
+                );
+                return false;
+              }
+            }}
+          />
+        }
       />
 
       <DynamicTable
