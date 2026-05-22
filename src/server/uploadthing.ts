@@ -5,19 +5,27 @@ import { getToken } from "@convex-dev/better-auth/utils";
 import type { FileRouter } from "uploadthing/server";
 
 import { api } from "@/convex/_generated/api";
+import { getServerEnv } from "@/src/server/env";
 
 const f = createUploadthing();
-const convexSiteUrl = process.env.VITE_CONVEX_SITE_URL;
-const convexUrl = process.env.VITE_CONVEX_URL;
 
-if (!convexSiteUrl) {
-  throw new Error(
-    "VITE_CONVEX_SITE_URL is required for UploadThing authentication",
-  );
-}
+function getUploadThingAuthEnv() {
+  const convexSiteUrl = getServerEnv("VITE_CONVEX_SITE_URL");
+  const convexUrl = getServerEnv("VITE_CONVEX_URL");
 
-if (!convexUrl) {
-  throw new Error("VITE_CONVEX_URL is required for UploadThing authentication");
+  if (!convexSiteUrl) {
+    throw new Error(
+      "VITE_CONVEX_SITE_URL is required for UploadThing authentication",
+    );
+  }
+
+  if (!convexUrl) {
+    throw new Error(
+      "VITE_CONVEX_URL is required for UploadThing authentication",
+    );
+  }
+
+  return { convexSiteUrl, convexUrl };
 }
 
 // FileRouter for your app, can contain multiple FileRoutes
@@ -46,6 +54,7 @@ export const ourFileRouter = {
     { awaitServerData: false },
   )
     .middleware(async ({ req }) => {
+      const { convexSiteUrl, convexUrl } = getUploadThingAuthEnv();
       const headers = new Headers(req.headers);
       const { token } = await getToken(convexSiteUrl, headers);
       const convex = new ConvexHttpClient(convexUrl);

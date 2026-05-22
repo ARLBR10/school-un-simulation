@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createRouteHandler } from "uploadthing/server";
 
 import { ourFileRouter } from "@/src/server/uploadthing";
+import { getServerEnv } from "@/src/server/env";
 
-const convexSiteUrl = process.env.VITE_CONVEX_SITE_URL;
+const convexSiteUrl = getServerEnv("VITE_CONVEX_SITE_URL");
 
 if (!convexSiteUrl) {
   throw new Error(
@@ -15,7 +16,7 @@ const uploadthingHandler = createRouteHandler({
   router: ourFileRouter,
   config: {
     callbackUrl: `${convexSiteUrl}/webhooks/uploadthing`,
-    token: process.env.UPLOADTHING_TOKEN,
+    token: getServerEnv("UPLOADTHING_TOKEN"),
   },
 });
 
