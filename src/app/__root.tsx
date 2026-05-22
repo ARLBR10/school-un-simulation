@@ -75,7 +75,7 @@ export const Route = createRootRoute({
       throw redirect({
         to: "/auth/$path",
         params: { path: "sign-in" },
-        search: { redirectTo: location.href },
+        search: { redirectTo: location.pathname },
       });
     }
 

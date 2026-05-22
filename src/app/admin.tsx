@@ -24,7 +24,10 @@ function AdminLayout() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (userInfo === null || userInfo?.member?.type !== "admin") {
+    if (
+      userInfo !== undefined &&
+      (userInfo === null || userInfo.member?.type !== "admin")
+    ) {
       void navigate({ to: "/", replace: true });
     }
   }, [navigate, userInfo]);

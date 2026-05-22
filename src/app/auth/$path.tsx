@@ -2,8 +2,31 @@ import { AuthView } from "@daveyplate/better-auth-ui";
 import { Link, createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/auth/$path")({
+  head: ({ params }) => ({
+    meta: [
+      {
+        title: `${getAuthPageTitle(params.path)} — Simulação da ONU`,
+      },
+      {
+        name: "description",
+        content: "Acesse sua conta para continuar na plataforma.",
+      },
+    ],
+  }),
   component: AuthPage,
 });
+
+function getAuthPageTitle(path: string) {
+  if (path === "sign-up") {
+    return "Criar conta";
+  }
+
+  if (path === "forgot-password") {
+    return "Recuperar senha";
+  }
+
+  return "Entrar";
+}
 
 const pathsWithLegalLinks = new Set(["sign-in", "sign-up"]);
 

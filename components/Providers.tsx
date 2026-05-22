@@ -20,6 +20,22 @@ if (!convexUrl) {
 
 const convex = new ConvexReactClient(convexUrl);
 
+function getSafeRedirectTo(redirectTo: string | null) {
+  if (!redirectTo) {
+    return "/";
+  }
+
+  if (
+    redirectTo.startsWith("/") &&
+    !redirectTo.startsWith("//") &&
+    !redirectTo.includes("://")
+  ) {
+    return redirectTo;
+  }
+
+  return "/";
+}
+
 export function ConvexClientProvider({
   children,
   initialToken,
@@ -46,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const searchParams = new URLSearchParams(window.location.search);
     const redirectTo = searchParams.get("redirectTo");
 
-    setNextRedirectTo(redirectTo);
+    setNextRedirectTo(getSafeRedirectTo(redirectTo));
     setShowCredentials(searchParams.get("credentials") === "true");
   }, []);
 
