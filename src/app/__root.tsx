@@ -46,6 +46,10 @@ export const Route = createRootRoute({
         name: "description",
         content: "Painel para simulação das Nações Unidas",
       },
+      {
+        name: "apple-mobile-web-app-title",
+        content: "Simulação da ONU",
+      },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -59,7 +63,30 @@ export const Route = createRootRoute({
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Inter:wght@100..900&display=swap",
       },
-      { rel: "icon", href: "/favicon.ico" },
+      {
+        rel: "icon",
+        href: "/favicon-96x96.png",
+        type: "image/png",
+        sizes: "96x96",
+      },
+      {
+        rel: "icon",
+        href: "/favicon.svg",
+        type: "image/svg+xml",
+      },
+      {
+        rel: "shortcut icon",
+        href: "/favicon.ico",
+      },
+      {
+        rel: "apple-touch-icon",
+        href: "/apple-touch-icon.png",
+        sizes: "180x180"
+      },
+      {
+        rel: "manifest",
+        href: "/site.webmanifest"
+      },
     ],
   }),
   beforeLoad: async ({ location }) => {
