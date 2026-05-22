@@ -127,7 +127,7 @@ export const create = mutation({
       return null;
     }
 
-    const member = await ctx.db.get(args.member);
+    const member = await ctx.db.get("members", args.member);
 
     if (!member) {
       return null;
@@ -183,7 +183,7 @@ export const update = mutation({
       return null;
     }
 
-    const document = await ctx.db.get(args.id);
+    const document = await ctx.db.get("docs", args.id);
 
     if (!document) {
       return null;
@@ -192,7 +192,7 @@ export const update = mutation({
     const documentPatch: DocumentPatch = {};
 
     if (args.member !== undefined) {
-      const member = await ctx.db.get(args.member);
+      const member = await ctx.db.get("members", args.member);
 
       if (!member) {
         return null;
@@ -244,7 +244,7 @@ export const purge = mutation({
       return null;
     }
 
-    await ctx.db.delete(args.id);
+    await ctx.db.delete("docs", args.id);
     await getPostHog().capture(ctx, {
       event: "admin_delete_document",
       properties: {
@@ -276,7 +276,7 @@ export const rerunAnalysis = mutation({
       return null;
     }
 
-    const document = await ctx.db.get(args.id);
+    const document = await ctx.db.get("docs", args.id);
 
     if (!document || !hasDocumentAnalysisConfig(document.type)) {
       return null;

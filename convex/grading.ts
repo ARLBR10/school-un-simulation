@@ -196,7 +196,7 @@ async function getManageDataCommittees(
   }
 
   for (const committeeId of committeeIds) {
-    const committee = await ctx.db.get(committeeId);
+    const committee = await ctx.db.get("committees", committeeId);
 
     if (committee) {
       committees.push({ _id: committee._id, theme: committee.theme });
@@ -278,7 +278,7 @@ async function validateGradingEntry(
     throw new Error("Grading entry amount cannot be negative.");
   }
 
-  const member = await ctx.db.get(entry.member);
+  const member = await ctx.db.get("members", entry.member);
   if (!member) {
     throw new Error("Grading entry member does not exist.");
   }
@@ -452,7 +452,7 @@ export const create = mutation({
         ? { note: normalizeOptionalString(args.note) }
         : {}),
     });
-    const createdEntry = await ctx.db.get(entryId);
+    const createdEntry = await ctx.db.get("gradingEntries", entryId);
 
     await logGradingAction({
       ctx,
@@ -487,7 +487,7 @@ export const update = mutation({
     }
 
     const { actor, scope } = authorization;
-    const existingEntry = await ctx.db.get(args.id);
+    const existingEntry = await ctx.db.get("gradingEntries", args.id);
     if (!existingEntry) {
       return null;
     }
@@ -521,8 +521,8 @@ export const update = mutation({
       ...("note" in args ? { note: normalizedNote } : {}),
     };
 
-    await ctx.db.patch(args.id, entryPatch);
-    const updatedEntry = await ctx.db.get(args.id);
+    await ctx.db.patch("gradingEntries", args.id, entryPatch);
+    const updatedEntry = await ctx.db.get("gradingEntries", args.id);
 
     await logGradingAction({
       ctx,
@@ -552,7 +552,7 @@ export const purge = mutation({
     }
 
     const { actor, scope } = authorization;
-    const existingEntry = await ctx.db.get(args.id);
+    const existingEntry = await ctx.db.get("gradingEntries", args.id);
     if (!existingEntry) {
       return null;
     }
@@ -565,7 +565,7 @@ export const purge = mutation({
       existingEntry,
     );
 
-    await ctx.db.delete(args.id);
+    await ctx.db.delete("gradingEntries", args.id);
     await logGradingAction({
       ctx,
       actor,

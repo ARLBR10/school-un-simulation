@@ -96,14 +96,14 @@ export const getById = query({
       return null;
     }
 
-    const committee = await ctx.db.get(committeeId);
+    const committee = await ctx.db.get("committees", committeeId);
 
     if (!committee) {
       return null;
     }
 
     const clerkDocs = await Promise.all(
-      committee.clerks.map((clerkId) => ctx.db.get(clerkId)),
+      committee.clerks.map((clerkId) => ctx.db.get("members", clerkId)),
     );
 
     const clerks: CommitteeClerkSummary[] = clerkDocs

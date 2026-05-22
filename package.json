@@ -10,7 +10,9 @@
     "vite:preview": "vite preview",
     "convex:dev": "convex dev",
     "betterauth:gen": "cd convex/betterAuth && bunx @better-auth/cli generate -y --output generatedSchema.ts",
-    "lint": "eslint",
+    "lint": "bun run lint:oxlint && bun run lint:convex",
+    "lint:oxlint": "oxlint",
+    "lint:convex": "eslint convex",
     "cf-deploy": "wrangler deploy",
     "cf-build": "convex deploy --check-build-environment disable --cmd \"convex codegen && bun run vite:build\""
   },
@@ -98,15 +100,17 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@convex-dev/eslint-plugin": "^2.0.0",
     "@tailwindcss/vite": "^4.3.0",
-    "@tanstack/eslint-config": "^0.4.0",
     "@types/lodash": "^4.17.24",
     "@types/node": "^25.8.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "eslint": "^10.4.0",
+    "oxlint": "^1.66.0",
     "tailwindcss": "^4.3.0",
     "typescript": "^6.0.3",
+    "typescript-eslint": "^8.59.4",
     "wrangler": "^4.93.1"
   },
   "ignoreScripts": [

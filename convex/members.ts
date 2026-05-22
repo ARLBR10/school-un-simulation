@@ -43,7 +43,7 @@ export const get = internalQuery({
     id: v.id("members"),
   },
   async handler(ctx, args): Promise<null | Doc<"members">> {
-    return ctx.db.get(args.id);
+    return ctx.db.get("members", args.id);
   },
 });
 

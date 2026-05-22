@@ -1,11 +1,12 @@
 import { v } from "convex/values";
 
-import { api, components, internal } from "./_generated/api";
+import { api, components } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import { authComponent, createAuth, type AuthUser } from "./auth";
 import { getPostHog } from "./posthog";
 
 export const getAll = query({
+  args: {},
   async handler(ctx): Promise<AuthUser[] | null> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
 

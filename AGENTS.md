@@ -51,7 +51,9 @@ Convex agent skills for common tasks can be installed by running
 - Convex only: `bun run convex:dev`
 - Production build: `bun run vite:build`
 - Production server: `bun run vite:start`
-- Full lint: `bun run lint .`
+- Full lint: `bun run lint`
+- Oxlint only: `bun run lint:oxlint`
+- Convex-specific lint: `bun run lint:convex`
 - Single-file lint: `bun run lint src/app/index.tsx`
 - There is no configured test suite yet.
 - `bun test` currently fails with "0 test files matching ..." because no tests exist.
@@ -61,7 +63,7 @@ Convex agent skills for common tasks can be installed by running
 
 ## Tooling Facts
 - `tsconfig.json` uses `strict: true`, `moduleResolution: "bundler"`, and the `@/*` path alias.
-- ESLint is configured in `eslint.config.mjs` with TanStack presets.
+- Oxlint is configured in `.oxlintrc.json`; Convex-specific ESLint rules are configured in `eslint.config.mjs` and scoped to `convex/`.
 - There is no Prettier, Biome, Jest, Vitest, Playwright, or Cypress config checked in.
 - `components.json` uses shadcn aliases, the `radix-nova` style, Lucide icons, and the `@reui` registry.
 - Admin tables use `@tanstack/react-table` through `components/reui/data-grid/*`.
@@ -71,7 +73,7 @@ Convex agent skills for common tasks can be installed by running
 ## Current Validation Status
 - `bun run vite:build` succeeds in this repo.
 - `bunx tsc --noEmit` succeeds in this repo.
-- `bun run lint .` currently exhausts Node heap in this repo and is deferred.
+- `bun run lint` succeeds in this repo.
 
 ## Code Style Expectations
 
@@ -185,10 +187,11 @@ Convex agent skills for common tasks can be installed by running
 - For new pages, first decide whether the page is shell-managed, standalone auth/error content, public centered content, or admin content, then follow the matching existing route.
 - For new admin CRUD pages, inspect `components/admin/DynamicTable.tsx` and the closest `src/app/admin/*.tsx` before adding custom table or form code.
 - Before adding tests, choose and configure a test runner explicitly; do not assume one exists.
-- Before changing lint behavior, remember current full-project linting can exhaust Node heap.
+- Keep general lint configuration in `.oxlintrc.json`; keep ESLint limited to Convex-specific rules unless explicitly requested.
 - If you add new workflow rules, update this file immediately so later agents see them.
 
 ## Validation Checklist
 - Run `bunx tsc --noEmit` after TS/TSX changes.
+- Run `bun run lint` after lint configuration changes.
 - Run `bun run vite:build` before shipping larger frontend work.
 - If tests are added later, document both full-suite and single-test commands here right away.

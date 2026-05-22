@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "off"
+  },
+  "plugins": [
+    "import",
+    "typescript"
+  ],
+  "env": {
+    "browser": true,
+    "builtin": true,
+    "es2024": true,
+    "node": true
+  },
+  "ignorePatterns": [
+    ".output/**",
+    ".nitro/**",
+    ".vinxi/**",
+    "node_modules/**",
+    "src/routeTree.gen.ts",
+    "convex/_generated/**",
+    "**/.nx/**",
+    "**/.svelte-kit/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/dist/**",
+    "**/snap/**",
+    "**/vite.config.*.timestamp-*.*"
+  ],
+  "rules": {
+    "no-debugger": "error",
+    "no-var": "error",
+    "prefer-const": "warn",
+    "typescript/array-type": "off"
+  }
+}

@@ -121,7 +121,7 @@ async function getAccessibleCommittees(
   const committees: Doc<"committees">[] = [];
 
   for (const committeeId of committeeIds) {
-    const committee = await ctx.db.get(committeeId);
+    const committee = await ctx.db.get("committees", committeeId);
 
     if (committee) {
       committees.push(committee);
@@ -145,7 +145,7 @@ async function getCommitteeMembers(ctx: QueryCtx, committee: Doc<"committees">) 
   }
 
   for (const clerkId of committee.clerks) {
-    const clerk = await ctx.db.get(clerkId);
+    const clerk = await ctx.db.get("members", clerkId);
 
     if (clerk && isTrackedMemberType(clerk.type)) {
       membersById.set(clerk._id, toMemberSummary(clerk));
@@ -178,7 +178,7 @@ async function getMembersForCommittees(
     }
 
     for (const clerkId of committee.clerks) {
-      const clerk = await ctx.db.get(clerkId);
+      const clerk = await ctx.db.get("members", clerkId);
 
       if (clerk && isTrackedMemberType(clerk.type)) {
         membersById.set(clerk._id, clerk);
@@ -462,7 +462,7 @@ export const saveStatuses = mutation({
       };
 
       if (existingEntry) {
-        await ctx.db.patch(existingEntry._id, nextEntry);
+        await ctx.db.patch("attendanceEntries", existingEntry._id, nextEntry);
       } else {
         await ctx.db.insert("attendanceEntries", {
           member: member._id,

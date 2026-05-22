@@ -138,7 +138,7 @@ export const list = query({
 
     const authorsById = new Map<Id<"members">, string>();
     for (const authorId of authorIds) {
-      const author = await ctx.db.get(authorId);
+      const author = await ctx.db.get("members", authorId);
       if (author) {
         authorsById.set(author._id, author.name);
       }
@@ -170,7 +170,7 @@ export const getById = query({
       return null;
     }
 
-    const news = await ctx.db.get(newsId);
+    const news = await ctx.db.get("news", newsId);
     if (!news) {
       return null;
     }
@@ -181,14 +181,14 @@ export const getById = query({
 
     let authorName: string | null = null;
     if (news.author) {
-      const author = await ctx.db.get(news.author);
+      const author = await ctx.db.get("members", news.author);
       authorName = author?.name ?? null;
     }
 
     const committeeNames: string[] = [];
     if (news.committee) {
       for (const committeeId of news.committee) {
-        const committee = await ctx.db.get(committeeId);
+        const committee = await ctx.db.get("committees", committeeId);
         if (committee) {
           committeeNames.push(committee.theme);
         }
@@ -233,7 +233,7 @@ export const getManageList = query({
 
     const authorsById = new Map<Id<"members">, string>();
     for (const authorId of authorIds) {
-      const author = await ctx.db.get(authorId);
+      const author = await ctx.db.get("members", authorId);
       if (author) {
         authorsById.set(author._id, author.name);
       }
@@ -241,7 +241,7 @@ export const getManageList = query({
 
     const committeesById = new Map<Id<"committees">, string>();
     for (const committeeId of committeeIds) {
-      const committee = await ctx.db.get(committeeId);
+      const committee = await ctx.db.get("committees", committeeId);
       if (committee) {
         committeesById.set(committee._id, committee.theme);
       }
@@ -305,7 +305,7 @@ export const create = mutation({
         : {}),
     };
     const newsId = await ctx.db.insert("news", newNews);
-    const createdNews = await ctx.db.get(newsId);
+    const createdNews = await ctx.db.get("news", newsId);
 
     await getPostHog().capture(ctx, {
       event: getNewsAuditEventName(userInfo.member, "create"),
@@ -362,7 +362,7 @@ export const update = mutation({
       return null;
     }
 
-    const existingNews = await ctx.db.get(args.id);
+    const existingNews = await ctx.db.get("news", args.id);
     if (!existingNews) {
       return null;
     }
@@ -444,7 +444,7 @@ export const purge = mutation({
       return null;
     }
 
-    const existingNews = await ctx.db.get(args.id);
+    const existingNews = await ctx.db.get("news", args.id);
     if (!existingNews) {
       return null;
     }
