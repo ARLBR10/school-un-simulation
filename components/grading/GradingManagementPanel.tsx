@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { ListChecks, MinusCircle, Pencil, PlusCircle, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -522,7 +522,11 @@ function getEntryColumns({
         }
 
         return (
-          <Link href={`/admin/members?_id=${entry.member}`} className="block">
+          <Link
+            to="/admin/members"
+            search={{ _id: entry.member }}
+            className="block"
+          >
             {content}
           </Link>
         );

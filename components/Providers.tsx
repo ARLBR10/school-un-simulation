@@ -1,17 +1,40 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
-import { ConvexReactClient } from "convex/react";
-import { authClient } from "@/lib/auth-client";
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { AuthLang_PT_BR } from "@/lib/better-auth-ui-lang";
+import { Link } from "@tanstack/react-router";
+import { ConvexReactClient } from "convex/react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
+import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
-const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL!);
+import { authClient } from "@/lib/auth-client";
+import { AuthLang_PT_BR } from "@/lib/better-auth-ui-lang";
+
+const convexUrl = import.meta.env.VITE_CONVEX_URL;
+
+if (!convexUrl) {
+  throw new Error("VITE_CONVEX_URL is required");
+}
+
+const convex = new ConvexReactClient(convexUrl);
+
+function getSafeRedirectTo(redirectTo: string | null) {
+  if (!redirectTo) {
+    return "/";
+  }
+
+  if (
+    redirectTo.startsWith("/") &&
+    !redirectTo.startsWith("//") &&
+    !redirectTo.includes("://")
+  ) {
+    return redirectTo;
+  }
+
+  return "/";
+}
 
 export function ConvexClientProvider({
   children,
@@ -32,29 +55,25 @@ export function ConvexClientProvider({
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [showCredentials, setShowCredentials] = useState(false);
+  const [nextRedirectTo, setNextRedirectTo] = useState<string | null>(null);
 
   useEffect(() => {
-    setShowCredentials(
-      new URLSearchParams(window.location.search).get("credentials") === "true",
-    );
+    const searchParams = new URLSearchParams(window.location.search);
+    const redirectTo = searchParams.get("redirectTo");
+
+    setNextRedirectTo(getSafeRedirectTo(redirectTo));
+    setShowCredentials(searchParams.get("credentials") === "true");
   }, []);
 
   return (
     <AuthUIProvider
       authClient={authClient}
-      navigate={router.push}
-      replace={router.replace}
       localization={AuthLang_PT_BR}
+      redirectTo={nextRedirectTo || "/"}
       credentials={showCredentials}
       social={{ providers: ["google"] }}
-      onSessionChange={() => {
-        // Clear router cache (protected routes)
-        router.refresh();
-      }}
-      Link={Link}
-      baseURL={process.env.NEXT_PUBLIC_CONVEX_SITE_URL}
+      Link={({ href, ...props }) => <Link to={href} {...props} />}
     >
       {children}
     </AuthUIProvider>
@@ -73,8 +92,8 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY as string, {
-      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
+    posthog.init(import.meta.env.VITE_POSTHOG_KEY as string, {
+      api_host: import.meta.env.VITE_POSTHOG_HOST,
       defaults: "2026-01-30",
       bootstrap: userId
         ? {
@@ -111,11 +130,19 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   return <PHProvider client={posthog}>{children}</PHProvider>;
 }
 
-export default function AllProviders({ children }: { children: ReactNode }) {
+export default function AllProviders({
+  children,
+  initialToken,
+}: {
+  children: ReactNode;
+  initialToken?: string | null;
+}) {
   return (
     <PostHogProvider>
       <AuthProvider>
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+        <ConvexClientProvider initialToken={initialToken}>
+          {children}
+        </ConvexClientProvider>
       </AuthProvider>
     </PostHogProvider>
   );

@@ -1,5 +1,4 @@
 import { SiGithub } from '@icons-pack/react-simple-icons'
-import Link from "next/link";
 import type { ComponentProps } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -26,14 +25,14 @@ export function Footer({ className, ...props }: ComponentProps<"footer">) {
             size="icon-sm"
             className="rounded-full bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
           >
-            <Link
+            <a
               href="https://github.com/ARLBR10/school-un-simulation"
               target="_blank"
               rel="noreferrer"
             >
               <SiGithub />
               <span className="sr-only">GitHub</span>
-            </Link>
+            </a>
           </Button>
         </div>
       </div>

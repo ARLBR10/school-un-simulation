@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
@@ -72,7 +72,6 @@ function CountryFlag({ code, name }: { code: string | null; name: string }) {
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={url}
       alt={name}
@@ -104,7 +103,7 @@ export function CommitteeDetailView({ id }: { id: string }) {
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
         <Link
-          href="/committees"
+          to="/committees"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-4"
         >
           <ArrowLeft />

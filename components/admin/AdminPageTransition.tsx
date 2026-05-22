@@ -1,10 +1,10 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { usePathname } from "next/navigation";
+import { useLocation } from "@tanstack/react-router";
 
 export function AdminPageTransition({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
 
   return (
     <motion.div

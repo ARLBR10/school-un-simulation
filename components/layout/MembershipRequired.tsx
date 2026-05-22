@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 
 import { api } from "@/convex/_generated/api";
 import { Spinner } from "@/components/ui/spinner";
@@ -14,13 +15,14 @@ export default function MembershipRequired({
 }>) {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const [hasLoadedUserInfo, setHasLoadedUserInfo] = useState(false);
-  const router = useRouter();
-  const pathname = usePathname();
-  const isPublicPath =
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const isLoginPublicPath =
     pathname.startsWith("/auth") ||
-    pathname.startsWith("/error") ||
     pathname === "/terms" ||
     pathname === "/privacy";
+  const isMembershipPublicPath =
+    isLoginPublicPath || pathname.startsWith("/error");
 
   useEffect(() => {
     if (userInfo !== undefined) {
@@ -29,16 +31,31 @@ export default function MembershipRequired({
   }, [userInfo]);
 
   useEffect(() => {
-    if (userInfo && !userInfo.member && !isPublicPath) {
-      router.replace("/error/not_authorized");
+    if (userInfo === null && !isLoginPublicPath) {
+      void navigate({
+        to: "/auth/$path",
+        params: { path: "sign-in" },
+        search: { redirectTo: pathname },
+        replace: true,
+      });
     }
-  }, [router, userInfo, isPublicPath]);
+  }, [navigate, pathname, userInfo, isLoginPublicPath]);
 
-  if (isPublicPath || userInfo === null || userInfo?.member) {
+  useEffect(() => {
+    if (userInfo && !userInfo.member && !isMembershipPublicPath) {
+      void navigate({ to: "/error/not_authorized", replace: true });
+    }
+  }, [navigate, userInfo, isMembershipPublicPath]);
+
+  if (
+    isLoginPublicPath ||
+    (pathname.startsWith("/error") && userInfo) ||
+    userInfo?.member
+  ) {
     return <>{children}</>;
   }
 
-  if (userInfo && !userInfo.member) {
+  if (userInfo === null || (userInfo && !userInfo.member)) {
     return null;
   }
 

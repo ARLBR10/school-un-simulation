@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, CalendarDays, Globe, User } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { Streamdown } from "streamdown";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
@@ -58,7 +58,7 @@ export function NewsDetailView({ id }: { id: string }) {
         transition={{ duration: 0.3, ease: "easeOut" }}
       >
         <Link
-          href="/news"
+          to="/news"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground [&_svg]:size-4"
         >
           <ArrowLeft />

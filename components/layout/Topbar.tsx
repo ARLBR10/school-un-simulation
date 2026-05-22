@@ -5,9 +5,9 @@ import {
   SignedOut,
   UserButton,
 } from "@daveyplate/better-auth-ui";
+import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { Menu, ShieldUser } from "lucide-react";
-import Link from "next/link";
 import type { ComponentProps } from "react";
 
 import { api } from "@/convex/_generated/api";
@@ -56,7 +56,7 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
       {...props}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
-        <Link href="/" className="min-w-0 flex items-center">
+        <Link to="/" className="min-w-0 flex items-center">
           <span className="truncate text-sm font-bold tracking-tight text-white sm:text-xl">
             Simulação da ONU
           </span>
@@ -67,7 +67,7 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
             {navigationLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                to={link.href}
                 className="transition-colors hover:text-white"
               >
                 {link.label}
@@ -99,7 +99,7 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
               size="sm"
               className="group h-10 rounded-xl border-[rgba(255,255,255,0.12)] bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-4 font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
             >
-              <Link href="/auth/sign-in">
+              <Link to="/auth/$path" params={{ path: "sign-in" }}>
                 Entrar
                 <span
                   aria-hidden="true"
@@ -146,7 +146,7 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
                   {navigationLinks.map((link) => (
                     <SheetClose key={link.href} asChild>
                       <Link
-                        href={link.href}
+                        to={link.href}
                         className="rounded-lg px-3 py-2 transition-colors hover:bg-white/10 hover:text-white"
                       >
                         {link.label}
@@ -177,7 +177,8 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
                   <SignedOut>
                     <SheetClose asChild>
                       <Link
-                        href="/auth/sign-in"
+                        to="/auth/$path"
+                        params={{ path: "sign-in" }}
                         className="group mt-2 inline-flex h-10 w-full items-center justify-center rounded-xl border border-[rgba(255,255,255,0.12)] bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-4 text-[0.8rem] font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
                       >
                         Entrar

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import {
   CalendarIcon,
@@ -436,7 +436,8 @@ export function AttendanceManagementPanel({
                         {committee.members.map((member) => {
                           const memberName = showAdminLinks ? (
                             <Link
-                              href={`/admin/members?_id=${member._id}`}
+                              to="/admin/members"
+                              search={{ _id: member._id }}
                               className="font-medium hover:underline"
                             >
                               {member.name}

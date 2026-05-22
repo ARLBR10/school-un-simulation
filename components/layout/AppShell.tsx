@@ -7,6 +7,7 @@ import {
   SignedOut,
   UserButton,
 } from "@daveyplate/better-auth-ui";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import {
   BookOpen,
@@ -23,8 +24,6 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import { api } from "@/convex/_generated/api";
@@ -63,14 +62,27 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 type NavigationItem = {
-  href: string;
+  href:
+    | "/committees"
+    | "/news"
+    | "/rules"
+    | "/admin/members"
+    | "/admin/users"
+    | "/admin/committees"
+    | "/admin/news"
+    | "/admin/grades"
+    | "/admin/attendance"
+    | "/admin/documents"
+    | "/press/news"
+    | "/grading"
+    | "/attendance";
   label: string;
   icon: LucideIcon;
   exact?: boolean;
 };
 
 type AppBreadcrumbItem = {
-  href?: string;
+  href?: "/committees" | "/admin" | "/news";
   label: string;
 };
 
@@ -130,7 +142,7 @@ function AppSidebarLink({
         className="h-9 text-sm"
       >
         <Link
-          href={item.href}
+          to={item.href}
           onClick={() => {
             if (isMobile) {
               setOpenMobile(false);
@@ -187,7 +199,8 @@ function AppSidebarFooter() {
           <SignedOut>
             <SidebarMenuButton asChild tooltip="Entrar">
               <Link
-                href="/auth/sign-in"
+                to="/auth/$path"
+                params={{ path: "sign-in" }}
                 onClick={() => {
                   if (isMobile) {
                     setOpenMobile(false);
@@ -205,7 +218,7 @@ function AppSidebarFooter() {
         <span className="truncate text-xs text-sidebar-foreground/50 group-data-[collapsible=icon]:hidden">
           Programado pelo Meg (e IA!)
         </span>
-        <Link
+        <a
           href="https://github.com/ARLBR10/school-un-simulation"
           target="_blank"
           rel="noreferrer"
@@ -213,7 +226,7 @@ function AppSidebarFooter() {
         >
           <SiGithub className="size-3.5" />
           <span className="sr-only">GitHub</span>
-        </Link>
+        </a>
       </div>
     </SidebarFooter>
   );
@@ -239,7 +252,7 @@ function AppSidebarAdminSkeleton() {
 }
 
 function AppSidebar() {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   const userInfo = useQuery(api.auth.getCurrentUser);
   const isUserInfoLoading = userInfo === undefined;
   const isAdmin = userInfo?.member?.type === "admin";
@@ -261,7 +274,7 @@ function AppSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild size="lg" tooltip="Início">
-              <Link href="/">
+              <Link to="/">
                 <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                   <Landmark className="size-4" />
                 </div>
@@ -481,7 +494,7 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
 }
 
 function SiteHeader() {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   const breadcrumbItems = getPageBreadcrumbItems(pathname);
 
   return (
@@ -511,7 +524,7 @@ function SiteHeader() {
                   >
                     {item.href && !isLastItem ? (
                       <BreadcrumbLink asChild className="block truncate">
-                        <Link href={item.href}>{item.label}</Link>
+                        <Link to={item.href}>{item.label}</Link>
                       </BreadcrumbLink>
                     ) : (
                       <BreadcrumbPage className="block truncate text-sm font-medium">
@@ -530,7 +543,7 @@ function SiteHeader() {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   const isAuthPath = pathname.startsWith("/auth");
   const isStandalonePath =
     isAuthPath || pathname.startsWith("/error") || pathname === ("/terms") || pathname === ("/privacy");

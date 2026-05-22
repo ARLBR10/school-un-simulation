@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import {
@@ -16,7 +16,7 @@ export type LegalSection = {
 };
 
 export type RelatedLegalLink = {
-  href: string;
+  href: "/terms" | "/privacy";
   label: string;
 };
 
@@ -72,7 +72,7 @@ export function LegalDocument({
         <CardContent className="py-4 text-sm text-muted-foreground">
           Consulte também{" "}
           <Link
-            href={relatedLink.href}
+            to={relatedLink.href}
             className="font-medium text-foreground underline-offset-4 hover:underline"
           >
             {relatedLink.label}

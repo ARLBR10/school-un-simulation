@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
-import Link from "next/link";
+import { Link } from "@tanstack/react-router";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import {
@@ -123,7 +123,8 @@ function CommitteeCard({
   return (
     <Card className="h-full transition-colors hover:bg-muted/30">
       <Link
-        href={`/committees/${id}`}
+        to="/committees/$id"
+        params={{ id }}
         className="group flex h-full flex-col gap-4 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <CardHeader className="px-0">
