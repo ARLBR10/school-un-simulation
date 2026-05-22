@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { toast } from "sonner";
 
@@ -59,6 +59,15 @@ const memberTypeLabels: Record<Doc<"members">["type"], string> = {
 };
 
 export const Route = createFileRoute("/admin/members")({
+  head: () => ({
+    meta: [
+      { title: "Membros — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Gerencie cadastros e vínculos de participantes.",
+      },
+    ],
+  }),
   component: MembersPage,
 });
 

@@ -23,7 +23,10 @@ import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Doc } from "./_generated/dataModel";
 
 const siteUrl = process.env.SITE_URL!;
-const studentEmailDomains = process.env.ALLOWED_DOMAIN?.split(",") ?? [];
+const studentEmailDomains =
+  process.env.ALLOWED_DOMAIN?.split(",").map((domain) =>
+    domain.trim().toLowerCase(),
+  ) ?? [];
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.

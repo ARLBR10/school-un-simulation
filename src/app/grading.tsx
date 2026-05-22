@@ -3,6 +3,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { GradingManagementPanel } from "@/components/grading/GradingManagementPanel";
 
 export const Route = createFileRoute("/grading")({
+  head: () => ({
+    meta: [
+      { title: "Lançamentos de notas — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Registre pontuações e deduções dos delegados no seu escopo de atuação.",
+      },
+    ],
+  }),
   component: GradingPage,
 });
 

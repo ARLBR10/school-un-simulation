@@ -2,7 +2,7 @@
 
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
-import { Link, useNavigate, useRouter } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { ConvexReactClient } from "convex/react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
@@ -39,14 +39,14 @@ export function ConvexClientProvider({
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const navigate = useNavigate();
   const [showCredentials, setShowCredentials] = useState(false);
+  const [nextRedirectTo, setNextRedirectTo] = useState<string | null>(null);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
-    const nextRedirectTo = searchParams.get("redirectTo");
+    const redirectTo = searchParams.get("redirectTo");
 
+    setNextRedirectTo(redirectTo);
     setShowCredentials(searchParams.get("credentials") === "true");
   }, []);
 
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthUIProvider
       authClient={authClient}
       localization={AuthLang_PT_BR}
-      redirectTo="/"
+      redirectTo={nextRedirectTo || "/"}
       credentials={showCredentials}
       social={{ providers: ["google"] }}
       Link={({ href, ...props }) => <Link to={href} {...props} />}

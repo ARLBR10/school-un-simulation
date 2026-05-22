@@ -36,6 +36,15 @@ const emptyClerkOptionValue = "__empty_clerk__";
 const emptyTopicValue = "__empty_topic__";
 
 export const Route = createFileRoute("/admin/committees")({
+  head: () => ({
+    meta: [
+      { title: "Comitês — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Gerencie temas, tópicos e delegações dos comitês.",
+      },
+    ],
+  }),
   component: CommitteesPage,
 });
 

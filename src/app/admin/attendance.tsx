@@ -3,6 +3,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AttendanceManagementPanel } from "@/components/attendance/AttendanceManagementPanel";
 
 export const Route = createFileRoute("/admin/attendance")({
+  head: () => ({
+    meta: [
+      { title: "Presenças — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Acompanhe presença e ausência por comitê.",
+      },
+    ],
+  }),
   component: AdminAttendancePage,
 });
 

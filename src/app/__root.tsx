@@ -6,9 +6,8 @@ import {
   redirect,
 } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { TanStackDevtools } from "@tanstack/react-devtools"
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
-
+import { TanStackDevtools } from "@tanstack/react-devtools";
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import appCss from "./globals.css?url";
 
@@ -18,6 +17,8 @@ import { ClientRoot } from "@/components/layout/ClientRoot";
 import { NotFound } from "@/src/app/-not-found";
 import { getToken } from "@/src/server/auth";
 import { cn } from "@/lib/utils";
+
+const isDev = import.meta.env.DEV;
 
 const getAuthToken = createServerFn({ method: "GET" }).handler(async () => {
   return await getToken();
@@ -111,18 +112,20 @@ function RootDocument({ children }: { children: ReactNode }) {
       <body className="flex min-h-full flex-col bg-black text-white">
         {children}
 
-        <TanStackDevtools
-                  config={{
-                    position: "bottom-right"
-                  }}
-                  plugins={[
-                    {
-                      name: "TanStack Router",
-                      render: <TanStackRouterDevtoolsPanel />
-                    }
-                  ]}
-                />
-        
+        {isDev ? (
+          <TanStackDevtools
+            config={{
+              position: "bottom-right",
+            }}
+            plugins={[
+              {
+                name: "TanStack Router",
+                render: <TanStackRouterDevtoolsPanel />,
+              },
+            ]}
+          />
+        ) : null}
+
         <Scripts />
       </body>
     </html>

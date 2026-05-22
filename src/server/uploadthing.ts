@@ -1,7 +1,8 @@
 import { ConvexHttpClient } from "convex/browser";
-import { UploadThingError } from "uploadthing/server";
-import { createUploadthing, type FileRouter } from "uploadthing/server";
+import { UploadThingError, createUploadthing } from "uploadthing/server";
 import { getToken } from "@convex-dev/better-auth/utils";
+
+import type { FileRouter } from "uploadthing/server";
 
 import { api } from "@/convex/_generated/api";
 

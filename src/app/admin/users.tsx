@@ -88,6 +88,15 @@ function parseOptionalBoolean(value: string | undefined) {
 }
 
 export const Route = createFileRoute("/admin/users")({
+  head: () => ({
+    meta: [
+      { title: "Usuários — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Administre contas, contatos e status de verificação.",
+      },
+    ],
+  }),
   component: UsersPage,
 });
 

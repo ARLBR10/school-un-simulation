@@ -10,6 +10,15 @@ import {
 } from "@/components/ui/card";
 
 export const Route = createFileRoute("/admin/")({
+  head: () => ({
+    meta: [
+      { title: "Painel Administrativo — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Acompanhe e gerencie os dados centrais da simulação.",
+      },
+    ],
+  }),
   component: AdminPage,
 });
 

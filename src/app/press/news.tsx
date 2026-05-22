@@ -1,6 +1,6 @@
 "use client";
 
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { Newspaper } from "lucide-react";
 
@@ -18,6 +18,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 
 export const Route = createFileRoute("/press/news")({
+  head: () => ({
+    meta: [
+      { title: "Notícias da imprensa — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Crie, revise e publique notícias da equipe de imprensa.",
+      },
+    ],
+  }),
   component: PressNewsPage,
 });
 

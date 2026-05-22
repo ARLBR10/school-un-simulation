@@ -8,6 +8,15 @@ import { NewsManagementTable } from "@/components/news/NewsManagementTable";
 import { api } from "@/convex/_generated/api";
 
 export const Route = createFileRoute("/admin/news")({
+  head: () => ({
+    meta: [
+      { title: "Notícias — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Gerencie comunicados e publicações da simulação.",
+      },
+    ],
+  }),
   component: AdminNewsPage,
 });
 

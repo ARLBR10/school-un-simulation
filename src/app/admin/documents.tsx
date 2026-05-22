@@ -43,6 +43,15 @@ type DocumentAdminRow = {
 };
 
 export const Route = createFileRoute("/admin/documents")({
+  head: () => ({
+    meta: [
+      { title: "Documentos — Simulação da ONU" },
+      {
+        name: "description",
+        content: "Gerencie documentos enviados pelos participantes.",
+      },
+    ],
+  }),
   component: DocumentsPage,
 });
 
