@@ -493,6 +493,10 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
     return [{ label: "Enviar DPO" }];
   }
 
+  if (pathname === "/invites") {
+    return [{ label: "Vincular membro" }];
+  }
+
   if (pathname === "/terms") {
     return [{ label: "Termos de Serviço" }];
   }

@@ -19,10 +19,11 @@ export default function MembershipRequired({
   const { pathname } = useLocation();
   const isLoginPublicPath =
     pathname.startsWith("/auth") ||
+    pathname === "/invites" ||
     pathname === "/terms" ||
     pathname === "/privacy";
   const isMembershipPublicPath =
-    isLoginPublicPath || pathname.startsWith("/error");
+    isLoginPublicPath || pathname.startsWith("/error") || pathname === "/invites";
 
   useEffect(() => {
     if (userInfo !== undefined) {

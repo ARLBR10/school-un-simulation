@@ -28,6 +28,7 @@ function isPublicRoute(pathname: string) {
   return (
     pathname === "/terms" ||
     pathname === "/privacy" ||
+    pathname === "/invites" ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/api/")
   );
@@ -102,7 +103,7 @@ export const Route = createRootRoute({
       throw redirect({
         to: "/auth/$path",
         params: { path: "sign-in" },
-        search: { redirectTo: location.pathname },
+        search: { redirectTo: location.href },
       });
     }
 

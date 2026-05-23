@@ -1,8 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
+import { Copy, QrCode, Trash2 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
 import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
@@ -297,6 +299,164 @@ function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
     : user.email?.trim() || user._id;
 }
 
+function getInviteUrl(token: string, origin: string) {
+  return `${origin}/invites?token=${encodeURIComponent(token)}`;
+}
+
+function MemberInviteDialog({
+  member,
+  invite,
+  onCreateInvite,
+  onDeleteInvite,
+}: {
+  member: Doc<"members">;
+  invite: Doc<"memberInvites"> | null;
+  onCreateInvite: (member: Doc<"members">) => Promise<Doc<"memberInvites"> | null>;
+  onDeleteInvite: (member: Doc<"members">) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [localInvite, setLocalInvite] = useState<Doc<"memberInvites"> | null>(invite);
+  const [isCreating, setIsCreating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [origin, setOrigin] = useState("");
+  const currentInvite = localInvite;
+  const inviteUrl = currentInvite && origin ? getInviteUrl(currentInvite.token, origin) : "";
+  const isExpired = currentInvite ? currentInvite.expiresAt <= Date.now() : false;
+
+  useEffect(() => {
+    setLocalInvite(invite);
+  }, [invite]);
+
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  async function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+
+    if (!nextOpen || currentInvite || member.userId) {
+      return;
+    }
+
+    setIsCreating(true);
+
+    try {
+      const createdInvite = await onCreateInvite(member);
+      setLocalInvite(createdInvite);
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  async function handleCopyInvite() {
+    if (!inviteUrl) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(inviteUrl);
+    toast.success("Link do convite copiado.");
+  }
+
+  async function handleDeleteInvite() {
+    setIsDeleting(true);
+
+    try {
+      const deleted = await onDeleteInvite(member);
+
+      if (deleted) {
+        setLocalInvite(null);
+        setOpen(false);
+      }
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => void handleOpenChange(nextOpen)}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={Boolean(member.userId)}
+        >
+          <QrCode data-icon="inline-start" />
+          {currentInvite ? "Ver convite" : "Gerar convite"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Convite de vínculo</DialogTitle>
+          <DialogDescription>
+            Envie este link para {member.name} vincular a conta ao cadastro de membro.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isCreating ? (
+          <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+            Gerando convite...
+          </div>
+        ) : currentInvite && inviteUrl ? (
+          <div className="flex flex-col gap-4">
+            <div className="mx-auto rounded-xl bg-white p-3">
+              <QRCodeSVG
+                value={inviteUrl}
+                size={224}
+                bgColor="#ffffff"
+                fgColor="#000000"
+                level="M"
+                role="img"
+                aria-label="QRCode do convite"
+              />
+            </div>
+            <div className="rounded-xl border bg-muted/20 p-3">
+              <p className="mb-2 text-xs font-medium text-muted-foreground">
+                Link copiável
+              </p>
+              <p className="break-all font-mono text-xs text-foreground">{inviteUrl}</p>
+            </div>
+            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+              <span>
+                Expira em {formatCreatedAt(currentInvite.expiresAt)}.
+              </span>
+              {isExpired ? (
+                <span className="font-medium text-destructive">
+                  Este convite expirou. Exclua-o para gerar um novo.
+                </span>
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
+            Não foi possível carregar o convite.
+          </div>
+        )}
+
+        <DialogFooter className="gap-2 sm:justify-between">
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={!currentInvite || isDeleting}
+            onClick={() => void handleDeleteInvite()}
+          >
+            <Trash2 data-icon="inline-start" />
+            Excluir
+          </Button>
+          <Button
+            type="button"
+            disabled={!inviteUrl}
+            onClick={() => void handleCopyInvite()}
+          >
+            <Copy data-icon="inline-start" />
+            Copiar link
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function DelegatedCountryCombobox({
   disabled,
   value,
@@ -552,10 +712,13 @@ function MembersPage() {
   const committeesData = useQuery(api.committees.getAll);
   const usersData = useQuery(api.auth_admin.getAll);
   const gradingData = useQuery(api.grading.getAll);
+  const invitesData = useQuery(api.memberInvites.getAllForAdmin);
   const memberCreate = useMutation(api.members.create);
   const memberBulkCreate = useMutation(api.members.bulkCreate);
   const memberUpdate = useMutation(api.members.update);
   const memberDelete = useMutation(api.members.purge);
+  const memberInviteCreate = useMutation(api.memberInvites.createForMember);
+  const memberInviteDelete = useMutation(api.memberInvites.deleteForMember);
 
   const committeeLabelById: Record<string, string> = {};
   const committeeOptions: AdminTableSelectOption[] = [
@@ -598,6 +761,12 @@ function MembersPage() {
       value: userId,
       label: userId,
     });
+  }
+
+  const inviteByMemberId: Record<string, Doc<"memberInvites">> = {};
+
+  for (const invite of invitesData ?? []) {
+    inviteByMemberId[invite.member] = invite;
   }
 
   // Preserve stale references so existing rows remain editable after committee deletion.
@@ -652,7 +821,50 @@ function MembersPage() {
       label: "Usuário",
       render(row) {
         if (!row.userId) {
-          return "-";
+          return (
+            <MemberInviteDialog
+              member={row}
+              invite={inviteByMemberId[row._id] ?? null}
+              onCreateInvite={async (selectedMember) => {
+                try {
+                  const createdInvite = await memberInviteCreate({
+                    member: selectedMember._id,
+                  });
+
+                  if (createdInvite) {
+                    toast.success("Convite pronto para compartilhamento.");
+                    return createdInvite;
+                  }
+
+                  return null;
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Não foi possível criar o convite.",
+                  );
+                  return null;
+                }
+              }}
+              onDeleteInvite={async (selectedMember) => {
+                try {
+                  const deleted = await memberInviteDelete({
+                    member: selectedMember._id,
+                  });
+
+                  if (deleted === true) {
+                    toast.success("Convite excluído com sucesso.");
+                    return true;
+                  }
+
+                  return false;
+                } catch {
+                  toast.error("Não foi possível excluir o convite.");
+                  return false;
+                }
+              }}
+            />
+          );
         }
 
         return (
@@ -729,7 +941,8 @@ function MembersPage() {
           membersData === undefined ||
           usersData === undefined ||
           committeesData === undefined ||
-          gradingData === undefined
+          gradingData === undefined ||
+          invitesData === undefined
         }
         rowKey="name"
         searchParamKey="_id"

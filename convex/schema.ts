@@ -22,6 +22,14 @@ export default defineSchema({
     .index("by_type", ["type"])
     .index("by_committee", ["committee"])
     .index("by_delegatedCountry", ["delegatedCountry"]),
+  memberInvites: defineTable({
+    member: v.id("members"),
+    token: v.string(),
+    expiresAt: v.number(),
+    createdBy: v.string(),
+  })
+    .index("by_member", ["member"])
+    .index("by_token", ["token"]),
   docs: defineTable({
     member: v.id("members"),
     type: v.union(
