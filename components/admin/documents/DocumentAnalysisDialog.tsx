@@ -59,10 +59,12 @@ export function DocumentAnalysisDialog({
   document,
   fileName,
   type,
+  showRerunAction = true,
 }: {
   document: Doc<"docs"> | null;
   fileName: string;
   type: string;
+  showRerunAction?: boolean;
 }) {
   const rerunAnalysis = useMutation(api.documents.rerunAnalysis);
   const [isRerunning, setIsRerunning] = useState(false);
@@ -134,47 +136,49 @@ export function DocumentAnalysisDialog({
           <p className="text-xs text-muted-foreground sm:self-center">
             Usa serviços pagos de OCR e IA.
           </p>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!canRunAnalysis || isProcessing || isRerunning}
-              >
-                {isRerunning ? (
-                  <LoaderCircle data-icon="inline-start" className="animate-spin" />
-                ) : (
-                  <RotateCcw data-icon="inline-start" />
-                )}
-                {hasExistingAnalysis ? "Reprocessar" : "Executar análise"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent size="sm">
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {hasExistingAnalysis
-                    ? "Reprocessar análise?"
-                    : "Executar análise?"}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  Esta operação usa serviços pagos ou limitados de OCR e IA.
-                  {hasExistingAnalysis
-                    ? " A análise existente será substituída."
-                    : " Um novo processamento será iniciado."}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  onClick={() => void handleRerunAnalysis()}
+          {showRerunAction ? (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canRunAnalysis || isProcessing || isRerunning}
                 >
-                  {hasExistingAnalysis ? "Reprocessar" : "Executar"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  {isRerunning ? (
+                    <LoaderCircle data-icon="inline-start" className="animate-spin" />
+                  ) : (
+                    <RotateCcw data-icon="inline-start" />
+                  )}
+                  {hasExistingAnalysis ? "Reprocessar" : "Executar análise"}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent size="sm">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {hasExistingAnalysis
+                      ? "Reprocessar análise?"
+                      : "Executar análise?"}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta operação usa serviços pagos ou limitados de OCR e IA.
+                    {hasExistingAnalysis
+                      ? " A análise existente será substituída."
+                      : " Um novo processamento será iniciado."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={() => void handleRerunAnalysis()}
+                  >
+                    {hasExistingAnalysis ? "Reprocessar" : "Executar"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          ) : null}
         </DialogFooter>
       </DialogContent>
     </Dialog>

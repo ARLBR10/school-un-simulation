@@ -68,6 +68,7 @@ type NavigationItem = {
     | "/news"
     | "/rules"
     | "/dpo"
+    | "/documents"
     | "/admin/members"
     | "/admin/users"
     | "/admin/committees"
@@ -119,6 +120,7 @@ const gradingNavigationLinks: NavigationItem[] = [
 const operationsNavigationLinks: NavigationItem[] = [
   ...gradingNavigationLinks,
   { href: "/attendance", label: "Presenças", icon: ClipboardList },
+  { href: "/documents", label: "Documentos", icon: FileText },
 ];
 
 function isActivePath(pathname: string, item: NavigationItem) {
@@ -270,6 +272,7 @@ function AppSidebar() {
     isAdmin ||
     userInfo?.member?.type === "logistics" ||
     userInfo?.member?.type === "clerk";
+  const canViewOperationalDocuments = canManageAttendance;
   const canManageGrades = userInfo?.member
     ? getAllowedMemberTypesForGraderType(
         userInfo.member.type as GradingMemberType,
@@ -373,7 +376,8 @@ function AppSidebar() {
           </SidebarGroup>
         ) : null}
 
-        {!isUserInfoLoading && (canManageGrades || canManageAttendance) ? (
+        {!isUserInfoLoading &&
+        (canManageGrades || canManageAttendance || canViewOperationalDocuments) ? (
           <SidebarGroup>
             <SidebarGroupLabel className="h-9 text-sm font-semibold">
               Operação
@@ -388,6 +392,10 @@ function AppSidebar() {
 
                     if (item.href === "/attendance") {
                       return canManageAttendance;
+                    }
+
+                    if (item.href === "/documents") {
+                      return canViewOperationalDocuments;
                     }
 
                     return true;
@@ -524,6 +532,10 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
 
   if (pathname.startsWith("/attendance")) {
     return [{ label: "Presenças" }];
+  }
+
+  if (pathname.startsWith("/documents")) {
+    return [{ label: "Documentos enviados" }];
   }
 
   return [{ label: "Simulação da ONU" }];

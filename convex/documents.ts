@@ -15,6 +15,11 @@ import { hasDocumentAnalysisConfig } from "@/lib/document-config";
 
 type DocumentPatch = Partial<Pick<Doc<"docs">, "member" | "type" | "uploadthing">>;
 
+export type UploadedDocumentListItem = {
+  document: Doc<"docs">;
+  member: Doc<"members"> | null;
+};
+
 export const documentTypes = v.union(
   v.literal("position_paper"),
   v.literal("final_resolution"),
@@ -208,6 +213,31 @@ export const getAll = query({
     }
 
     return await ctx.db.query("docs").order("desc").take(999);
+  },
+});
+
+export const getAllForOperation = query({
+  args: {},
+  async handler(ctx): Promise<UploadedDocumentListItem[] | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+    const memberType = userInfo?.member?.type;
+
+    if (
+      memberType !== "admin" &&
+      memberType !== "logistics" &&
+      memberType !== "clerk"
+    ) {
+      return null;
+    }
+
+    const documents = await ctx.db.query("docs").order("desc").take(999);
+
+    return await Promise.all(
+      documents.map(async (document) => ({
+        document,
+        member: await ctx.db.get("members", document.member),
+      })),
+    );
   },
 });
 

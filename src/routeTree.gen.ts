@@ -15,6 +15,7 @@ import { Route as PrivacyRouteImport } from './app/privacy'
 import { Route as InvitesRouteImport } from './app/invites'
 import { Route as GradingRouteImport } from './app/grading'
 import { Route as DpoRouteImport } from './app/dpo'
+import { Route as DocumentsRouteImport } from './app/documents'
 import { Route as AttendanceRouteImport } from './app/attendance'
 import { Route as AdminRouteImport } from './app/admin'
 import { Route as IndexRouteImport } from './app/index'
@@ -67,6 +68,11 @@ const GradingRoute = GradingRouteImport.update({
 const DpoRoute = DpoRouteImport.update({
   id: '/dpo',
   path: '/dpo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AttendanceRoute = AttendanceRouteImport.update({
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/attendance': typeof AttendanceRoute
+  '/documents': typeof DocumentsRoute
   '/dpo': typeof DpoRoute
   '/grading': typeof GradingRoute
   '/invites': typeof InvitesRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/attendance': typeof AttendanceRoute
+  '/documents': typeof DocumentsRoute
   '/dpo': typeof DpoRoute
   '/grading': typeof GradingRoute
   '/invites': typeof InvitesRoute
@@ -251,6 +259,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/attendance': typeof AttendanceRoute
+  '/documents': typeof DocumentsRoute
   '/dpo': typeof DpoRoute
   '/grading': typeof GradingRoute
   '/invites': typeof InvitesRoute
@@ -284,6 +293,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/attendance'
+    | '/documents'
     | '/dpo'
     | '/grading'
     | '/invites'
@@ -314,6 +324,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/attendance'
+    | '/documents'
     | '/dpo'
     | '/grading'
     | '/invites'
@@ -345,6 +356,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/attendance'
+    | '/documents'
     | '/dpo'
     | '/grading'
     | '/invites'
@@ -377,6 +389,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   AttendanceRoute: typeof AttendanceRoute
+  DocumentsRoute: typeof DocumentsRoute
   DpoRoute: typeof DpoRoute
   GradingRoute: typeof GradingRoute
   InvitesRoute: typeof InvitesRoute
@@ -439,6 +452,13 @@ declare module '@tanstack/react-router' {
       path: '/dpo'
       fullPath: '/dpo'
       preLoaderRoute: typeof DpoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/attendance': {
@@ -633,6 +653,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   AttendanceRoute: AttendanceRoute,
+  DocumentsRoute: DocumentsRoute,
   DpoRoute: DpoRoute,
   GradingRoute: GradingRoute,
   InvitesRoute: InvitesRoute,
