@@ -53,3 +53,4 @@ convex/_generated
 # tanstack
 .output/
 dist/
+src/routeTree.gen.ts
