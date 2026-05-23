@@ -16,7 +16,7 @@ export type CommitteeDelegateSummary = {
   delegatedCountry: string | null;
 };
 
-export type CommitteeSummary = Omit<Doc<"committees">, "clerks"> & {
+export type CommitteeSummary = Doc<"committees"> & {
   clerks: CommitteeClerkSummary[];
   delegates: CommitteeDelegateSummary[];
 };
@@ -46,19 +46,12 @@ export const list = query({
     const committees = await ctx.db.query("committees").take(999);
     const allMembers = await ctx.db.query("members").take(999);
 
-    const membersById = new Map<Id<"members">, Doc<"members">>();
-    for (const member of allMembers) {
-      membersById.set(member._id, member);
-    }
-
     return committees.map((committee) => {
-      const clerks: CommitteeClerkSummary[] = [];
-      for (const clerkId of committee.clerks) {
-        const clerk = membersById.get(clerkId);
-        if (clerk) {
-          clerks.push({ _id: clerk._id, name: clerk.name });
-        }
-      }
+      const clerks: CommitteeClerkSummary[] = allMembers
+        .filter(
+          (member) => member.committee === committee._id && member.type === "clerk",
+        )
+        .map((clerk) => ({ _id: clerk._id, name: clerk.name }));
 
       const delegates: CommitteeDelegateSummary[] = allMembers
         .filter(
@@ -102,18 +95,14 @@ export const getById = query({
       return null;
     }
 
-    const clerkDocs = await Promise.all(
-      committee.clerks.map((clerkId) => ctx.db.get("members", clerkId)),
-    );
-
-    const clerks: CommitteeClerkSummary[] = clerkDocs
-      .filter((clerk): clerk is Doc<"members"> => clerk !== null)
-      .map((clerk) => ({ _id: clerk._id, name: clerk.name }));
-
     const committeeMembers = await ctx.db
       .query("members")
       .withIndex("by_committee", (q) => q.eq("committee", committeeId))
-      .collect();
+      .take(999);
+
+    const clerks: CommitteeClerkSummary[] = committeeMembers
+      .filter((member) => member.type === "clerk")
+      .map((clerk) => ({ _id: clerk._id, name: clerk.name }));
 
     const delegates: CommitteeDelegateSummary[] = committeeMembers
       .filter((member) => member.type === "delegate")
@@ -133,7 +122,6 @@ export const getById = query({
 
 export const create = mutation({
   args: {
-    clerks: v.array(v.id("members")),
     theme: v.string(),
     topics: v.array(v.string()),
     description: v.string(),
@@ -156,7 +144,6 @@ export const create = mutation({
     }
 
     const newCommittee: Omit<Doc<"committees">, "_id" | "_creationTime"> = {
-      clerks: args.clerks,
       theme: args.theme,
       topics: args.topics,
       description: args.description,
@@ -178,7 +165,6 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("committees"),
-    clerks: v.optional(v.array(v.id("members"))),
     theme: v.optional(v.string()),
     topics: v.optional(v.array(v.string())),
     description: v.optional(v.string()),
@@ -203,7 +189,6 @@ export const update = mutation({
     const committeePatch: Partial<
       Omit<Doc<"committees">, "_id" | "_creationTime">
     > = {
-      ...("clerks" in args ? { clerks: args.clerks } : {}),
       ...("theme" in args ? { theme: args.theme } : {}),
       ...("topics" in args ? { topics: args.topics } : {}),
       ...("description" in args ? { description: args.description } : {}),

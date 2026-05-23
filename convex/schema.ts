@@ -43,7 +43,6 @@ export default defineSchema({
     .index("by_member", ["member"])
     .index("by_member_and_type", ["member", "type"]),
   committees: defineTable({
-    clerks: v.array(v.id("members")),
     theme: v.string(),
     topics: v.array(v.string()),
     description: v.string(),

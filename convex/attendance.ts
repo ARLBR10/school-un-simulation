@@ -82,24 +82,11 @@ function toMemberSummary(member: Doc<"members">): AttendanceMemberSummary {
   };
 }
 
-async function getCommitteeIdsForMember(
-  ctx: QueryCtx | MutationCtx,
-  member: Doc<"members">,
-) {
+function getCommitteeIdsForMember(member: Doc<"members">) {
   const committeeIds = new Set<Id<"committees">>();
 
   if (member.committee) {
     committeeIds.add(member.committee);
-  }
-
-  if (member.type === "clerk") {
-    const committees = await ctx.db.query("committees").take(999);
-
-    for (const committee of committees) {
-      if (committee.clerks.some((clerkId) => clerkId === member._id)) {
-        committeeIds.add(committee._id);
-      }
-    }
   }
 
   return [...committeeIds];
@@ -117,7 +104,7 @@ async function getAccessibleCommittees(
     return null;
   }
 
-  const committeeIds = await getCommitteeIdsForMember(ctx, actor);
+  const committeeIds = getCommitteeIdsForMember(actor);
   const committees: Doc<"committees">[] = [];
 
   for (const committeeId of committeeIds) {
@@ -144,14 +131,6 @@ async function getCommitteeMembers(ctx: QueryCtx, committee: Doc<"committees">) 
     }
   }
 
-  for (const clerkId of committee.clerks) {
-    const clerk = await ctx.db.get("members", clerkId);
-
-    if (clerk && isTrackedMemberType(clerk.type)) {
-      membersById.set(clerk._id, toMemberSummary(clerk));
-    }
-  }
-
   return [...membersById.values()].sort((leftMember, rightMember) =>
     leftMember.name.localeCompare(rightMember.name, "pt-BR", {
       sensitivity: "base",
@@ -174,14 +153,6 @@ async function getMembersForCommittees(
     for (const member of assignedMembers) {
       if (isTrackedMemberType(member.type)) {
         membersById.set(member._id, member);
-      }
-    }
-
-    for (const clerkId of committee.clerks) {
-      const clerk = await ctx.db.get("members", clerkId);
-
-      if (clerk && isTrackedMemberType(clerk.type)) {
-        membersById.set(clerk._id, clerk);
       }
     }
   }
@@ -292,7 +263,7 @@ async function resolveAuthorizedTargetCommittee({
     throw new Error("attendance_member_type_not_tracked");
   }
 
-  const targetCommitteeIds = await getCommitteeIdsForMember(ctx, targetMember);
+  const targetCommitteeIds = getCommitteeIdsForMember(targetMember);
   const accessibleCommitteeIds = new Set(
     accessibleCommittees.map((committee) => committee._id),
   );

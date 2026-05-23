@@ -67,39 +67,25 @@ function resolveGradingEntryAmount(
   return entry.amount;
 }
 
-async function getAssignedCommitteeIds(
-  ctx: QueryCtx | MutationCtx,
-  actor: Doc<"members">,
-) {
+function getAssignedCommitteeIds(actor: Doc<"members">) {
   const assignedCommitteeIds = new Set<Id<"committees">>();
 
   if (actor.committee) {
     assignedCommitteeIds.add(actor.committee);
   }
 
-  if (actor.type === "clerk") {
-    const committees = await ctx.db.query("committees").take(999);
-
-    for (const committee of committees) {
-      if (committee.clerks.some((clerkId) => clerkId === actor._id)) {
-        assignedCommitteeIds.add(committee._id);
-      }
-    }
-  }
-
   return [...assignedCommitteeIds];
 }
 
-async function getGradingAccessScope(
-  ctx: QueryCtx | MutationCtx,
+function getGradingAccessScope(
   actor: Doc<"members">,
-): Promise<GradingAccessScope> {
+): GradingAccessScope {
   const isAdmin = actor.type === "admin";
   const allowedMemberTypes = getAllowedMemberTypesForGraderType(
     actor.type as GradingMemberType,
     isAdmin,
   );
-  const committeeIds = isAdmin ? [] : await getAssignedCommitteeIds(ctx, actor);
+  const committeeIds = isAdmin ? [] : getAssignedCommitteeIds(actor);
 
   return {
     isAdmin,
@@ -251,7 +237,7 @@ async function getAuthorizedGradingActor(
     return null;
   }
 
-  const scope = await getGradingAccessScope(ctx, actor);
+  const scope = getGradingAccessScope(actor);
 
   if (!scope.isAllowedGrader) {
     await logPermissionDenied({
@@ -391,7 +377,7 @@ export const getManageData = query({
       return null;
     }
 
-    const scope = await getGradingAccessScope(ctx, actor);
+    const scope = getGradingAccessScope(actor);
 
     if (!scope.isAllowedGrader) {
       return null;

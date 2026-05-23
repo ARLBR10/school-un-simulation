@@ -8,7 +8,6 @@ import {
   DynamicTable,
   type AdminTableColumn,
 } from "@/components/admin/DynamicTable";
-import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +31,6 @@ import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { getCountryByCode } from "@/lib/country-list";
 
-const emptyClerkOptionValue = "__empty_clerk__";
 const emptyTopicValue = "__empty_topic__";
 
 export const Route = createFileRoute("/admin/committees")({
@@ -80,18 +78,8 @@ function normalizeStringList(value: unknown) {
   return [];
 }
 
-function normalizeMemberIdList(value: unknown) {
-  return normalizeStringList(value).filter(
-    (item) => item !== emptyClerkOptionValue,
-  );
-}
-
 function normalizeTopicList(value: unknown) {
   return normalizeStringList(value).filter((item) => item !== emptyTopicValue);
-}
-
-function parseMemberIds(value: string | undefined) {
-  return normalizeMemberIdList(value) as Doc<"members">["_id"][];
 }
 
 function parseTopics(value: string | undefined) {
@@ -173,95 +161,6 @@ function CommitteeDelegatesDialog({
         </Table>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function MemberIdListInput({
-  value,
-  members,
-  onChange,
-}: {
-  value: string;
-  members: Doc<"members">[];
-  onChange: (value: string) => void;
-}) {
-  const selectedIds = parseList(value);
-
-  function updateSelectedIds(nextIds: string[]) {
-    onChange(nextIds.join(", "));
-  }
-
-  return (
-    <div className="flex flex-col gap-3 rounded-md border border-input bg-background p-3">
-      {members.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Cadastre membros antes de selecionar mesários.
-        </p>
-      ) : (
-        <>
-          {selectedIds.map((selectedId, index) => {
-            const unavailableIds = new Set(
-              selectedIds.filter(
-                (id, currentIndex) =>
-                  id !== emptyClerkOptionValue && currentIndex !== index,
-              ),
-            );
-
-            return (
-              <div key={`${selectedId}-${index}`} className="flex gap-2">
-                <AdminTableSelectInput
-                  fieldKey={`committee-clerk-${index}`}
-                  mode="create"
-                  options={members.map((member) => ({
-                    value: member._id,
-                    label: member.name,
-                    disabled: unavailableIds.has(member._id),
-                  }))}
-                  placeholder="Selecione um mesário"
-                  value={
-                    selectedId === emptyClerkOptionValue ? "" : selectedId
-                  }
-                  onChange={(nextId) => {
-                    const nextIds = [...selectedIds];
-
-                    nextIds[index] = nextId;
-                    updateSelectedIds(nextIds);
-                  }}
-                />
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    updateSelectedIds(
-                      selectedIds.filter(
-                        (_, currentIndex) => currentIndex !== index,
-                      ),
-                    );
-                  }}
-                >
-                  Remover
-                </Button>
-              </div>
-            );
-          })}
-
-          <div className="flex justify-center">
-            <Button
-              type="button"
-              variant="outline"
-              className="disabled:pointer-events-auto disabled:cursor-not-allowed disabled:bg-background disabled:text-muted-foreground disabled:hover:bg-background disabled:hover:text-muted-foreground"
-              onClick={() =>
-                updateSelectedIds([...selectedIds, emptyClerkOptionValue])
-              }
-              disabled={parseMemberIds(value).length >= members.length}
-            >
-              Adicionar mesário
-            </Button>
-          </div>
-        </>
-      )}
-    </div>
   );
 }
 
@@ -349,35 +248,8 @@ function CommitteesPage() {
   const committeeUpdate = useMutation(api.committees.update);
   const committeeDelete = useMutation(api.committees.purge);
 
-  const memberNameById: Record<string, string> = {};
-
-  for (const member of membersData ?? []) {
-    memberNameById[member._id] = member.name;
-  }
-
   const committeesColumns: AdminTableColumn<Doc<"committees">>[] = [
     { key: "theme", label: "Tema" },
-    {
-      key: "clerks",
-      label: "Mesários",
-      render: (committee) => {
-        const clerkIds = normalizeMemberIdList(committee.clerks);
-
-        return clerkIds.length > 0
-          ? clerkIds
-              .map((clerkId) => memberNameById[clerkId] ?? clerkId)
-              .join(", ")
-          : "-";
-      },
-      formRender: ({ value, onChange }) => (
-        <MemberIdListInput
-          value={value}
-          members={membersData ?? []}
-          onChange={onChange}
-        />
-      ),
-      showInTable: false,
-    },
     {
       key: "topics",
       label: "Tópicos",
@@ -420,7 +292,7 @@ function CommitteesPage() {
     <PageShell>
       <PageHeader
         title="Comitês"
-        description="Gerencie temas, tópicos, mesários e delegações vinculadas."
+        description="Gerencie temas, tópicos e delegações vinculadas."
       />
 
       <DynamicTable
@@ -444,7 +316,6 @@ function CommitteesPage() {
               theme,
               description,
               topics,
-              clerks: parseMemberIds(values.clerks),
             });
 
             if (created === true) {
@@ -466,7 +337,6 @@ function CommitteesPage() {
               description:
                 normalizeRequiredString(values.description) ?? undefined,
               topics: parseTopics(values.topics),
-              clerks: parseMemberIds(values.clerks),
             });
 
             if (updated === true) {
