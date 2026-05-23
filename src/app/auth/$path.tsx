@@ -1,7 +1,27 @@
 import { AuthView } from "@daveyplate/better-auth-ui";
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, redirect } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+
+import { getToken } from "@/src/server/auth";
+
+const getAuthToken = createServerFn({ method: "GET" }).handler(async () => {
+  return await getToken();
+});
 
 export const Route = createFileRoute("/auth/$path")({
+  validateSearch: (search) => ({
+    redirectTo: typeof search.redirectTo === "string" ? search.redirectTo : undefined,
+  }),
+  beforeLoad: async ({ search }) => {
+    const token = await getAuthToken().catch(() => null);
+
+    if (token) {
+      throw redirect({
+        to: getSafeRedirectTo(search.redirectTo),
+        replace: true,
+      });
+    }
+  },
   head: ({ params }) => ({
     meta: [
       {
@@ -15,6 +35,20 @@ export const Route = createFileRoute("/auth/$path")({
   }),
   component: AuthPage,
 });
+
+function getSafeRedirectTo(redirectTo: string | undefined) {
+  if (
+    redirectTo &&
+    redirectTo.startsWith("/") &&
+    !redirectTo.startsWith("//") &&
+    !redirectTo.includes("://") &&
+    !redirectTo.startsWith("/auth")
+  ) {
+    return redirectTo;
+  }
+
+  return "/";
+}
 
 function getAuthPageTitle(path: string) {
   if (path === "sign-up") {

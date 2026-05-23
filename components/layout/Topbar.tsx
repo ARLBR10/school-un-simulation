@@ -5,7 +5,7 @@ import {
   SignedOut,
   UserButton,
 } from "@daveyplate/better-auth-ui";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { Menu, ShieldUser } from "lucide-react";
 import type { ComponentProps } from "react";
@@ -30,6 +30,7 @@ function AuthButtonSkeleton() {
 }
 
 export function Topbar({ className, ...props }: ComponentProps<"header">) {
+  const location = useLocation();
   const userInfo = useQuery(api.auth.getCurrentUser);
   const navigationLinks = [
     { href: "/committees", label: "Comitês" },
@@ -99,7 +100,11 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
               size="sm"
               className="group h-10 rounded-xl border-[rgba(255,255,255,0.12)] bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-4 font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
             >
-              <Link to="/auth/$path" params={{ path: "sign-in" }}>
+              <Link
+                to="/auth/$path"
+                params={{ path: "sign-in" }}
+                search={{ redirectTo: location.href }}
+              >
                 Entrar
                 <span
                   aria-hidden="true"
@@ -179,6 +184,7 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
                       <Link
                         to="/auth/$path"
                         params={{ path: "sign-in" }}
+                        search={{ redirectTo: location.href }}
                         className="group mt-2 inline-flex h-10 w-full items-center justify-center rounded-xl border border-[rgba(255,255,255,0.12)] bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-4 text-[0.8rem] font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
                       >
                         Entrar

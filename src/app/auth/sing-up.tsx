@@ -11,6 +11,10 @@ export const Route = createFileRoute("/auth/sing-up")({
     ],
   }),
   beforeLoad: () => {
-    throw redirect({ to: "/auth/$path", params: { path: "sign-up" } });
+    throw redirect({
+      to: "/auth/$path",
+      params: { path: "sign-up" },
+      search: { redirectTo: undefined },
+    });
   },
 });

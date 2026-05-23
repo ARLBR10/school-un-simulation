@@ -165,6 +165,7 @@ function AppSidebarLink({
 
 function AppSidebarFooter() {
   const { isMobile, setOpenMobile } = useSidebar();
+  const location = useLocation();
 
   return (
     <SidebarFooter>
@@ -207,6 +208,7 @@ function AppSidebarFooter() {
               <Link
                 to="/auth/$path"
                 params={{ path: "sign-in" }}
+                search={{ redirectTo: location.href }}
                 onClick={() => {
                   if (isMobile) {
                     setOpenMobile(false);
