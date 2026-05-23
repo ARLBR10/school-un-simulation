@@ -95,6 +95,13 @@ export function CommitteeDetailView({ id }: { id: string }) {
     });
   }, [committee]);
 
+  const sortedClerks = useMemo(() => {
+    if (!committee) return [];
+    return [...committee.clerks].sort((a, b) =>
+      a.name.localeCompare(b.name, "pt-BR"),
+    );
+  }, [committee]);
+
   return (
     <PageShell className="mx-auto w-full max-w-5xl">
       <motion.div
@@ -144,11 +151,16 @@ export function CommitteeDetailView({ id }: { id: string }) {
             className="flex flex-col gap-6"
           >
             <motion.header variants={blockVariants}>
-              <PageHeader
-                title={committee.theme}
-                description={committee.description}
-              />
+              <PageHeader title={committee.theme} />
             </motion.header>
+
+            <motion.div variants={blockVariants}>
+              <Section title="Descrição">
+                <p className="text-sm leading-7 text-muted-foreground">
+                  {committee.description}
+                </p>
+              </Section>
+            </motion.div>
 
             <motion.div variants={blockVariants}>
               <Section title="Tópicos em debate">
@@ -162,6 +174,32 @@ export function CommitteeDetailView({ id }: { id: string }) {
                         className="rounded-md border bg-muted/30 px-3 py-2 text-sm leading-relaxed"
                       >
                         {topic}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            </motion.div>
+
+            <motion.div variants={blockVariants}>
+              <Section
+                title="Mesa diretora"
+                description={`${sortedClerks.length} ${
+                  sortedClerks.length === 1 ? "clerk" : "clerks"
+                }`}
+              >
+                {sortedClerks.length === 0 ? (
+                  <CardDescription>
+                    Nenhum mesário vinculado a este comitê.
+                  </CardDescription>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {sortedClerks.map((clerk) => (
+                      <div
+                        key={clerk._id}
+                        className="rounded-md border bg-muted/30 px-3 py-2 text-sm leading-relaxed"
+                      >
+                        {clerk.name}
                       </div>
                     ))}
                   </div>
@@ -250,11 +288,14 @@ function DetailSkeleton() {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4">
         <Skeleton className="h-12 w-3/4" />
+      </div>
+
+      <SectionSkeleton>
         <div className="flex flex-col gap-2">
           <Skeleton className="h-5 w-full" />
           <Skeleton className="h-5 w-5/6" />
         </div>
-      </div>
+      </SectionSkeleton>
 
       <SectionSkeleton>
         <div className="overflow-hidden rounded-md border border-border bg-card/40">
@@ -264,6 +305,19 @@ function DetailSkeleton() {
               className="border-b border-border px-4 py-3 last:border-b-0"
             >
               <Skeleton className="h-4 w-3/5" />
+            </div>
+          ))}
+        </div>
+      </SectionSkeleton>
+
+      <SectionSkeleton>
+        <div className="overflow-hidden rounded-md border border-border bg-card/40">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div
+              key={index}
+              className="border-b border-border px-4 py-3 last:border-b-0"
+            >
+              <Skeleton className="h-4 w-2/5" />
             </div>
           ))}
         </div>
