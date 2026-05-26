@@ -1,6 +1,7 @@
 import { AuthView } from "@daveyplate/better-auth-ui";
 import { Link, createFileRoute, redirect } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
+import { AlertTriangle } from "lucide-react";
 
 import { getToken } from "@/src/server/auth";
 
@@ -63,12 +64,24 @@ function getAuthPageTitle(path: string) {
 }
 
 const pathsWithLegalLinks = new Set(["sign-in", "sign-up"]);
+const pathsWithSchoolEmailWarning = new Set(["sign-in", "sign-up"]);
 
 function AuthPage() {
   const { path } = Route.useParams();
 
   return (
     <main className="container flex grow flex-col items-center justify-center gap-4 self-center p-4 md:p-6">
+      {pathsWithSchoolEmailWarning.has(path) ? (
+        <div className="flex w-full max-w-sm items-start gap-3 rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-4 py-3 text-sm text-yellow-200 shadow-sm shadow-yellow-950/10">
+          <AlertTriangle
+            className="mt-0.5 size-4 shrink-0"
+            aria-hidden="true"
+          />
+          <p className="leading-5">
+            Use seu e-mail escolar para acessar a plataforma.
+          </p>
+        </div>
+      ) : null}
       <AuthView path={path} />
       {pathsWithLegalLinks.has(path) ? (
         <p className="max-w-sm text-center text-xs leading-5 text-muted-foreground">
