@@ -17,32 +17,36 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 
-export const Route = createFileRoute("/press/news")({
+export const Route = createFileRoute("/press/approvals")({
   head: () => ({
     meta: [
-      { title: "Notícias da imprensa — Simulação da ONU" },
+      { title: "Aprovações da imprensa — Simulação da ONU" },
       {
         name: "description",
-        content: "Crie, revise e publique notícias da equipe de imprensa.",
+        content: "Revise, aprove ou negue notícias enviadas pela imprensa.",
       },
     ],
   }),
-  component: PressNewsPage,
+  component: PressApprovalsPage,
 });
 
-function PressNewsPage() {
+function PressApprovalsPage() {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const newsData = useQuery(api.news.getManageList);
   const committeesData = useQuery(api.committees.list);
   const isUserLoading = userInfo === undefined;
   const member = userInfo?.member ?? null;
+  const canApprove = member?.type === "admin" || member?.pressRole === "media";
+  const pendingNews = newsData?.filter(
+    (newsItem) => newsItem.approvalStatus === "pending",
+  );
 
   if (isUserLoading) {
     return (
       <PageShell>
         <PageHeader
-          title="Notícias da imprensa"
-          description="Carregando o painel de publicação da equipe de imprensa."
+          title="Aprovações da imprensa"
+          description="Carregando notícias aguardando revisão."
         />
         <Card>
           <CardContent className="flex flex-col gap-3">
@@ -54,20 +58,20 @@ function PressNewsPage() {
     );
   }
 
-  if (!member || (member.type !== "press" && member.type !== "admin")) {
+  if (!canApprove) {
     return (
       <PageShell className="mx-auto w-full max-w-3xl">
         <Card className="border-dashed bg-card/70">
           <CardHeader>
-            <CardTitle>Acesso exclusivo da imprensa</CardTitle>
-          <CardDescription>
-            Esta área é reservada para membros da equipe de imprensa criarem,
-              revisarem e publicarem notícias da simulação.
-          </CardDescription>
+            <CardTitle>Acesso exclusivo dos aprovadores</CardTitle>
+            <CardDescription>
+              Esta área é reservada para mídia da imprensa e administradores
+              revisarem notícias antes da publicação.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild variant="outline">
-              <Link to="/news">Ver notícias públicas</Link>
+              <Link to="/press/news">Voltar para notícias da imprensa</Link>
             </Button>
           </CardContent>
         </Card>
@@ -78,24 +82,23 @@ function PressNewsPage() {
   return (
     <PageShell>
       <PageHeader
-        title="Notícias da imprensa"
-        description={
-          "Escreva notícias e acompanhe a aprovação antes da publicação."
-        }
+        title="Aprovações da imprensa"
+        description="Revise, aprove ou negue notícias enviadas por redatores."
         action={
           <Button asChild variant="outline" size="sm">
-            <Link to="/news">
+            <Link to="/press/news">
               <Newspaper data-icon="inline-start" />
-              Ver página pública
+              Ver notícias da imprensa
             </Link>
           </Button>
         }
       />
 
       <NewsManagementTable
-        newsData={newsData}
+        newsData={pendingNews}
         committeesData={committeesData}
-        currentAuthorId={member._id}
+        allowCreate={false}
+        canApprove
         isLoading={newsData === undefined || committeesData === undefined}
       />
     </PageShell>

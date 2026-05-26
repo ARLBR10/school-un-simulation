@@ -15,6 +15,7 @@ import { mutation, query } from "./_generated/server";
 import { getPostHog } from "./posthog";
 
 type NewsPatch = Partial<Omit<Doc<"news">, "_id" | "_creationTime">>;
+type NewsApprovalStatus = "pending" | "approved" | "denied";
 
 const newsBodyProcessor = unified()
   .use(remarkParse)
@@ -56,11 +57,23 @@ export type NewsDetail = Doc<"news"> & {
 export type NewsManageItem = NewsDetail;
 
 function canSeeAllNews(member: Doc<"members">) {
-  return member.type === "admin" || member.type === "press";
+  return member.type === "admin" || isPressApprover(member);
 }
 
 function canManageNews(member: Doc<"members">) {
   return member.type === "admin" || member.type === "press";
+}
+
+function isPressApprover(member: Doc<"members">) {
+  return member.type === "admin" || member.pressRole === "media";
+}
+
+function isPublishedNews(news: Doc<"news">) {
+  return news.approvalStatus === undefined || news.approvalStatus === "approved";
+}
+
+function getApprovalStatus(news: Doc<"news">): NewsApprovalStatus {
+  return news.approvalStatus ?? "approved";
 }
 
 function getNewsAuditEventName(
@@ -82,6 +95,10 @@ function getNewsAuditSnapshot(news: Doc<"news">) {
     body: news.body,
     author: news.author ?? null,
     committee: news.committee ?? null,
+    approvalStatus: getApprovalStatus(news),
+    reviewedBy: news.reviewedBy ?? null,
+    reviewedAt: news.reviewedAt ?? null,
+    denialReason: news.denialReason ?? null,
   };
 }
 
@@ -109,6 +126,10 @@ function canSeeNews(news: Doc<"news">, member: Doc<"members">) {
     return true;
   }
 
+  if (!isPublishedNews(news)) {
+    return news.author === member._id;
+  }
+
   const committeeIds = news.committee ?? [];
   if (committeeIds.length === 0) {
     return true;
@@ -128,9 +149,9 @@ export const list = query({
     }
 
     const news = await ctx.db.query("news").order("desc").take(999);
-    const visibleNews = canSeeAllNews(member)
-      ? news
-      : news.filter((newsItem) => canSeeNews(newsItem, member));
+    const visibleNews = news.filter(
+      (newsItem) => isPublishedNews(newsItem) && canSeeNews(newsItem, member),
+    );
 
     const authorIds = [
       ...new Set(visibleNews.map((n) => n.author).filter(Boolean)),
@@ -175,7 +196,7 @@ export const getById = query({
       return null;
     }
 
-    if (!canSeeNews(news, member)) {
+    if (!isPublishedNews(news) || !canSeeNews(news, member)) {
       return null;
     }
 
@@ -225,7 +246,14 @@ export const getManageList = query({
       return null;
     }
 
-    const news = await ctx.db.query("news").order("desc").take(999);
+    const member = userInfo.member;
+    const news = isPressApprover(member)
+      ? await ctx.db.query("news").order("desc").take(999)
+      : await ctx.db
+          .query("news")
+          .withIndex("by_author", (q) => q.eq("author", member._id))
+          .order("desc")
+          .take(999);
     const authorIds = [...new Set(news.map((n) => n.author).filter(Boolean))] as Id<"members">[];
     const committeeIds = [
       ...new Set(news.flatMap((n) => n.committee ?? [])),
@@ -256,6 +284,39 @@ export const getManageList = query({
         .map((committeeId) => committeesById.get(committeeId))
         .filter((name): name is string => Boolean(name)),
     }));
+  },
+});
+
+export const getPendingApprovalSummary = query({
+  args: {},
+  async handler(ctx): Promise<{
+    count: number;
+    latest: Pick<Doc<"news">, "_id" | "_creationTime" | "title"> | null;
+  } | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (!userInfo?.member || !isPressApprover(userInfo.member)) {
+      return null;
+    }
+
+    const pendingNews = await ctx.db
+      .query("news")
+      .withIndex("by_approvalStatus", (q) => q.eq("approvalStatus", "pending"))
+      .order("desc")
+      .take(50);
+
+    const latest = pendingNews[0] ?? null;
+
+    return {
+      count: pendingNews.length,
+      latest: latest
+        ? {
+            _id: latest._id,
+            _creationTime: latest._creationTime,
+            title: latest.title,
+          }
+        : null,
+    };
   },
 });
 
@@ -296,9 +357,16 @@ export const create = mutation({
           ? userInfo.member._id
           : undefined;
 
+    const approvalStatus = isPressApprover(userInfo.member) ? "approved" : "pending";
+    const reviewedBy = approvalStatus === "approved" ? userInfo.member._id : undefined;
+    const reviewedAt = approvalStatus === "approved" ? Date.now() : undefined;
+
     const newNews: Omit<Doc<"news">, "_id" | "_creationTime"> = {
       title: args.title,
       body: sanitizedBody,
+      approvalStatus,
+      ...(reviewedBy !== undefined ? { reviewedBy } : {}),
+      ...(reviewedAt !== undefined ? { reviewedAt } : {}),
       ...(author !== undefined ? { author } : {}),
       ...(args.committee !== undefined && args.committee.length > 0
         ? { committee: args.committee }
@@ -344,6 +412,9 @@ export const update = mutation({
     committee: v.optional(v.array(v.id("committees"))),
     title: v.optional(v.string()),
     body: v.optional(v.string()),
+    approvalStatus: v.optional(
+      v.union(v.literal("pending"), v.literal("approved"), v.literal("denied")),
+    ),
   },
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
@@ -364,6 +435,10 @@ export const update = mutation({
 
     const existingNews = await ctx.db.get("news", args.id);
     if (!existingNews) {
+      return null;
+    }
+
+    if (!isPressApprover(userInfo.member) && existingNews.author !== userInfo.member._id) {
       return null;
     }
 
@@ -393,6 +468,22 @@ export const update = mutation({
     if ("committee" in args) {
       const committee = args.committee ?? [];
       newsPatch.committee = committee.length > 0 ? committee : undefined;
+    }
+
+    if (isPressApprover(userInfo.member) && "approvalStatus" in args) {
+      newsPatch.approvalStatus = args.approvalStatus;
+      newsPatch.reviewedBy =
+        args.approvalStatus === "pending" ? undefined : userInfo.member._id;
+      newsPatch.reviewedAt =
+        args.approvalStatus === "pending" ? undefined : Date.now();
+      newsPatch.denialReason = undefined;
+    }
+
+    if (!isPressApprover(userInfo.member)) {
+      newsPatch.approvalStatus = "pending";
+      newsPatch.reviewedBy = undefined;
+      newsPatch.reviewedAt = undefined;
+      newsPatch.denialReason = undefined;
     }
 
     const changes = getNewsAuditChanges(existingNews, newsPatch);
@@ -449,6 +540,10 @@ export const purge = mutation({
       return null;
     }
 
+    if (!isPressApprover(userInfo.member) && existingNews.author !== userInfo.member._id) {
+      return null;
+    }
+
     await ctx.db.delete("news", args.id);
     await getPostHog().capture(ctx, {
       event: getNewsAuditEventName(userInfo.member, "delete"),
@@ -465,6 +560,63 @@ export const purge = mutation({
             .map(([field, value]) => [field, { before: value, after: null }]),
         ),
       },
+    });
+
+    return true;
+  },
+});
+
+export const approve = mutation({
+  args: {
+    id: v.id("news"),
+  },
+  async handler(ctx, args): Promise<null | boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (!userInfo?.member || !isPressApprover(userInfo.member)) {
+      return null;
+    }
+
+    const existingNews = await ctx.db.get("news", args.id);
+    if (!existingNews) {
+      return null;
+    }
+
+    await ctx.db.patch("news", args.id, {
+      approvalStatus: "approved",
+      reviewedBy: userInfo.member._id,
+      reviewedAt: Date.now(),
+      denialReason: undefined,
+    });
+
+    return true;
+  },
+});
+
+export const deny = mutation({
+  args: {
+    id: v.id("news"),
+    reason: v.optional(v.string()),
+  },
+  async handler(ctx, args): Promise<null | boolean> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (!userInfo?.member || !isPressApprover(userInfo.member)) {
+      return null;
+    }
+
+    const existingNews = await ctx.db.get("news", args.id);
+    if (!existingNews) {
+      return null;
+    }
+
+    const denialReason = args.reason?.trim();
+
+    await ctx.db.patch("news", args.id, {
+      approvalStatus: "denied",
+      reviewedBy: userInfo.member._id,
+      reviewedAt: Date.now(),
+      denialReason: denialReason || undefined,
     });
 
     return true;

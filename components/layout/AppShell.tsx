@@ -77,6 +77,7 @@ type NavigationItem = {
     | "/admin/attendance"
     | "/admin/documents"
     | "/press/news"
+    | "/press/approvals"
     | "/grading"
     | "/attendance";
   label: string;
@@ -111,6 +112,7 @@ const adminNavigationLinks: NavigationItem[] = [
 
 const pressNavigationLinks: NavigationItem[] = [
   { href: "/press/news", label: "Notícias", icon: Newspaper },
+  { href: "/press/approvals", label: "Aprovações", icon: ClipboardCheck },
 ];
 
 const gradingNavigationLinks: NavigationItem[] = [
@@ -268,6 +270,7 @@ function AppSidebar() {
   const isAdmin = userInfo?.member?.type === "admin";
   const isDelegate = userInfo?.member?.type === "delegate";
   const isPress = userInfo?.member?.type === "press" || isAdmin;
+  const canApprovePressNews = isAdmin || userInfo?.member?.pressRole === "media";
   const canManageAttendance =
     isAdmin ||
     userInfo?.member?.type === "logistics" ||
@@ -364,13 +367,15 @@ function AppSidebar() {
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {pressNavigationLinks.map((item) => (
-                  <AppSidebarLink
-                    key={item.href}
-                    item={item}
-                    isActive={isActivePath(pathname, item)}
-                  />
-                ))}
+                {pressNavigationLinks
+                  .filter((item) => item.href !== "/press/approvals" || canApprovePressNews)
+                  .map((item) => (
+                    <AppSidebarLink
+                      key={item.href}
+                      item={item}
+                      isActive={isActivePath(pathname, item)}
+                    />
+                  ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
@@ -524,6 +529,10 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
 
   if (pathname.startsWith("/press/news")) {
     return [{ label: "Notícias da imprensa" }];
+  }
+
+  if (pathname.startsWith("/press/approvals")) {
+    return [{ label: "Aprovações da imprensa" }];
   }
 
   if (pathname.startsWith("/grading")) {

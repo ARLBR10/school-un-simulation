@@ -63,6 +63,11 @@ const memberTypeLabels: Record<Doc<"members">["type"], string> = {
   admin: "Administrador",
 };
 
+const pressRoleLabels: Record<NonNullable<Doc<"members">["pressRole"]>, string> = {
+  writer: "Redator",
+  media: "Mídia",
+};
+
 export const Route = createFileRoute("/admin/members")({
   head: () => ({
     meta: [
@@ -85,11 +90,19 @@ const memberTypes: Doc<"members">["type"][] = [
   "admin",
 ];
 
+const noPressRoleOptionValue = "__no_press_role__";
+
 const memberTypeOptions: AdminTableSelectOption[] = memberTypes.map((type) => ({
   value: type,
   label: memberTypeLabels[type],
   disabled: type === "admin",
 }));
+
+const pressRoleOptions: AdminTableSelectOption[] = [
+  { value: noPressRoleOptionValue, label: "Sem função de imprensa" },
+  { value: "writer", label: pressRoleLabels.writer },
+  { value: "media", label: pressRoleLabels.media },
+];
 
 const noUserOptionValue = "__no_user__";
 const noCommitteeOptionValue = "__no_committee__";
@@ -111,6 +124,7 @@ const bulkMembersExample = JSON.stringify(
       name: "João Santos",
       tuitionId: "67890",
       type: "press",
+      pressRole: "writer",
     },
   ],
   null,
@@ -121,6 +135,7 @@ type BulkMemberInput = {
   name: string;
   tuitionId?: string;
   type: Doc<"members">["type"];
+  pressRole?: Doc<"members">["pressRole"];
   userId?: string;
   delegatedCountry?: CountryCode;
   committee?: Doc<"committees">["_id"];
@@ -157,6 +172,10 @@ function isMemberType(value: string): value is Doc<"members">["type"] {
   return memberTypes.includes(value as Doc<"members">["type"]);
 }
 
+function isPressRole(value: string): value is NonNullable<Doc<"members">["pressRole"]> {
+  return value === "writer" || value === "media";
+}
+
 function normalizeOptionalString(value: string | undefined) {
   const trimmedValue = value?.trim();
 
@@ -177,6 +196,20 @@ function normalizeOptionalUserId(value: string | undefined) {
 
 function normalizeNullableString(value: string | undefined) {
   return normalizeOptionalString(value) ?? null;
+}
+
+function normalizeOptionalPressRole(value: string | undefined) {
+  const normalizedValue = normalizeOptionalString(value);
+
+  if (!normalizedValue || normalizedValue === noPressRoleOptionValue) {
+    return undefined;
+  }
+
+  return isPressRole(normalizedValue) ? normalizedValue : undefined;
+}
+
+function normalizeNullablePressRole(value: string | undefined) {
+  return normalizeOptionalPressRole(value) ?? null;
 }
 
 function normalizeNullableUserId(value: string | undefined) {
@@ -256,6 +289,8 @@ function parseBulkMembersInput(value: string): BulkMemberInput[] {
     const record = item as Record<string, unknown>;
     const name = getOptionalStringField(record, "name");
     const type = getOptionalStringField(record, "type");
+    const pressRole = getOptionalStringField(record, "pressRole");
+    const normalizedPressRole = pressRole && isPressRole(pressRole) ? pressRole : undefined;
     const delegatedCountry = getOptionalStringField(record, "delegatedCountry");
 
     if (!name) {
@@ -270,11 +305,16 @@ function parseBulkMembersInput(value: string): BulkMemberInput[] {
       throw new Error(`O item ${index + 1} tem um país inválido.`);
     }
 
+    if (pressRole && !isPressRole(pressRole)) {
+      throw new Error(`O item ${index + 1} tem uma função de imprensa inválida.`);
+    }
+
     const committee = getOptionalStringField(record, "committee");
 
     return {
       name,
       type,
+      pressRole: type === "press" ? normalizedPressRole : undefined,
       tuitionId: getOptionalStringField(record, "tuitionId"),
       userId: getOptionalStringField(record, "userId"),
       committee: committee as Doc<"committees">["_id"] | undefined,
@@ -817,6 +857,31 @@ function MembersPage() {
       placeholder: "Selecione um tipo",
     }),
     {
+      key: "pressRole",
+      label: "Função na imprensa",
+      render: (member) =>
+        member.type === "press" && member.pressRole
+          ? pressRoleLabels[member.pressRole]
+          : "-",
+      formRender: ({ value, values, onChange, mode }) => {
+        const isPress = values.type === "press";
+
+        return (
+          <AdminTableSelectInput
+            fieldKey="pressRole"
+            mode={mode}
+            options={pressRoleOptions}
+            placeholder="Selecione uma função"
+            value={isPress ? value : noPressRoleOptionValue}
+            onChange={(nextValue) =>
+              onChange(nextValue === noPressRoleOptionValue ? "" : nextValue)
+            }
+          />
+        );
+      },
+      hiddenByDefault: true,
+    },
+    {
       key: "userId",
       label: "Usuário",
       render(row) {
@@ -962,6 +1027,10 @@ function MembersPage() {
               name,
               tuitionId,
               type,
+              pressRole:
+                type === "press"
+                  ? (normalizeOptionalPressRole(values.pressRole) ?? "writer")
+                  : undefined,
               userId: normalizeOptionalUserId(values.userId),
               delegatedCountry: committee
                 ? normalizeOptionalCountryCode(values.delegatedCountry)
@@ -990,6 +1059,10 @@ function MembersPage() {
               name: normalizeOptionalString(values.name),
               tuitionId: normalizeNullableString(values.tuitionId),
               type: type && isMemberType(type) ? type : undefined,
+              pressRole:
+                type === "press"
+                  ? normalizeNullablePressRole(values.pressRole)
+                  : null,
               userId: normalizeNullableUserId(values.userId),
               delegatedCountry: committee
                 ? normalizeNullableCountryCode(values.delegatedCountry)

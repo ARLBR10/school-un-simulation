@@ -14,6 +14,7 @@ export default defineSchema({
     name: v.string(),
     tuitionId: v.optional(v.string()),
     type: memberTypes,
+    pressRole: v.optional(v.union(v.literal("writer"), v.literal("media"))),
     delegatedCountry: v.optional(countriesConvexSchema), // @TODO: Be one of a big fat array of all the countries
     committee: v.optional(v.id("committees")),
   })
@@ -60,7 +61,15 @@ export default defineSchema({
     committee: v.optional(v.array(v.id("committees"))),
     title: v.string(),
     body: v.string(), // Markdown
-  }),
+    approvalStatus: v.optional(
+      v.union(v.literal("pending"), v.literal("approved"), v.literal("denied")),
+    ),
+    reviewedBy: v.optional(v.id("members")),
+    reviewedAt: v.optional(v.number()),
+    denialReason: v.optional(v.string()),
+  })
+    .index("by_author", ["author"])
+    .index("by_approvalStatus", ["approvalStatus"]),
   gradingEntries: defineTable({
     member: v.id("members"),
     kind: gradingEntryKind,

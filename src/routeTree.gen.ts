@@ -23,6 +23,7 @@ import { Route as NewsIndexRouteImport } from './app/news/index'
 import { Route as CommitteesIndexRouteImport } from './app/committees/index'
 import { Route as AdminIndexRouteImport } from './app/admin/index'
 import { Route as PressNewsRouteImport } from './app/press/news'
+import { Route as PressApprovalsRouteImport } from './app/press/approvals'
 import { Route as OrganizationPathRouteImport } from './app/organization/$path'
 import { Route as NewsIdRouteImport } from './app/news/$id'
 import { Route as ErrorNot_authorizedRouteImport } from './app/error/not_authorized'
@@ -108,6 +109,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const PressNewsRoute = PressNewsRouteImport.update({
   id: '/press/news',
   path: '/press/news',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PressApprovalsRoute = PressApprovalsRouteImport.update({
+  id: '/press/approvals',
+  path: '/press/approvals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OrganizationPathRoute = OrganizationPathRouteImport.update({
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/error/not_authorized': typeof ErrorNot_authorizedRoute
   '/news/$id': typeof NewsIdRoute
   '/organization/$path': typeof OrganizationPathRoute
+  '/press/approvals': typeof PressApprovalsRoute
   '/press/news': typeof PressNewsRoute
   '/admin/': typeof AdminIndexRoute
   '/committees/': typeof CommitteesIndexRoute
@@ -248,6 +255,7 @@ export interface FileRoutesByTo {
   '/error/not_authorized': typeof ErrorNot_authorizedRoute
   '/news/$id': typeof NewsIdRoute
   '/organization/$path': typeof OrganizationPathRoute
+  '/press/approvals': typeof PressApprovalsRoute
   '/press/news': typeof PressNewsRoute
   '/admin': typeof AdminIndexRoute
   '/committees': typeof CommitteesIndexRoute
@@ -281,6 +289,7 @@ export interface FileRoutesById {
   '/error/not_authorized': typeof ErrorNot_authorizedRoute
   '/news/$id': typeof NewsIdRoute
   '/organization/$path': typeof OrganizationPathRoute
+  '/press/approvals': typeof PressApprovalsRoute
   '/press/news': typeof PressNewsRoute
   '/admin/': typeof AdminIndexRoute
   '/committees/': typeof CommitteesIndexRoute
@@ -315,6 +324,7 @@ export interface FileRouteTypes {
     | '/error/not_authorized'
     | '/news/$id'
     | '/organization/$path'
+    | '/press/approvals'
     | '/press/news'
     | '/admin/'
     | '/committees/'
@@ -346,6 +356,7 @@ export interface FileRouteTypes {
     | '/error/not_authorized'
     | '/news/$id'
     | '/organization/$path'
+    | '/press/approvals'
     | '/press/news'
     | '/admin'
     | '/committees'
@@ -378,6 +389,7 @@ export interface FileRouteTypes {
     | '/error/not_authorized'
     | '/news/$id'
     | '/organization/$path'
+    | '/press/approvals'
     | '/press/news'
     | '/admin/'
     | '/committees/'
@@ -404,6 +416,7 @@ export interface RootRouteChildren {
   ErrorNot_authorizedRoute: typeof ErrorNot_authorizedRoute
   NewsIdRoute: typeof NewsIdRoute
   OrganizationPathRoute: typeof OrganizationPathRoute
+  PressApprovalsRoute: typeof PressApprovalsRoute
   PressNewsRoute: typeof PressNewsRoute
   CommitteesIndexRoute: typeof CommitteesIndexRoute
   NewsIndexRoute: typeof NewsIndexRoute
@@ -508,6 +521,13 @@ declare module '@tanstack/react-router' {
       path: '/press/news'
       fullPath: '/press/news'
       preLoaderRoute: typeof PressNewsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/press/approvals': {
+      id: '/press/approvals'
+      path: '/press/approvals'
+      fullPath: '/press/approvals'
+      preLoaderRoute: typeof PressApprovalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/organization/$path': {
@@ -668,6 +688,7 @@ const rootRouteChildren: RootRouteChildren = {
   ErrorNot_authorizedRoute: ErrorNot_authorizedRoute,
   NewsIdRoute: NewsIdRoute,
   OrganizationPathRoute: OrganizationPathRoute,
+  PressApprovalsRoute: PressApprovalsRoute,
   PressNewsRoute: PressNewsRoute,
   CommitteesIndexRoute: CommitteesIndexRoute,
   NewsIndexRoute: NewsIndexRoute,

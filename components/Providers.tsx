@@ -11,6 +11,7 @@ import type { ReactNode } from "react";
 
 import { authClient } from "@/lib/auth-client";
 import { AuthLang_PT_BR } from "@/lib/better-auth-ui-lang";
+import { AppNotifications } from "@/components/AppNotifications";
 
 const convexUrl = import.meta.env.VITE_CONVEX_URL;
 
@@ -49,6 +50,7 @@ export function ConvexClientProvider({
       authClient={authClient}
       initialToken={initialToken}
     >
+      <AppNotifications />
       {children}
     </ConvexBetterAuthProvider>
   );

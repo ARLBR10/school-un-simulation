@@ -23,12 +23,15 @@ export const memberTypes = v.union(
   v.literal("admin"), // Coordenação, Secretary General, Meg Dev (@ARLBR10)
 );
 
+export const pressRoles = v.union(v.literal("writer"), v.literal("media"));
+
 const memberCreateArgs = {
   // Keep this up-to-date with the members table.
   userId: v.optional(v.string()),
   name: v.string(),
   tuitionId: v.optional(v.string()),
   type: memberTypes,
+  pressRole: v.optional(pressRoles),
   delegatedCountry: v.optional(countriesConvexSchema),
   committee: v.optional(v.id("committees")),
 };
@@ -131,6 +134,9 @@ export const create = mutation({
 
     const newMember: MemberCreateInput = {
       type: args.type === "admin" ? "delegate" : args.type,
+      ...(args.type === "press" && args.pressRole !== undefined
+        ? { pressRole: args.pressRole }
+        : {}),
       name: args.name,
       ...(args.delegatedCountry !== undefined
         ? { delegatedCountry: args.delegatedCountry }
@@ -181,6 +187,9 @@ export const bulkCreate = mutation({
     for (const member of args.members) {
       const newMember: MemberCreateInput = {
         type: member.type === "admin" ? "delegate" : member.type,
+        ...(member.type === "press" && member.pressRole !== undefined
+          ? { pressRole: member.pressRole }
+          : {}),
         name: member.name,
         ...(member.delegatedCountry !== undefined
           ? { delegatedCountry: member.delegatedCountry }
@@ -212,6 +221,7 @@ export const update = mutation({
     name: v.optional(v.string()),
     tuitionId: v.optional(v.union(v.string(), v.null())),
     type: v.optional(memberTypes),
+    pressRole: v.optional(v.union(pressRoles, v.null())),
     delegatedCountry: v.optional(v.union(countriesConvexSchema, v.null())),
     committee: v.optional(v.union(v.id("committees"), v.null())),
   },
@@ -249,6 +259,11 @@ export const update = mutation({
 
     if ("delegatedCountry" in args) {
       memberPatch.delegatedCountry = args.delegatedCountry ?? undefined;
+    }
+
+    if ("pressRole" in args) {
+      const nextType = memberPatch.type ?? memberInfo.type;
+      memberPatch.pressRole = nextType === "press" ? (args.pressRole ?? undefined) : undefined;
     }
 
     if ("committee" in args) {

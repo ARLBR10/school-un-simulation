@@ -10,6 +10,7 @@ import {
 import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import { createDateColumn } from "@/components/admin/DynamicTableFields";
 import { MarkdownEditorDialogInput } from "@/components/admin/MarkdownEditorDialogInput";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -17,6 +18,18 @@ import type { NewsManageItem } from "@/convex/news";
 
 const emptyAuthorValue = "__empty_author__";
 const emptyCommitteeValue = "__empty_committee__";
+
+const approvalStatusLabels = {
+  pending: "Pendente",
+  approved: "Publicado",
+  denied: "Negado",
+} as const;
+
+const approvalStatusOptions = [
+  { value: "pending", label: approvalStatusLabels.pending },
+  { value: "approved", label: approvalStatusLabels.approved },
+  { value: "denied", label: approvalStatusLabels.denied },
+];
 
 type CommitteeOption = Pick<Doc<"committees">, "_id" | "theme">;
 type NewsManagementRow = Doc<"news"> &
@@ -67,6 +80,14 @@ function normalizeCommitteeIds(value: unknown) {
   }
 
   return [];
+}
+
+function parseApprovalStatus(value: string | undefined) {
+  if (value === "pending" || value === "approved" || value === "denied") {
+    return value;
+  }
+
+  return undefined;
 }
 
 function renderBodyPreview(body: string) {
@@ -162,19 +183,27 @@ export function NewsManagementTable({
   membersData,
   committeesData,
   currentAuthorId,
+  allowCreate = true,
   allowAuthorSelection = false,
+  canApprove = false,
+  allowApprovalStatusEdit = false,
   isLoading,
 }: {
   newsData: NewsManagementRow[] | null | undefined;
   membersData?: Doc<"members">[] | null;
   committeesData: CommitteeOption[] | null | undefined;
   currentAuthorId?: Doc<"members">["_id"];
+  allowCreate?: boolean;
   allowAuthorSelection?: boolean;
+  canApprove?: boolean;
+  allowApprovalStatusEdit?: boolean;
   isLoading?: boolean;
 }) {
   const newsCreate = useMutation(api.news.create);
   const newsUpdate = useMutation(api.news.update);
   const newsDelete = useMutation(api.news.purge);
+  const newsApprove = useMutation(api.news.approve);
+  const newsDeny = useMutation(api.news.deny);
 
   const memberNameById: Record<string, string> = {};
   const committeeThemeById: Record<string, string> = {};
@@ -197,6 +226,31 @@ export function NewsManagementTable({
 
   const newsColumns: AdminTableColumn<NewsManagementRow>[] = [
     { key: "title", label: "Título" },
+    {
+      key: "approvalStatus",
+      label: "Status",
+      render: (news) => {
+        const status = news.approvalStatus ?? "approved";
+
+        return (
+          <Badge
+            variant={
+              status === "approved"
+                ? "default"
+                : status === "denied"
+                  ? "destructive"
+                  : "outline"
+            }
+          >
+            {approvalStatusLabels[status]}
+          </Badge>
+        );
+      },
+      formSelectOptions: approvalStatusOptions,
+      formSelectPlaceholder: "Selecione um status",
+      showInCreateForm: false,
+      showInEditForm: allowApprovalStatusEdit,
+    },
     {
       key: "author",
       label: "Autor",
@@ -247,6 +301,58 @@ export function NewsManagementTable({
       key: "_creationTime",
       label: "Criado em",
     }),
+    {
+      key: "_id",
+      label: "Revisão",
+      showInForm: false,
+      render: (news) => {
+        if (!canApprove || news.approvalStatus !== "pending") {
+          return "-";
+        }
+
+        return (
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  const approved = await newsApprove({ id: news._id });
+
+                  if (approved === true) {
+                    toast.success("Notícia aprovada e publicada.");
+                  }
+                } catch {
+                  toast.error("Não foi possível aprovar a notícia.");
+                }
+              }}
+            >
+              Aprovar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={async () => {
+                try {
+                  const denied = await newsDeny({ id: news._id });
+
+                  if (denied === true) {
+                    toast.success("Notícia negada.");
+                  }
+                } catch {
+                  toast.error("Não foi possível negar a notícia.");
+                }
+              }}
+            >
+              Negar
+            </Button>
+          </div>
+        );
+      },
+      hiddenByDefault: !canApprove,
+    },
   ];
 
   return (
@@ -256,7 +362,7 @@ export function NewsManagementTable({
       isLoading={isLoading}
       rowKey="title"
       searchParamKey="_id"
-      onCreate={async (values) => {
+      onCreate={allowCreate ? async (values) => {
         const title = normalizeRequiredString(values.title);
         const body = normalizeRequiredString(values.body);
         const author = allowAuthorSelection
@@ -278,7 +384,11 @@ export function NewsManagementTable({
           });
 
           if (created === true) {
-            toast.success("Notícia criada com sucesso.");
+            toast.success(
+              canApprove
+                ? "Notícia criada e publicada."
+                : "Notícia enviada para aprovação.",
+            );
             return true;
           }
 
@@ -287,7 +397,7 @@ export function NewsManagementTable({
           toast.error("Não foi possível criar a notícia.");
           return false;
         }
-      }}
+      } : undefined}
       onUpdate={async (news, values) => {
         const title = normalizeRequiredString(values.title);
         const body = normalizeRequiredString(values.body);
@@ -306,10 +416,17 @@ export function NewsManagementTable({
               ? { author: parseAuthorId(values.author) }
               : {}),
             committee: parseCommitteeIds(values.committee),
+            ...(allowApprovalStatusEdit
+              ? { approvalStatus: parseApprovalStatus(values.approvalStatus) }
+              : {}),
           });
 
           if (updated === true) {
-            toast.success("Notícia atualizada com sucesso.");
+            toast.success(
+              canApprove
+                ? "Notícia atualizada com sucesso."
+                : "Notícia atualizada e enviada para aprovação.",
+            );
             return true;
           }
 

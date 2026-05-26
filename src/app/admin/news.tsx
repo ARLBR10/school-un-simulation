@@ -37,6 +37,8 @@ function AdminNewsPage() {
         membersData={membersData}
         committeesData={committeesData}
         allowAuthorSelection
+        canApprove
+        allowApprovalStatusEdit
         isLoading={
           newsData === undefined ||
           membersData === undefined ||
