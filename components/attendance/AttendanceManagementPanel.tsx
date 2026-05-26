@@ -3,13 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import {
-  CalendarIcon,
-  CheckCircle2,
-  CircleSlash,
-  Save,
-  Users,
-} from "lucide-react";
+import { CalendarIcon, CheckCircle2, CircleSlash, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
@@ -21,8 +15,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -102,7 +103,6 @@ function getMemberDetails(member: AttendanceMember) {
     : null;
   const details = [
     memberTypeLabels[member.type],
-    member.tuitionId ? `Matrícula ${member.tuitionId}` : null,
     member.delegatedCountry
       ? `${country?.name ?? member.delegatedCountry} (${member.delegatedCountry})`
       : null,
@@ -249,7 +249,7 @@ function StatusToggle({
         aria-label="Marcar presente"
         className={cn(
           value === "present" &&
-            "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600/90 hover:text-white",
+            "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600/90 hover:text-white data-[state=on]:bg-emerald-600 data-[state=on]:text-white",
         )}
       >
         <CheckCircle2 data-icon="inline-start" />
@@ -260,7 +260,7 @@ function StatusToggle({
         aria-label="Marcar ausente"
         className={cn(
           value === "absent" &&
-            "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:text-destructive-foreground",
+            "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:text-destructive-foreground data-[state=on]:bg-destructive data-[state=on]:text-destructive-foreground",
         )}
       >
         <CircleSlash data-icon="inline-start" />
@@ -282,6 +282,7 @@ export function AttendanceManagementPanel({
   const [statuses, setStatuses] = useState<
     Record<string, AttendanceStatus | undefined>
   >({});
+  const [selectedCommitteeId, setSelectedCommitteeId] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const attendanceData = useQuery(api.attendance.getManageData, {
     dateKey: selectedDateKey,
@@ -307,6 +308,21 @@ export function AttendanceManagementPanel({
     ? getVisibleMembers(attendanceData.committees)
     : [];
   const totalStats = getStats({ members: visibleMembers, statuses });
+  const selectedCommittee = attendanceData
+    ? attendanceData.committees.find(
+        (committee) => committee._id === selectedCommitteeId,
+      ) ?? attendanceData.committees[0]
+    : undefined;
+  const selectedCommitteeStats = selectedCommittee
+    ? getStats({ members: selectedCommittee.members, statuses })
+    : null;
+  const canSaveSelectedCommittee = Boolean(
+    selectedCommittee &&
+      selectedCommitteeStats &&
+      selectedCommittee.members.length > 0 &&
+      selectedCommitteeStats.pending === 0 &&
+      !isSaving,
+  );
 
   async function handleSave(committee: AttendanceCommitteeSummary) {
     const isCommitteeComplete = committee.members.every(
@@ -386,111 +402,122 @@ export function AttendanceManagementPanel({
             <StatusSummary stats={totalStats} />
           </div>
 
-          <Tabs defaultValue={attendanceData.committees[0]._id} className="gap-4">
-            <TabsList className="mx-auto h-auto flex-wrap justify-center">
-              {attendanceData.committees.map((committee) => {
-                const stats = getStats({ members: committee.members, statuses });
-
-                return (
-                  <TabsTrigger key={committee._id} value={committee._id}>
-                    <Users data-icon="inline-start" />
-                    {committee.theme}
-                    <span className="text-muted-foreground">
-                      {stats.present}/{stats.total}
-                    </span>
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-
-            {attendanceData.committees.map((committee) => {
-              const stats = getStats({ members: committee.members, statuses });
-              const canSaveCommittee =
-                committee.members.length > 0 && stats.pending === 0 && !isSaving;
-
-              return (
-                <TabsContent
-                  key={committee._id}
-                  value={committee._id}
-                  className="mt-0 flex flex-col gap-3"
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 sm:max-w-md">
+              <span className="text-sm font-medium">Comitê</span>
+              <Select
+                value={selectedCommittee?._id ?? ""}
+                onValueChange={setSelectedCommitteeId}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione um comitê" />
+                </SelectTrigger>
+                <SelectContent
+                  position="popper"
+                  className="max-w-[calc(100vw-2rem)] sm:max-w-md"
                 >
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h2 className="text-lg font-semibold">{committee.theme}</h2>
-                      <p className="text-sm text-muted-foreground">
-                        {stats.present} presentes, {stats.absent} ausentes e {stats.pending} pendentes.
-                      </p>
-                    </div>
-                  </div>
+                  <SelectGroup>
+                    {attendanceData.committees.map((committee) => {
+                      const stats = getStats({
+                        members: committee.members,
+                        statuses,
+                      });
 
-                  <div className="rounded-xl border border-border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Membro</TableHead>
-                          <TableHead className="hidden md:table-cell">Detalhes</TableHead>
-                          <TableHead className="text-right">Presença</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {committee.members.map((member) => {
-                          const memberName = showAdminLinks ? (
-                            <Link
-                              to="/admin/members"
-                              search={{ _id: member._id }}
-                              className="font-medium hover:underline"
-                            >
-                              {member.name}
-                            </Link>
-                          ) : (
-                            <span className="font-medium">{member.name}</span>
-                          );
+                      return (
+                        <SelectItem
+                          key={committee._id}
+                          value={committee._id}
+                          className="[&>span:last-child]:truncate"
+                        >
+                          {committee.theme} ({stats.present}/{stats.total})
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </div>
 
-                          return (
-                            <TableRow key={`${committee._id}-${member._id}`}>
-                              <TableCell>
-                                <div className="flex min-w-0 flex-col gap-1">
-                                  {memberName}
-                                  <span className="text-xs text-muted-foreground md:hidden">
-                                    {getMemberDetails(member) || "Sem detalhes"}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="hidden text-muted-foreground md:table-cell">
-                                {getMemberDetails(member) || "Sem detalhes"}
-                              </TableCell>
-                              <TableCell>
-                                <StatusToggle
-                                  value={statuses[member._id]}
-                                  onChange={(status) =>
-                                    setStatuses((currentStatuses) => ({
-                                      ...currentStatuses,
-                                      [member._id]: status,
-                                    }))
-                                  }
-                                />
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
+            {selectedCommittee && selectedCommitteeStats ? (
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      {selectedCommittee.theme}
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {selectedCommitteeStats.present} presentes, {selectedCommitteeStats.absent} ausentes e {selectedCommitteeStats.pending} pendentes.
+                    </p>
                   </div>
+                </div>
 
-                  <div className="flex justify-end border-t border-border pt-4">
-                    <Button
-                      type="button"
-                      onClick={() => handleSave(committee)}
-                      disabled={!canSaveCommittee}
-                    >
-                      <Save data-icon="inline-start" />
-                      {isSaving ? "Salvando..." : "Salvar presenças"}
-                    </Button>
-                  </div>
-                </TabsContent>
-              );
-            })}
-          </Tabs>
+                <div className="rounded-xl border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Membro</TableHead>
+                        <TableHead className="hidden md:table-cell">Detalhes</TableHead>
+                        <TableHead className="text-right">Presença</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {selectedCommittee.members.map((member) => {
+                        const memberName = showAdminLinks ? (
+                          <Link
+                            to="/admin/members"
+                            search={{ _id: member._id }}
+                            className="font-medium hover:underline"
+                          >
+                            {member.name}
+                          </Link>
+                        ) : (
+                          <span className="font-medium">{member.name}</span>
+                        );
+
+                        return (
+                          <TableRow key={`${selectedCommittee._id}-${member._id}`}>
+                            <TableCell>
+                              <div className="flex min-w-0 flex-col gap-1">
+                                {memberName}
+                                <span className="text-xs text-muted-foreground md:hidden">
+                                  {getMemberDetails(member) || "Sem detalhes"}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="hidden text-muted-foreground md:table-cell">
+                              {getMemberDetails(member) || "Sem detalhes"}
+                            </TableCell>
+                            <TableCell>
+                              <StatusToggle
+                                value={statuses[member._id]}
+                                onChange={(status) =>
+                                  setStatuses((currentStatuses) => ({
+                                    ...currentStatuses,
+                                    [member._id]: status,
+                                  }))
+                                }
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="flex justify-end border-t border-border pt-4">
+                  <Button
+                    type="button"
+                    onClick={() => handleSave(selectedCommittee)}
+                    disabled={!canSaveSelectedCommittee}
+                  >
+                    <Save data-icon="inline-start" />
+                    {isSaving ? "Salvando..." : "Salvar presenças"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </PageShell>
