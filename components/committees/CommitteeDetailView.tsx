@@ -183,10 +183,7 @@ export function CommitteeDetailView({ id }: { id: string }) {
 
             <motion.div variants={blockVariants}>
               <Section
-                title="Mesa diretora"
-                description={`${sortedClerks.length} ${
-                  sortedClerks.length === 1 ? "clerk" : "clerks"
-                }`}
+                title="Mesários"
               >
                 {sortedClerks.length === 0 ? (
                   <CardDescription>
