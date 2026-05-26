@@ -19,6 +19,7 @@ export default function MembershipRequired({
   const { pathname } = useLocation();
   const isLoginPublicPath =
     pathname.startsWith("/auth") ||
+    pathname === "/home" ||
     pathname === "/invites" ||
     pathname === "/terms" ||
     pathname === "/privacy";

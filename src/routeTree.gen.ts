@@ -13,6 +13,7 @@ import { Route as TermsRouteImport } from './app/terms'
 import { Route as RulesRouteImport } from './app/rules'
 import { Route as PrivacyRouteImport } from './app/privacy'
 import { Route as InvitesRouteImport } from './app/invites'
+import { Route as HomeRouteImport } from './app/home'
 import { Route as GradingRouteImport } from './app/grading'
 import { Route as DpoRouteImport } from './app/dpo'
 import { Route as DocumentsRouteImport } from './app/documents'
@@ -59,6 +60,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const InvitesRoute = InvitesRouteImport.update({
   id: '/invites',
   path: '/invites',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GradingRoute = GradingRouteImport.update({
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/documents': typeof DocumentsRoute
   '/dpo': typeof DpoRoute
   '/grading': typeof GradingRoute
+  '/home': typeof HomeRoute
   '/invites': typeof InvitesRoute
   '/privacy': typeof PrivacyRoute
   '/rules': typeof RulesRoute
@@ -236,6 +243,7 @@ export interface FileRoutesByTo {
   '/documents': typeof DocumentsRoute
   '/dpo': typeof DpoRoute
   '/grading': typeof GradingRoute
+  '/home': typeof HomeRoute
   '/invites': typeof InvitesRoute
   '/privacy': typeof PrivacyRoute
   '/rules': typeof RulesRoute
@@ -270,6 +278,7 @@ export interface FileRoutesById {
   '/documents': typeof DocumentsRoute
   '/dpo': typeof DpoRoute
   '/grading': typeof GradingRoute
+  '/home': typeof HomeRoute
   '/invites': typeof InvitesRoute
   '/privacy': typeof PrivacyRoute
   '/rules': typeof RulesRoute
@@ -305,6 +314,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/dpo'
     | '/grading'
+    | '/home'
     | '/invites'
     | '/privacy'
     | '/rules'
@@ -337,6 +347,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/dpo'
     | '/grading'
+    | '/home'
     | '/invites'
     | '/privacy'
     | '/rules'
@@ -370,6 +381,7 @@ export interface FileRouteTypes {
     | '/documents'
     | '/dpo'
     | '/grading'
+    | '/home'
     | '/invites'
     | '/privacy'
     | '/rules'
@@ -404,6 +416,7 @@ export interface RootRouteChildren {
   DocumentsRoute: typeof DocumentsRoute
   DpoRoute: typeof DpoRoute
   GradingRoute: typeof GradingRoute
+  HomeRoute: typeof HomeRoute
   InvitesRoute: typeof InvitesRoute
   PrivacyRoute: typeof PrivacyRoute
   RulesRoute: typeof RulesRoute
@@ -451,6 +464,13 @@ declare module '@tanstack/react-router' {
       path: '/invites'
       fullPath: '/invites'
       preLoaderRoute: typeof InvitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/grading': {
@@ -676,6 +696,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentsRoute: DocumentsRoute,
   DpoRoute: DpoRoute,
   GradingRoute: GradingRoute,
+  HomeRoute: HomeRoute,
   InvitesRoute: InvitesRoute,
   PrivacyRoute: PrivacyRoute,
   RulesRoute: RulesRoute,

@@ -603,7 +603,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { pathname } = useLocation();
   const isAuthPath = pathname.startsWith("/auth");
   const isStandalonePath =
-    isAuthPath || pathname.startsWith("/error") || pathname === ("/terms") || pathname === ("/privacy");
+    isAuthPath ||
+    pathname.startsWith("/error") ||
+    pathname === "/home" ||
+    pathname === "/terms" ||
+    pathname === "/privacy";
 
   if (isStandalonePath) {
     return (

@@ -26,6 +26,7 @@ const getAuthToken = createServerFn({ method: "GET" }).handler(async () => {
 
 function isPublicRoute(pathname: string) {
   return (
+    pathname === "/home" ||
     pathname === "/terms" ||
     pathname === "/privacy" ||
     pathname === "/invites" ||
