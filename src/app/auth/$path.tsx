@@ -13,7 +13,11 @@ export const Route = createFileRoute("/auth/$path")({
   validateSearch: (search) => ({
     redirectTo: typeof search.redirectTo === "string" ? search.redirectTo : undefined,
   }),
-  beforeLoad: async ({ search }) => {
+  beforeLoad: async ({ params, search }) => {
+    if (params.path === "sign-out") {
+      return;
+    }
+
     const token = await getAuthToken().catch(() => null);
 
     if (token) {
@@ -58,6 +62,10 @@ function getAuthPageTitle(path: string) {
 
   if (path === "forgot-password") {
     return "Recuperar senha";
+  }
+
+  if (path === "sign-out") {
+    return "Sair";
   }
 
   return "Entrar";
