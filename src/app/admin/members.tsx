@@ -318,7 +318,8 @@ function parseBulkMembersInput(value: string): BulkMemberInput[] {
       tuitionId: getOptionalStringField(record, "tuitionId"),
       userId: getOptionalStringField(record, "userId"),
       committee: committee as Doc<"committees">["_id"] | undefined,
-      delegatedCountry: delegatedCountry as CountryCode | undefined,
+      delegatedCountry:
+        type === "delegate" ? delegatedCountry as CountryCode | undefined : undefined,
     };
   });
 }
@@ -716,19 +717,19 @@ function BulkCreateMembersDialog({
           Importar em lote
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-3xl">
+      <DialogContent className="grid max-h-[calc(100svh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>Importar membros em lote</DialogTitle>
           <DialogDescription>
             Cole uma lista JSON com até 500 membros. Use os mesmos nomes de campos
-            da tabela: name, tuitionId, type, userId, committee e delegatedCountry.
+            da tabela: name, tuitionId, type, userId, committee, delegatedCountry e pressRole.
           </DialogDescription>
         </DialogHeader>
 
         <Textarea
           value={value}
           onChange={(event) => setValue(event.target.value)}
-          className="min-h-96 font-mono text-xs"
+          className="h-full min-h-64 resize-none overflow-auto font-mono text-xs sm:min-h-96"
           aria-label="Lista JSON de membros"
         />
 
@@ -840,11 +841,13 @@ function MembersPage() {
       showInTable: false,
       formRender: ({ value, values, onChange }) => {
         const hasCommittee = Boolean(normalizeOptionalCommitteeId(values.committee));
+        const isDelegate = values.type === "delegate";
+        const isDisabled = !isDelegate || !hasCommittee;
 
         return (
           <DelegatedCountryCombobox
-            disabled={!hasCommittee}
-            value={hasCommittee ? value : ""}
+            disabled={isDisabled}
+            value={isDisabled ? "" : value}
             onChange={onChange}
           />
         );
@@ -873,6 +876,7 @@ function MembersPage() {
             options={pressRoleOptions}
             placeholder="Selecione uma função"
             value={isPress ? value : noPressRoleOptionValue}
+            disabled={!isPress}
             onChange={(nextValue) =>
               onChange(nextValue === noPressRoleOptionValue ? "" : nextValue)
             }
@@ -1032,7 +1036,7 @@ function MembersPage() {
                   ? (normalizeOptionalPressRole(values.pressRole) ?? "writer")
                   : undefined,
               userId: normalizeOptionalUserId(values.userId),
-              delegatedCountry: committee
+              delegatedCountry: type === "delegate" && committee
                 ? normalizeOptionalCountryCode(values.delegatedCountry)
                 : undefined,
               committee,
@@ -1064,7 +1068,7 @@ function MembersPage() {
                   ? normalizeNullablePressRole(values.pressRole)
                   : null,
               userId: normalizeNullableUserId(values.userId),
-              delegatedCountry: committee
+              delegatedCountry: type === "delegate" && committee
                 ? normalizeNullableCountryCode(values.delegatedCountry)
                 : null,
               committee,

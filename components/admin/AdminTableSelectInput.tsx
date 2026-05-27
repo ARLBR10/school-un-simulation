@@ -26,6 +26,7 @@ type AdminTableSelectInputProps = {
   mode: "create" | "edit";
   options: AdminTableSelectOption[];
   placeholder?: string;
+  disabled?: boolean;
   value: string;
   onChange: (value: string) => void;
 };
@@ -35,6 +36,7 @@ export function AdminTableSelectInput({
   mode,
   options,
   placeholder,
+  disabled = false,
   value,
   onChange,
 }: AdminTableSelectInputProps) {
@@ -54,7 +56,7 @@ export function AdminTableSelectInput({
       <Combobox
         key={`${fieldKey}-${value || "empty"}`}
         items={options}
-        open={isOpen}
+        open={disabled ? false : isOpen}
         inputValue={searchValue}
         value={selectedOption}
         itemToStringLabel={(option) => option.label}
@@ -63,6 +65,10 @@ export function AdminTableSelectInput({
           option.value === selectedValue.value
         }
         onOpenChange={(nextOpen) => {
+          if (disabled) {
+            return;
+          }
+
           setIsOpen(nextOpen);
 
           if (!nextOpen) {
@@ -71,6 +77,10 @@ export function AdminTableSelectInput({
         }}
         onInputValueChange={setSearchValue}
         onValueChange={(option) => {
+          if (disabled) {
+            return;
+          }
+
           onChange(option?.value ?? "");
           setIsOpen(false);
           setSearchValue("");
@@ -82,6 +92,7 @@ export function AdminTableSelectInput({
             <Button
               type="button"
               variant="outline"
+              disabled={disabled}
               className={cn(
                 "h-10 w-full justify-between rounded-md border-input bg-background px-3 font-normal text-foreground shadow-sm hover:bg-background dark:bg-background",
                 !selectedOption && "text-muted-foreground",
