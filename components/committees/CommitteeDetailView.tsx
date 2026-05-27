@@ -156,7 +156,7 @@ export function CommitteeDetailView({ id }: { id: string }) {
 
             <motion.div variants={blockVariants}>
               <Section title="Descrição">
-                <p className="text-sm leading-7 text-muted-foreground">
+                <p className="whitespace-pre-line text-sm leading-7 text-muted-foreground">
                   {committee.description}
                 </p>
               </Section>

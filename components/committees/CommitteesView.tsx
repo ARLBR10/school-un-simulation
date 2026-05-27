@@ -135,7 +135,7 @@ function CommitteeCard({
               className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
             />
           </CardTitle>
-          <CardDescription className="line-clamp-3 leading-6">
+          <CardDescription className="line-clamp-3 whitespace-pre-line leading-6">
             {description}
           </CardDescription>
         </CardHeader>
