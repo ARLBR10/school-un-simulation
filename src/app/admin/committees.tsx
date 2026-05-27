@@ -106,7 +106,7 @@ function CommitteeDelegatesDialog({
           Ver delegados
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Delegados de {committee.theme}</DialogTitle>
           <DialogDescription>
@@ -114,51 +114,53 @@ function CommitteeDelegatesDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nome</TableHead>
-              <TableHead>Matrícula</TableHead>
-              <TableHead>País representado</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {delegates.length === 0 ? (
+        <div className="min-h-0 overflow-auto rounded-md border border-border">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell
-                  colSpan={3}
-                  className="py-6 text-center text-muted-foreground"
-                >
-                  Nenhum delegado vinculado a este comitê.
-                </TableCell>
+                <TableHead>Nome</TableHead>
+                <TableHead>Matrícula</TableHead>
+                <TableHead>País representado</TableHead>
               </TableRow>
-            ) : (
-              delegates.map((delegate) => (
-                <TableRow
-                  key={delegate._id}
-                  role="button"
-                  tabIndex={0}
-                  className="cursor-pointer"
-                  onClick={() => openMember(delegate._id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      openMember(delegate._id);
-                    }
-                  }}
-                >
-                  <TableCell className="font-medium">{delegate.name}</TableCell>
-                  <TableCell>{delegate.tuitionId ?? "-"}</TableCell>
-                  <TableCell>
-                    {delegate.delegatedCountry
-                      ? `${getCountryByCode(delegate.delegatedCountry)?.name} (${delegate.delegatedCountry})`
-                      : "-"}
+            </TableHeader>
+            <TableBody>
+              {delegates.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={3}
+                    className="py-6 text-center text-muted-foreground"
+                  >
+                    Nenhum delegado vinculado a este comitê.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                delegates.map((delegate) => (
+                  <TableRow
+                    key={delegate._id}
+                    role="button"
+                    tabIndex={0}
+                    className="cursor-pointer"
+                    onClick={() => openMember(delegate._id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        openMember(delegate._id);
+                      }
+                    }}
+                  >
+                    <TableCell className="font-medium">{delegate.name}</TableCell>
+                    <TableCell>{delegate.tuitionId ?? "-"}</TableCell>
+                    <TableCell>
+                      {delegate.delegatedCountry
+                        ? `${getCountryByCode(delegate.delegatedCountry)?.name} (${delegate.delegatedCountry})`
+                        : "-"}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </DialogContent>
     </Dialog>
   );
