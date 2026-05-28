@@ -173,16 +173,33 @@ function getMutationErrorMessage(error: unknown, fallback: string) {
 function AmountInput({
   value,
   maxAmount,
+  defaultToMax = false,
   onChange,
 }: {
   value: string;
   maxAmount?: number;
+  defaultToMax?: boolean;
   onChange: (value: string) => void;
 }) {
-  if (maxAmount !== undefined) {
-    const parsedValue = parseAmount(value) ?? 0;
-    const sliderValue = Math.min(parsedValue, maxAmount);
+  const parsedAmount = parseAmount(value);
+  const sliderValue =
+    maxAmount !== undefined
+      ? Math.min(parsedAmount ?? (defaultToMax ? maxAmount : 0), maxAmount)
+      : 0;
 
+  useEffect(() => {
+    if (
+      maxAmount === undefined ||
+      parsedAmount === sliderValue ||
+      (parsedAmount === null && !defaultToMax)
+    ) {
+      return;
+    }
+
+    onChange(String(Number(sliderValue.toFixed(2))));
+  }, [defaultToMax, maxAmount, onChange, parsedAmount, sliderValue]);
+
+  if (maxAmount !== undefined) {
     return (
       <div className="flex flex-col gap-3 rounded-md border border-input bg-background px-3 py-3">
         <div className="flex items-center justify-between gap-3 text-sm">
@@ -215,23 +232,6 @@ function AmountInput({
         placeholder="Ex.: 0,5"
         onChange={(event) => onChange(event.target.value)}
       />
-    </div>
-  );
-}
-
-function FixedAmountDisplay({
-  amount,
-}: {
-  amount: number | undefined;
-}) {
-  return (
-    <div className="flex flex-col gap-1 rounded-md border border-input bg-muted/30 px-3 py-3 text-sm">
-      <span className="text-muted-foreground">Valor fixo da dedução</span>
-      <span className="font-medium">
-        {amount !== undefined
-          ? `${formatAmount(amount)} ponto(s)`
-          : "Selecione uma categoria"}
-      </span>
     </div>
   );
 }
@@ -577,14 +577,11 @@ function getEntryColumns({
           ? getCategoryDefinition(kind, values.category)
           : undefined;
 
-        if (kind === "deduction") {
-          return <FixedAmountDisplay amount={category?.maxAmount} />;
-        }
-
         return (
           <AmountInput
             value={value}
             maxAmount={category?.maxAmount}
+            defaultToMax={kind === "deduction"}
             onChange={onChange}
           />
         );
@@ -695,17 +692,14 @@ function EntryEditorForm({
           <FieldLabel>
             {kind === "deduction" ? "Valor da dedução" : "Pontos"}
           </FieldLabel>
-          {kind === "deduction" ? (
-            <FixedAmountDisplay amount={category?.maxAmount} />
-          ) : (
-            <AmountInput
-              value={values.amount}
-              maxAmount={category?.maxAmount}
-              onChange={(amount) =>
-                setValues((currentValues) => ({ ...currentValues, amount }))
-              }
-            />
-          )}
+          <AmountInput
+            value={values.amount}
+            maxAmount={category?.maxAmount}
+            defaultToMax={kind === "deduction"}
+            onChange={(amount) =>
+              setValues((currentValues) => ({ ...currentValues, amount }))
+            }
+          />
         </Field>
 
         <Field>
@@ -1364,11 +1358,13 @@ export function GradingManagementPanel({
     category: string | null,
     value: string | undefined,
   ) {
-    if (kind === "deduction" && category) {
+    const amount = parseAmount(value);
+
+    if (amount === null && kind === "deduction" && category) {
       return getCategoryDefinition("deduction", category)?.maxAmount ?? null;
     }
 
-    return parseAmount(value);
+    return amount;
   }
 
   function validateEntryValues({

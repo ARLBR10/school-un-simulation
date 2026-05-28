@@ -112,6 +112,13 @@ export const deductionCategories: GradingCategoryDefinition[] = [
     graderTypes: delegateGraderTypes,
     maxAmount: 0.2,
   },
+  {
+    value: "other",
+    label: "Outros",
+    memberTypes: ["delegate"],
+    graderTypes: delegateGraderTypes,
+    maxAmount: 1,
+  },
 ];
 
 export function getCategoriesForKind(kind: GradingEntryKind) {
