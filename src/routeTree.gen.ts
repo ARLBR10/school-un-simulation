@@ -38,6 +38,7 @@ import { Route as AdminMembersRouteImport } from './app/admin/members'
 import { Route as AdminGradesRouteImport } from './app/admin/grades'
 import { Route as AdminDocumentsRouteImport } from './app/admin/documents'
 import { Route as AdminCommitteesRouteImport } from './app/admin/committees'
+import { Route as AdminClassAttendanceRouteImport } from './app/admin/class-attendance'
 import { Route as AdminAttendanceRouteImport } from './app/admin/attendance'
 import { Route as AccountPathRouteImport } from './app/account/$path'
 import { Route as ApiAuthSplatRouteImport } from './app/api/auth/$'
@@ -187,6 +188,11 @@ const AdminCommitteesRoute = AdminCommitteesRouteImport.update({
   path: '/committees',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminClassAttendanceRoute = AdminClassAttendanceRouteImport.update({
+  id: '/class-attendance',
+  path: '/class-attendance',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminAttendanceRoute = AdminAttendanceRouteImport.update({
   id: '/attendance',
   path: '/attendance',
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/account/$path': typeof AccountPathRoute
   '/admin/attendance': typeof AdminAttendanceRoute
+  '/admin/class-attendance': typeof AdminClassAttendanceRoute
   '/admin/committees': typeof AdminCommitteesRoute
   '/admin/documents': typeof AdminDocumentsRoute
   '/admin/grades': typeof AdminGradesRoute
@@ -250,6 +257,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/account/$path': typeof AccountPathRoute
   '/admin/attendance': typeof AdminAttendanceRoute
+  '/admin/class-attendance': typeof AdminClassAttendanceRoute
   '/admin/committees': typeof AdminCommitteesRoute
   '/admin/documents': typeof AdminDocumentsRoute
   '/admin/grades': typeof AdminGradesRoute
@@ -285,6 +293,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/account/$path': typeof AccountPathRoute
   '/admin/attendance': typeof AdminAttendanceRoute
+  '/admin/class-attendance': typeof AdminClassAttendanceRoute
   '/admin/committees': typeof AdminCommitteesRoute
   '/admin/documents': typeof AdminDocumentsRoute
   '/admin/grades': typeof AdminGradesRoute
@@ -321,6 +330,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/account/$path'
     | '/admin/attendance'
+    | '/admin/class-attendance'
     | '/admin/committees'
     | '/admin/documents'
     | '/admin/grades'
@@ -354,6 +364,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/account/$path'
     | '/admin/attendance'
+    | '/admin/class-attendance'
     | '/admin/committees'
     | '/admin/documents'
     | '/admin/grades'
@@ -388,6 +399,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/account/$path'
     | '/admin/attendance'
+    | '/admin/class-attendance'
     | '/admin/committees'
     | '/admin/documents'
     | '/admin/grades'
@@ -641,6 +653,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCommitteesRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/class-attendance': {
+      id: '/admin/class-attendance'
+      path: '/class-attendance'
+      fullPath: '/admin/class-attendance'
+      preLoaderRoute: typeof AdminClassAttendanceRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/attendance': {
       id: '/admin/attendance'
       path: '/attendance'
@@ -667,6 +686,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminAttendanceRoute: typeof AdminAttendanceRoute
+  AdminClassAttendanceRoute: typeof AdminClassAttendanceRoute
   AdminCommitteesRoute: typeof AdminCommitteesRoute
   AdminDocumentsRoute: typeof AdminDocumentsRoute
   AdminGradesRoute: typeof AdminGradesRoute
@@ -678,6 +698,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAttendanceRoute: AdminAttendanceRoute,
+  AdminClassAttendanceRoute: AdminClassAttendanceRoute,
   AdminCommitteesRoute: AdminCommitteesRoute,
   AdminDocumentsRoute: AdminDocumentsRoute,
   AdminGradesRoute: AdminGradesRoute,

@@ -76,6 +76,15 @@ function AdminPage() {
             Marque presentes e ausentes entre delegados, mesários, logística e imprensa.
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Presenças por turma</CardTitle>
+            <CardDescription>Relatório completo por sala.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Revise presença, atraso e ausência por turma e exporte os dados em CSV.
+          </CardContent>
+        </Card>
       </div>
     </PageShell>
   );

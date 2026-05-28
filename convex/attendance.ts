@@ -23,6 +23,22 @@ type AttendanceMemberSummary = Pick<
   "_id" | "name" | "type" | "tuitionId" | "delegatedCountry" | "committee"
 >;
 
+type ClassAttendanceMemberSummary = Pick<
+  Doc<"members">,
+  | "_id"
+  | "name"
+  | "type"
+  | "tuitionId"
+  | "schoolClass"
+  | "delegatedCountry"
+  | "committee"
+> & {
+  status: Doc<"attendanceEntries">["status"] | "unknown";
+  attendanceNote?: string;
+  attendanceUpdatedAt?: number;
+  committeeTheme?: string;
+};
+
 export type AttendanceCommitteeSummary = Pick<
   Doc<"committees">,
   "_id" | "theme"
@@ -36,6 +52,12 @@ export type AttendanceManageData = {
   committees: AttendanceCommitteeSummary[];
   entries: Doc<"attendanceEntries">[];
   isAdmin: boolean;
+};
+
+export type ClassAttendanceReportData = {
+  currentMember: Doc<"members">;
+  dateKey: string;
+  members: ClassAttendanceMemberSummary[];
 };
 
 const trackedMemberTypes: AttendanceTrackedMemberType[] = [
@@ -344,6 +366,84 @@ export const getManageData = query({
       committees,
       entries,
       isAdmin: actor.type === "admin",
+    };
+  },
+});
+
+export const getClassReportData = query({
+  args: {
+    dateKey: v.optional(v.string()),
+  },
+  async handler(ctx, args): Promise<ClassAttendanceReportData | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+    const actor = userInfo?.member ?? null;
+
+    if (actor?.type !== "admin") {
+      return null;
+    }
+
+    const dateKey = resolveDateKey(actor, args.dateKey);
+    const [members, attendanceEntries, committees] = await Promise.all([
+      ctx.db.query("members").take(999),
+      ctx.db
+        .query("attendanceEntries")
+        .withIndex("by_dateKey", (q) => q.eq("dateKey", dateKey))
+        .take(999),
+      ctx.db.query("committees").take(999),
+    ]);
+    const entriesByMemberId = new Map<
+      Id<"members">,
+      Doc<"attendanceEntries">
+    >();
+    const committeesById = new Map(
+      committees.map((committee) => [committee._id, committee]),
+    );
+
+    for (const entry of attendanceEntries) {
+      entriesByMemberId.set(entry.member, entry);
+    }
+
+    return {
+      currentMember: actor,
+      dateKey,
+      members: members
+        .map((member) => {
+          const entry = entriesByMemberId.get(member._id);
+          const committee = member.committee
+            ? committeesById.get(member.committee)
+            : undefined;
+          const status: ClassAttendanceMemberSummary["status"] =
+            entry?.status ?? "unknown";
+
+          return {
+            _id: member._id,
+            name: member.name,
+            type: member.type,
+            tuitionId: member.tuitionId,
+            schoolClass: member.schoolClass,
+            delegatedCountry: member.delegatedCountry,
+            committee: member.committee,
+            status,
+            attendanceNote: entry?.note,
+            attendanceUpdatedAt: entry?.updatedAt,
+            committeeTheme: committee?.theme,
+          };
+        })
+        .sort((leftMember, rightMember) => {
+          const classComparison = (leftMember.schoolClass ?? "").localeCompare(
+            rightMember.schoolClass ?? "",
+            "pt-BR",
+            { sensitivity: "base" },
+          );
+
+          if (classComparison !== 0) {
+            return classComparison;
+          }
+
+          return leftMember.name.localeCompare(rightMember.name, "pt-BR", {
+            sensitivity: "base",
+          });
+        }),
     };
   },
 });
