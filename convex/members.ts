@@ -402,6 +402,11 @@ export const assignClasses = mutation({
         missingCount: missing.length,
         duplicateRowCount: duplicateRows.length,
         duplicateMemberCount: duplicateMembers.length,
+        warnings: {
+          missing,
+          duplicateRows,
+          duplicateMembers,
+        },
       },
     });
 

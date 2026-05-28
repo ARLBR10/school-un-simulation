@@ -363,17 +363,10 @@ function isMarkdownSeparatorRow(cells: string[]) {
   return cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
 }
 
-function parseClassAssignmentMarkdown(value: string): ClassAssignmentInput {
-  const lines = value.split(/\r?\n/);
-  const schoolClass = lines
-    .find((line) => line.trim().startsWith("# "))
-    ?.replace(/^#\s+/, "")
-    .trim();
-
-  if (!schoolClass) {
-    throw new Error("Inclua o nome da turma em um título Markdown, como # 3A.");
-  }
-
+function parseClassAssignmentSection(
+  schoolClass: string,
+  lines: string[],
+): ClassAssignmentInput {
   const tableStartIndex = lines.findIndex((line) => {
     const normalizedLine = normalizeMarkdownHeader(line);
 
@@ -385,7 +378,9 @@ function parseClassAssignmentMarkdown(value: string): ClassAssignmentInput {
   });
 
   if (tableStartIndex === -1) {
-    throw new Error("Inclua uma tabela com o cabeçalho | Numero | Matrícula | Aluno |.");
+    throw new Error(
+      `Inclua uma tabela com o cabeçalho | Numero | Matrícula | Aluno | para a turma ${schoolClass}.`,
+    );
   }
 
   const headers = parseMarkdownTableRow(lines[tableStartIndex]).map(normalizeMarkdownHeader);
@@ -394,7 +389,9 @@ function parseClassAssignmentMarkdown(value: string): ClassAssignmentInput {
   const studentNameIndex = headers.indexOf("aluno");
 
   if (numberIndex === -1 || tuitionIdIndex === -1 || studentNameIndex === -1) {
-    throw new Error("A tabela precisa conter as colunas Numero, Matrícula e Aluno.");
+    throw new Error(
+      `A tabela da turma ${schoolClass} precisa conter as colunas Numero, Matrícula e Aluno.`,
+    );
   }
 
   const rows = lines
@@ -407,7 +404,9 @@ function parseClassAssignmentMarkdown(value: string): ClassAssignmentInput {
       const studentName = cells[studentNameIndex]?.trim();
 
       if (!tuitionId || !studentName) {
-        throw new Error(`A linha ${index + 1} precisa de Matrícula e Aluno.`);
+        throw new Error(
+          `A linha ${index + 1} da turma ${schoolClass} precisa de Matrícula e Aluno.`,
+        );
       }
 
       return {
@@ -418,14 +417,50 @@ function parseClassAssignmentMarkdown(value: string): ClassAssignmentInput {
     });
 
   if (rows.length === 0) {
-    throw new Error("Inclua pelo menos um aluno na tabela.");
+    throw new Error(`Inclua pelo menos um aluno na tabela da turma ${schoolClass}.`);
   }
 
   if (rows.length > 500) {
-    throw new Error("Importe no máximo 500 alunos por vez.");
+    throw new Error(`Importe no máximo 500 alunos por vez para a turma ${schoolClass}.`);
   }
 
   return { schoolClass, rows };
+}
+
+function parseClassAssignmentMarkdown(value: string): ClassAssignmentInput[] {
+  const lines = value.split(/\r?\n/);
+  const sections: ClassAssignmentInput[] = [];
+  let currentClass: string | undefined;
+  let currentLines: string[] = [];
+
+  function pushCurrentSection() {
+    if (!currentClass) {
+      return;
+    }
+
+    sections.push(parseClassAssignmentSection(currentClass, currentLines));
+  }
+
+  for (const line of lines) {
+    const heading = line.match(/^#\s+(.+)$/);
+
+    if (heading) {
+      pushCurrentSection();
+      currentClass = heading[1].trim();
+      currentLines = [];
+      continue;
+    }
+
+    currentLines.push(line);
+  }
+
+  pushCurrentSection();
+
+  if (sections.length === 0) {
+    throw new Error("Inclua o nome da turma em um título Markdown, como # 3A.");
+  }
+
+  return sections;
 }
 
 function normalizeNullableCountryCode(value: string | undefined) {
@@ -884,7 +919,7 @@ function BulkCreateMembersDialog({
 function AssignClassesDialog({
   onAssignClasses,
 }: {
-  onAssignClasses: (input: ClassAssignmentInput) => Promise<boolean>;
+  onAssignClasses: (input: ClassAssignmentInput[]) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(
@@ -924,8 +959,9 @@ function AssignClassesDialog({
         <DialogHeader>
           <DialogTitle>Vincular turma por Markdown</DialogTitle>
           <DialogDescription>
-            Cole um arquivo com o título # NOME DA TURMA e uma tabela com o cabeçalho
-            | Numero | Matrícula | Aluno |. Membros ausentes ou duplicados serão avisados.
+            Cole um arquivo com títulos # NOME DA TURMA e uma tabela para cada turma
+            com o cabeçalho | Numero | Matrícula | Aluno |. Membros ausentes ou
+            duplicados serão avisados.
           </DialogDescription>
         </DialogHeader>
 
@@ -943,7 +979,7 @@ function AssignClassesDialog({
             </Button>
           </DialogClose>
           <Button type="button" disabled={isSubmitting} onClick={handleSubmit}>
-            Vincular turma
+            Vincular turmas
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -1186,13 +1222,48 @@ function MembersPage() {
         action={
           <div className="flex flex-col gap-2 sm:flex-row">
             <AssignClassesDialog
-              onAssignClasses={async (input) => {
+              onAssignClasses={async (assignments) => {
                 try {
-                  const result = await memberAssignClasses(input);
+                  const results: ClassAssignmentResult[] = [];
 
-                  if (result) {
-                    toast.success(`${result.updated} membros vinculados à turma.`);
-                    showClassAssignmentWarnings(result);
+                  for (const assignment of assignments) {
+                    const result = await memberAssignClasses(assignment);
+
+                    if (result) {
+                      results.push(result);
+                    }
+                  }
+
+                  if (results.length > 0) {
+                    const updated = results.reduce(
+                      (total, result) => total + result.updated,
+                      0,
+                    );
+                    const warnings = results.reduce<ClassAssignmentResult>(
+                      (accumulator, result) => ({
+                        updated: accumulator.updated + result.updated,
+                        missing: [...accumulator.missing, ...result.missing],
+                        duplicateRows: [
+                          ...accumulator.duplicateRows,
+                          ...result.duplicateRows,
+                        ],
+                        duplicateMembers: [
+                          ...accumulator.duplicateMembers,
+                          ...result.duplicateMembers,
+                        ],
+                      }),
+                      {
+                        updated: 0,
+                        missing: [],
+                        duplicateRows: [],
+                        duplicateMembers: [],
+                      },
+                    );
+
+                    toast.success(
+                      `${updated} membros vinculados em ${results.length} turma${results.length === 1 ? "" : "s"}.`,
+                    );
+                    showClassAssignmentWarnings(warnings);
                     return true;
                   }
 
