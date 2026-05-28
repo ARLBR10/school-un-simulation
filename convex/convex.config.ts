@@ -6,7 +6,12 @@ import workflow from "@convex-dev/workflow/convex.config.js";
 
 const app = defineApp();
 app.use(betterAuth);
-app.use(posthog);
+app.use(posthog, {
+  env: {
+    POSTHOG_PROJECT_TOKEN: process.env.POSTHOG_API_KEY!,
+    POSTHOG_HOST: process.env.POSTHOG_HOST
+  }
+});
 app.use(uploadthingFileTracker, { name: "uploadthingFileTracker" });
 app.use(workflow);
 
