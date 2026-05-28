@@ -14,6 +14,13 @@ import { getPostHog } from "./posthog";
 type MemberPatch = Partial<Omit<Doc<"members">, "_id" | "_creationTime">>;
 type MemberCreateInput = Omit<Doc<"members">, "_id" | "_creationTime">;
 
+type ClassAssignmentResult = {
+  updated: number;
+  missing: string[];
+  duplicateRows: string[];
+  duplicateMembers: string[];
+};
+
 export const memberTypes = v.union(
   v.literal("delegate"),
   v.literal("logistics"),
@@ -30,6 +37,7 @@ const memberCreateArgs = {
   userId: v.optional(v.string()),
   name: v.string(),
   tuitionId: v.optional(v.string()),
+  schoolClass: v.optional(v.string()),
   type: memberTypes,
   pressRole: v.optional(pressRoles),
   delegatedCountry: v.optional(countriesConvexSchema),
@@ -144,6 +152,7 @@ export const create = mutation({
       ...(args.committee !== undefined ? { committee: args.committee } : {}),
       ...(args.userId !== undefined ? { userId: args.userId } : {}),
       ...(args.tuitionId !== undefined ? { tuitionId: args.tuitionId } : {}),
+      ...(args.schoolClass !== undefined ? { schoolClass: args.schoolClass } : {}),
     };
 
     const memberId = await ctx.db.insert("members", newMember);
@@ -197,6 +206,7 @@ export const bulkCreate = mutation({
         ...(member.committee !== undefined ? { committee: member.committee } : {}),
         ...(member.userId !== undefined ? { userId: member.userId } : {}),
         ...(member.tuitionId !== undefined ? { tuitionId: member.tuitionId } : {}),
+        ...(member.schoolClass !== undefined ? { schoolClass: member.schoolClass } : {}),
       };
 
       await ctx.db.insert("members", newMember);
@@ -220,6 +230,7 @@ export const update = mutation({
     userId: v.optional(v.union(v.string(), v.null())),
     name: v.optional(v.string()),
     tuitionId: v.optional(v.union(v.string(), v.null())),
+    schoolClass: v.optional(v.union(v.string(), v.null())),
     type: v.optional(memberTypes),
     pressRole: v.optional(v.union(pressRoles, v.null())),
     delegatedCountry: v.optional(v.union(countriesConvexSchema, v.null())),
@@ -278,6 +289,10 @@ export const update = mutation({
       memberPatch.tuitionId = args.tuitionId ?? undefined;
     }
 
+    if ("schoolClass" in args) {
+      memberPatch.schoolClass = args.schoolClass ?? undefined;
+    }
+
     if ("name" in args && args.name !== undefined) {
       memberPatch.name = args.name;
     }
@@ -293,6 +308,104 @@ export const update = mutation({
     });
 
     return true;
+  },
+});
+
+export const assignClasses = mutation({
+  args: {
+    schoolClass: v.string(),
+    rows: v.array(v.object({
+      number: v.optional(v.string()),
+      tuitionId: v.string(),
+      studentName: v.string(),
+    })),
+  },
+  async handler(ctx, args): Promise<null | ClassAssignmentResult> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+
+    if (userInfo?.member?.type != "admin") {
+      await getPostHog().capture(ctx, {
+        event: "permission_denied",
+        properties: {
+          mutation: "member.assignClasses",
+          user_type_required: "admin",
+          memberId: userInfo?.member?._id,
+          memberType: userInfo?.member?.type,
+          dataReceived: { count: args.rows.length },
+        },
+      });
+      return null;
+    }
+
+    if (args.rows.length === 0) {
+      throw new Error("Informe pelo menos um aluno para vincular à turma.");
+    }
+
+    if (args.rows.length > 500) {
+      throw new Error("Atualize no máximo 500 membros por importação.");
+    }
+
+    const normalizedClass = args.schoolClass.trim();
+
+    if (!normalizedClass) {
+      throw new Error("Informe o nome da turma no título do Markdown.");
+    }
+
+    const tuitionCounts = new Map<string, number>();
+
+    for (const row of args.rows) {
+      const tuitionId = row.tuitionId.trim();
+      tuitionCounts.set(tuitionId, (tuitionCounts.get(tuitionId) ?? 0) + 1);
+    }
+
+    const duplicateRows = [...tuitionCounts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([tuitionId]) => tuitionId);
+    const duplicateRowSet = new Set(duplicateRows);
+    const missing: string[] = [];
+    const duplicateMembers: string[] = [];
+    let updated = 0;
+
+    for (const row of args.rows) {
+      const tuitionId = row.tuitionId.trim();
+
+      if (!tuitionId || duplicateRowSet.has(tuitionId)) {
+        continue;
+      }
+
+      const matches = await ctx.db
+        .query("members")
+        .withIndex("by_tuitionId", (q) => q.eq("tuitionId", tuitionId))
+        .take(2);
+
+      if (matches.length === 0) {
+        missing.push(`${row.studentName} (${tuitionId})`);
+        continue;
+      }
+
+      if (matches.length > 1) {
+        duplicateMembers.push(`${row.studentName} (${tuitionId})`);
+        continue;
+      }
+
+      await ctx.db.patch("members", matches[0]._id, {
+        schoolClass: normalizedClass,
+      });
+      updated += 1;
+    }
+
+    await getPostHog().capture(ctx, {
+      event: "admin_assign_member_classes",
+      properties: {
+        schoolClass: normalizedClass,
+        updatedCount: updated,
+        missingCount: missing.length,
+        duplicateRowCount: duplicateRows.length,
+        duplicateMemberCount: duplicateMembers.length,
+      },
+    });
+
+    return { updated, missing, duplicateRows, duplicateMembers };
   },
 });
 

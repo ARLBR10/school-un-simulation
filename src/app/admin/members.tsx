@@ -134,11 +134,28 @@ const bulkMembersExample = JSON.stringify(
 type BulkMemberInput = {
   name: string;
   tuitionId?: string;
+  schoolClass?: string;
   type: Doc<"members">["type"];
   pressRole?: Doc<"members">["pressRole"];
   userId?: string;
   delegatedCountry?: CountryCode;
   committee?: Doc<"committees">["_id"];
+};
+
+type ClassAssignmentInput = {
+  schoolClass: string;
+  rows: {
+    number?: string;
+    tuitionId: string;
+    studentName: string;
+  }[];
+};
+
+type ClassAssignmentResult = {
+  updated: number;
+  missing: string[];
+  duplicateRows: string[];
+  duplicateMembers: string[];
 };
 
 function formatAmount(value: number) {
@@ -316,12 +333,99 @@ function parseBulkMembersInput(value: string): BulkMemberInput[] {
       type,
       pressRole: type === "press" ? normalizedPressRole : undefined,
       tuitionId: getOptionalStringField(record, "tuitionId"),
+      schoolClass: getOptionalStringField(record, "schoolClass"),
       userId: getOptionalStringField(record, "userId"),
       committee: committee as Doc<"committees">["_id"] | undefined,
       delegatedCountry:
         type === "delegate" ? delegatedCountry as CountryCode | undefined : undefined,
     };
   });
+}
+
+function normalizeMarkdownHeader(value: string) {
+  return value
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+}
+
+function parseMarkdownTableRow(line: string) {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function isMarkdownSeparatorRow(cells: string[]) {
+  return cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+}
+
+function parseClassAssignmentMarkdown(value: string): ClassAssignmentInput {
+  const lines = value.split(/\r?\n/);
+  const schoolClass = lines
+    .find((line) => line.trim().startsWith("# "))
+    ?.replace(/^#\s+/, "")
+    .trim();
+
+  if (!schoolClass) {
+    throw new Error("Inclua o nome da turma em um título Markdown, como # 3A.");
+  }
+
+  const tableStartIndex = lines.findIndex((line) => {
+    const normalizedLine = normalizeMarkdownHeader(line);
+
+    return (
+      normalizedLine.includes("| numero |") &&
+      normalizedLine.includes("| matricula |") &&
+      normalizedLine.includes("| aluno |")
+    );
+  });
+
+  if (tableStartIndex === -1) {
+    throw new Error("Inclua uma tabela com o cabeçalho | Numero | Matrícula | Aluno |.");
+  }
+
+  const headers = parseMarkdownTableRow(lines[tableStartIndex]).map(normalizeMarkdownHeader);
+  const numberIndex = headers.indexOf("numero");
+  const tuitionIdIndex = headers.indexOf("matricula");
+  const studentNameIndex = headers.indexOf("aluno");
+
+  if (numberIndex === -1 || tuitionIdIndex === -1 || studentNameIndex === -1) {
+    throw new Error("A tabela precisa conter as colunas Numero, Matrícula e Aluno.");
+  }
+
+  const rows = lines
+    .slice(tableStartIndex + 1)
+    .filter((line) => line.trim().startsWith("|"))
+    .map(parseMarkdownTableRow)
+    .filter((cells) => !isMarkdownSeparatorRow(cells))
+    .map((cells, index) => {
+      const tuitionId = cells[tuitionIdIndex]?.trim();
+      const studentName = cells[studentNameIndex]?.trim();
+
+      if (!tuitionId || !studentName) {
+        throw new Error(`A linha ${index + 1} precisa de Matrícula e Aluno.`);
+      }
+
+      return {
+        number: normalizeOptionalString(cells[numberIndex]),
+        tuitionId,
+        studentName,
+      };
+    });
+
+  if (rows.length === 0) {
+    throw new Error("Inclua pelo menos um aluno na tabela.");
+  }
+
+  if (rows.length > 500) {
+    throw new Error("Importe no máximo 500 alunos por vez.");
+  }
+
+  return { schoolClass, rows };
 }
 
 function normalizeNullableCountryCode(value: string | undefined) {
@@ -342,6 +446,35 @@ function getUserDisplayName(user: Pick<AuthUser, "_id" | "name" | "email">) {
 
 function getInviteUrl(token: string, origin: string) {
   return `${origin}/invites?token=${encodeURIComponent(token)}`;
+}
+
+function formatWarningList(items: string[]) {
+  const visibleItems = items.slice(0, 5).join(", ");
+  const remainingCount = items.length - 5;
+
+  return remainingCount > 0
+    ? `${visibleItems} e mais ${remainingCount}`
+    : visibleItems;
+}
+
+function showClassAssignmentWarnings(result: ClassAssignmentResult) {
+  if (result.missing.length > 0) {
+    toast.warning(
+      `Não encontrados na tabela de membros: ${formatWarningList(result.missing)}.`,
+    );
+  }
+
+  if (result.duplicateRows.length > 0) {
+    toast.warning(
+      `Matrículas duplicadas no Markdown: ${formatWarningList(result.duplicateRows)}.`,
+    );
+  }
+
+  if (result.duplicateMembers.length > 0) {
+    toast.warning(
+      `Matrículas duplicadas no cadastro de membros: ${formatWarningList(result.duplicateMembers)}.`,
+    );
+  }
 }
 
 function MemberInviteDialog({
@@ -748,6 +881,76 @@ function BulkCreateMembersDialog({
   );
 }
 
+function AssignClassesDialog({
+  onAssignClasses,
+}: {
+  onAssignClasses: (input: ClassAssignmentInput) => Promise<boolean>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(
+    "# 3A\n\n| Numero | Matrícula | Aluno |\n| --- | --- | --- |\n| 1 | 12345 | Maria Silva |",
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    setIsSubmitting(true);
+
+    try {
+      const input = parseClassAssignmentMarkdown(value);
+      const assigned = await onAssignClasses(input);
+
+      if (assigned) {
+        setOpen(false);
+      }
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível interpretar a tabela Markdown.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button type="button" variant="outline" size="sm">
+          Vincular turmas
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="grid max-h-[calc(100svh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Vincular turma por Markdown</DialogTitle>
+          <DialogDescription>
+            Cole um arquivo com o título # NOME DA TURMA e uma tabela com o cabeçalho
+            | Numero | Matrícula | Aluno |. Membros ausentes ou duplicados serão avisados.
+          </DialogDescription>
+        </DialogHeader>
+
+        <Textarea
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          className="h-full min-h-64 resize-none overflow-auto font-mono text-xs sm:min-h-96"
+          aria-label="Tabela Markdown de turma"
+        />
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isSubmitting}>
+              Cancelar
+            </Button>
+          </DialogClose>
+          <Button type="button" disabled={isSubmitting} onClick={handleSubmit}>
+            Vincular turma
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function MembersPage() {
   const membersData = useQuery(api.members.getAll);
   const committeesData = useQuery(api.committees.getAll);
@@ -756,6 +959,7 @@ function MembersPage() {
   const invitesData = useQuery(api.memberInvites.getAllForAdmin);
   const memberCreate = useMutation(api.members.create);
   const memberBulkCreate = useMutation(api.members.bulkCreate);
+  const memberAssignClasses = useMutation(api.members.assignClasses);
   const memberUpdate = useMutation(api.members.update);
   const memberDelete = useMutation(api.members.purge);
   const memberInviteCreate = useMutation(api.memberInvites.createForMember);
@@ -828,6 +1032,7 @@ function MembersPage() {
   const membersColumns: AdminTableColumn<Doc<"members">>[] = [
     { key: "name", label: "Nome" },
     { key: "tuitionId", label: "Matrícula" },
+    { key: "schoolClass", label: "Turma" },
     createSelectColumn({
       key: "committee",
       label: "Comitê",
@@ -979,27 +1184,51 @@ function MembersPage() {
         title="Gerenciador de Membros"
         description="Cadastre participantes, defina funções e vincule delegados aos comitês."
         action={
-          <BulkCreateMembersDialog
-            onBulkCreate={async (members) => {
-              try {
-                const result = await memberBulkCreate({ members });
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <AssignClassesDialog
+              onAssignClasses={async (input) => {
+                try {
+                  const result = await memberAssignClasses(input);
 
-                if (result) {
-                  toast.success(`${result.created} membros importados com sucesso.`);
-                  return true;
+                  if (result) {
+                    toast.success(`${result.updated} membros vinculados à turma.`);
+                    showClassAssignmentWarnings(result);
+                    return true;
+                  }
+
+                  return false;
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Não foi possível vincular a turma.",
+                  );
+                  return false;
                 }
+              }}
+            />
+            <BulkCreateMembersDialog
+              onBulkCreate={async (members) => {
+                try {
+                  const result = await memberBulkCreate({ members });
 
-                return false;
-              } catch (error) {
-                toast.error(
-                  error instanceof Error
-                    ? error.message
-                    : "Não foi possível importar os membros.",
-                );
-                return false;
-              }
-            }}
-          />
+                  if (result) {
+                    toast.success(`${result.created} membros importados com sucesso.`);
+                    return true;
+                  }
+
+                  return false;
+                } catch (error) {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Não foi possível importar os membros.",
+                  );
+                  return false;
+                }
+              }}
+            />
+          </div>
         }
       />
 
@@ -1030,6 +1259,7 @@ function MembersPage() {
             const created = await memberCreate({
               name,
               tuitionId,
+              schoolClass: normalizeOptionalString(values.schoolClass),
               type,
               pressRole:
                 type === "press"
@@ -1062,6 +1292,7 @@ function MembersPage() {
               id: member._id,
               name: normalizeOptionalString(values.name),
               tuitionId: normalizeNullableString(values.tuitionId),
+              schoolClass: normalizeNullableString(values.schoolClass),
               type: type && isMemberType(type) ? type : undefined,
               pressRole:
                 type === "press"

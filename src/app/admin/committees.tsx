@@ -120,6 +120,7 @@ function CommitteeDelegatesDialog({
               <TableRow>
                 <TableHead>Nome</TableHead>
                 <TableHead>Matrícula</TableHead>
+                <TableHead>Turma</TableHead>
                 <TableHead>País representado</TableHead>
               </TableRow>
             </TableHeader>
@@ -127,7 +128,7 @@ function CommitteeDelegatesDialog({
               {delegates.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={3}
+                    colSpan={4}
                     className="py-6 text-center text-muted-foreground"
                   >
                     Nenhum delegado vinculado a este comitê.
@@ -150,6 +151,7 @@ function CommitteeDelegatesDialog({
                   >
                     <TableCell className="font-medium">{delegate.name}</TableCell>
                     <TableCell>{delegate.tuitionId ?? "-"}</TableCell>
+                    <TableCell>{delegate.schoolClass ?? "-"}</TableCell>
                     <TableCell>
                       {delegate.delegatedCountry
                         ? `${getCountryByCode(delegate.delegatedCountry)?.name} (${delegate.delegatedCountry})`

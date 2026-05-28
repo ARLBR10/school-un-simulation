@@ -67,6 +67,7 @@ function getMemberDetails(member: Doc<"members"> | null) {
   return [
     memberTypeLabels[member.type],
     member.tuitionId ? `Matrícula ${member.tuitionId}` : null,
+    member.schoolClass ? `Turma ${member.schoolClass}` : null,
   ]
     .filter(Boolean)
     .join(" · ");

@@ -17,6 +17,7 @@ export default defineSchema({
     userId: v.optional(v.string()), // IDs from others components don't count on convex/values. This is optional because the mtf could not be registered.
     name: v.string(),
     tuitionId: v.optional(v.string()),
+    schoolClass: v.optional(v.string()),
     type: memberTypes,
     pressRole: v.optional(v.union(v.literal("writer"), v.literal("media"))),
     delegatedCountry: v.optional(countriesConvexSchema), // @TODO: Be one of a big fat array of all the countries
