@@ -6,7 +6,11 @@ import { uploadthingSchema } from "./uploadthing";
 import { aiAnalysisStatusSchema } from "./documents";
 
 const gradingEntryKind = v.union(v.literal("grade"), v.literal("deduction"));
-const attendanceStatus = v.union(v.literal("present"), v.literal("absent"));
+const attendanceStatus = v.union(
+  v.literal("present"),
+  v.literal("late"),
+  v.literal("absent"),
+);
 
 export default defineSchema({
   members: defineTable({

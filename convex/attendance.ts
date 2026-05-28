@@ -12,6 +12,7 @@ import { getPostHog } from "./posthog";
 
 export const attendanceStatus = v.union(
   v.literal("present"),
+  v.literal("late"),
   v.literal("absent"),
 );
 
@@ -43,6 +44,16 @@ const trackedMemberTypes: AttendanceTrackedMemberType[] = [
   "press",
   "clerk",
 ];
+
+const lateDelegateDeduction = {
+  kind: "deduction" as const,
+  category: "late_arrival",
+  amount: 0.1,
+};
+
+function getLateDelegateDeductionNote(dateKey: string) {
+  return `Atraso registrado na presença de ${dateKey}.`;
+}
 
 function getTodayDateKey() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -441,6 +452,32 @@ export const saveStatuses = mutation({
           ...nextEntry,
         });
       }
+
+      if (member.type === "delegate" && status === "late") {
+        await ctx.db.insert("gradingEntries", {
+          member: member._id,
+          ...lateDelegateDeduction,
+          note: getLateDelegateDeductionNote(dateKey),
+        });
+      }
+
+      if (member.type === "delegate" && status === "present") {
+        const lateDeductions = await ctx.db
+          .query("gradingEntries")
+          .withIndex("by_member_and_kind_and_category", (q) =>
+            q
+              .eq("member", member._id)
+              .eq("kind", lateDelegateDeduction.kind)
+              .eq("category", lateDelegateDeduction.category),
+          )
+          .take(999);
+
+        for (const deduction of lateDeductions) {
+          if (deduction.note === getLateDelegateDeductionNote(dateKey)) {
+            await ctx.db.delete("gradingEntries", deduction._id);
+          }
+        }
+      }
     }
 
     await getPostHog().capture(ctx, {
@@ -453,6 +490,9 @@ export const saveStatuses = mutation({
         memberCount: targetMembers.length,
         presentCount: targetMembers.filter(
           (member) => statusesByMemberId.get(member._id) === "present",
+        ).length,
+        lateCount: targetMembers.filter(
+          (member) => statusesByMemberId.get(member._id) === "late",
         ).length,
         absentCount: targetMembers.filter(
           (member) => statusesByMemberId.get(member._id) === "absent",

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { CalendarIcon, CheckCircle2, CircleSlash, Save } from "lucide-react";
+import { CalendarIcon, CheckCircle2, CircleSlash, Clock3, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
@@ -136,9 +136,12 @@ function getStats({
   const absent = members.filter(
     (member) => statuses[member._id] === "absent",
   ).length;
-  const pending = members.length - present - absent;
+  const late = members.filter(
+    (member) => statuses[member._id] === "late",
+  ).length;
+  const pending = members.length - present - late - absent;
 
-  return { present, absent, pending, total: members.length };
+  return { present, late, absent, pending, total: members.length };
 }
 
 function DatePicker({
@@ -218,6 +221,7 @@ function StatusSummary({
     <div className="flex flex-wrap items-center gap-2 text-sm" aria-live="polite">
       <Badge variant="outline">Total: {stats.total}</Badge>
       <Badge className="bg-emerald-600 text-white">Presentes: {stats.present}</Badge>
+      <Badge className="bg-yellow-500 text-yellow-950">Atrasados: {stats.late}</Badge>
       <Badge variant="destructive">Ausentes: {stats.absent}</Badge>
       <Badge variant="outline">Pendentes: {stats.pending}</Badge>
     </div>
@@ -236,7 +240,11 @@ function StatusToggle({
       type="single"
       value={value ?? ""}
       onValueChange={(nextValue) => {
-        if (nextValue === "present" || nextValue === "absent") {
+        if (
+          nextValue === "present" ||
+          nextValue === "late" ||
+          nextValue === "absent"
+        ) {
           onChange(nextValue);
         }
       }}
@@ -254,6 +262,17 @@ function StatusToggle({
       >
         <CheckCircle2 data-icon="inline-start" />
         Presente
+      </ToggleGroupItem>
+      <ToggleGroupItem
+        value="late"
+        aria-label="Marcar atraso"
+        className={cn(
+          value === "late" &&
+            "border-yellow-500 bg-yellow-500 text-yellow-950 hover:bg-yellow-500/90 hover:text-yellow-950 data-[state=on]:bg-yellow-500 data-[state=on]:text-yellow-950",
+        )}
+      >
+        <Clock3 data-icon="inline-start" />
+        Atraso
       </ToggleGroupItem>
       <ToggleGroupItem
         value="absent"
@@ -446,7 +465,7 @@ export function AttendanceManagementPanel({
                       {selectedCommittee.theme}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {selectedCommitteeStats.present} presentes, {selectedCommitteeStats.absent} ausentes e {selectedCommitteeStats.pending} pendentes.
+                      {selectedCommitteeStats.present} presentes, {selectedCommitteeStats.late} atrasados, {selectedCommitteeStats.absent} ausentes e {selectedCommitteeStats.pending} pendentes.
                     </p>
                   </div>
                 </div>
