@@ -130,6 +130,8 @@ type DynamicTableProps<T extends AdminTableRow> = {
   data: T[];
   isLoading?: boolean;
   className?: string;
+  showColumnVisibility?: boolean;
+  showPagination?: boolean;
   openLabel?: ReactNode;
   rowKey?: keyof T;
   copyIdKey?: keyof T;
@@ -341,6 +343,8 @@ export function DynamicTable<T extends AdminTableRow>({
   data,
   isLoading = false,
   className,
+  showColumnVisibility = true,
+  showPagination = true,
   openLabel = "Abrir",
   rowKey,
   copyIdKey,
@@ -485,6 +489,7 @@ export function DynamicTable<T extends AdminTableRow>({
       compareCellValues(leftRow.getValue(columnId), rightRow.getValue(columnId)),
     [],
   );
+  const hasRowActions = Boolean(onOpen || onUpdate || onDelete);
 
   const dataGridColumns: ColumnDef<T>[] = [
     ...tableColumns.map<ColumnDef<T>>((column) => {
@@ -520,102 +525,111 @@ export function DynamicTable<T extends AdminTableRow>({
         },
       };
     }),
-    {
-      id: "actions",
-      header: () => <span className="sr-only">Ações</span>,
-      cell: ({ row }) => {
-        const rowId = resolveCopyIdValue(row.original, copyIdKey, rowKey);
+    ...(hasRowActions
+      ? [
+          {
+            id: "actions",
+            header: () => <span className="sr-only">Ações</span>,
+            cell: ({ row }) => {
+              const rowId = resolveCopyIdValue(row.original, copyIdKey, rowKey);
 
-        if (onOpen) {
-          return (
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onOpen(row.original, row.index)}
-              >
-                {openLabel}
-              </Button>
-            </div>
-          );
-        }
+              if (onOpen) {
+                return (
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onOpen(row.original, row.index)}
+                    >
+                      {openLabel}
+                    </Button>
+                  </div>
+                );
+              }
 
-        return (
-          <div className="flex justify-end">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  aria-label="Abrir ações"
-                >
-                  <MoreHorizontal />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onSelect={() => handleOpenEdit(row.original, row.index)}
-                  >
-                    <Pencil />
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    disabled={!rowId}
-                    onSelect={() => void navigator.clipboard.writeText(rowId)}
-                  >
-                    <Copy />
-                    Copiar ID
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onSelect={(event) => event.preventDefault()}
+              return (
+                <div className="flex justify-end">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label="Abrir ações"
                       >
-                        <Trash2 />
-                        Excluir
-                      </DropdownMenuItem>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent size="sm">
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Esta ação não pode ser desfeita.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                        <AlertDialogAction
-                          variant="destructive"
-                          onClick={() =>
-                            void handleDeleteRow(row.original, row.index)
-                          }
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-40">
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          disabled={!onUpdate}
+                          onSelect={() => handleOpenEdit(row.original, row.index)}
                         >
-                          Excluir
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        );
-      },
-      enableHiding: false,
-      enableSorting: false,
-      size: onOpen ? 88 : 48,
-      meta: {
-        headerClassName: "px-1 text-right",
-        cellClassName: "px-1 text-right",
-      },
-    },
+                          <Pencil />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={!rowId}
+                          onSelect={() => void navigator.clipboard.writeText(rowId)}
+                        >
+                          <Copy />
+                          Copiar ID
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                      {onDelete ? (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuGroup>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <DropdownMenuItem
+                                  variant="destructive"
+                                  onSelect={(event) => event.preventDefault()}
+                                >
+                                  <Trash2 />
+                                  Excluir
+                                </DropdownMenuItem>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent size="sm">
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Esta ação não pode ser desfeita.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    variant="destructive"
+                                    onClick={() =>
+                                      void handleDeleteRow(row.original, row.index)
+                                    }
+                                  >
+                                    Excluir
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </DropdownMenuGroup>
+                        </>
+                      ) : null}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            },
+            enableHiding: false,
+            enableSorting: false,
+            size: onOpen ? 88 : 48,
+            meta: {
+              headerClassName: "px-1 text-right",
+              cellClassName: "px-1 text-right",
+            },
+          } satisfies ColumnDef<T>,
+        ]
+      : []),
   ];
 
   const table = useReactTable({
@@ -669,6 +683,12 @@ export function DynamicTable<T extends AdminTableRow>({
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  useEffect(() => {
+    if (!showPagination) {
+      table.setPageSize(Math.max(tableData.length, 1));
+    }
+  }, [showPagination, table, tableData.length]);
 
   const formInitialValues = useMemo(() => {
     const baseValues: Record<string, string> = {};
@@ -892,15 +912,17 @@ export function DynamicTable<T extends AdminTableRow>({
             </div>
 
             <div className="flex items-center gap-2 self-end sm:self-auto">
-              <DataGridColumnVisibility
-                table={table}
-                trigger={
-                  <Button type="button" variant="outline" size="sm">
-                    <Settings2 data-icon="inline-start" />
-                    Colunas
-                  </Button>
-                }
-              />
+              {showColumnVisibility ? (
+                <DataGridColumnVisibility
+                  table={table}
+                  trigger={
+                    <Button type="button" variant="outline" size="sm">
+                      <Settings2 data-icon="inline-start" />
+                      Colunas
+                    </Button>
+                  }
+                />
+              ) : null}
               {onCreate || onChange ? (
                 <Button type="button" size="sm" onClick={handleOpenCreate}>
                   <Plus data-icon="inline-start" />
@@ -926,12 +948,14 @@ export function DynamicTable<T extends AdminTableRow>({
             <DataGridContainer className="overflow-x-auto">
               <DataGridTable />
             </DataGridContainer>
-            <DataGridPagination
-              info="{from} - {to} de {count}"
-              rowsPerPageLabel="Linhas por página"
-              previousPageLabel="Página anterior"
-              nextPageLabel="Próxima página"
-            />
+            {showPagination ? (
+              <DataGridPagination
+                info="{from} - {to} de {count}"
+                rowsPerPageLabel="Linhas por página"
+                previousPageLabel="Página anterior"
+                nextPageLabel="Próxima página"
+              />
+            ) : null}
           </DataGrid>
         </CardContent>
       </Card>

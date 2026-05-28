@@ -6,8 +6,11 @@ import { useMutation, useQuery } from "convex/react";
 import { CalendarIcon, CheckCircle2, CircleSlash, Clock3, Save } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  DynamicTable,
+  type AdminTableColumn,
+} from "@/components/admin/DynamicTable";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -24,14 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
@@ -41,6 +36,13 @@ import { cn } from "@/lib/utils";
 
 type AttendanceStatus = Doc<"attendanceEntries">["status"];
 type AttendanceMember = AttendanceCommitteeSummary["members"][number];
+
+type AttendanceMemberRow = {
+  _id: Id<"members">;
+  name: string;
+  details: string;
+  status: AttendanceStatus | undefined;
+};
 
 type AttendanceManagementPanelProps = {
   title: string;
@@ -111,18 +113,6 @@ function getMemberDetails(member: AttendanceMember) {
   return details.join(" · ");
 }
 
-function getVisibleMembers(committees: AttendanceCommitteeSummary[]) {
-  const membersById = new Map<Id<"members">, AttendanceMember>();
-
-  for (const committee of committees) {
-    for (const member of committee.members) {
-      membersById.set(member._id, member);
-    }
-  }
-
-  return [...membersById.values()];
-}
-
 function getStats({
   members,
   statuses,
@@ -178,20 +168,39 @@ function DatePicker({
 
 function AttendanceLoading() {
   return (
-    <div className="rounded-xl border border-border p-4">
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 8 }).map((_, index) => (
-          <div
-            key={`attendance-loading-${index}`}
-            className="flex items-center justify-between gap-4"
-          >
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-4 w-40" />
-              <Skeleton className="h-3 w-64" />
-            </div>
-            <Skeleton className="h-9 w-48" />
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-2 sm:max-w-md">
+        <Skeleton className="h-4 w-16" />
+        <Skeleton className="h-9 w-full" />
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <Skeleton className="h-9 w-full sm:max-w-xs" />
           </div>
-        ))}
+
+          <div className="overflow-hidden rounded-md border border-border">
+            <div className="grid grid-cols-[1fr_1fr_auto] gap-4 border-b border-border bg-muted/30 p-3">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="hidden h-4 w-20 md:block" />
+              <Skeleton className="h-4 w-20" />
+            </div>
+            {Array.from({ length: 6 }).map((_, index) => (
+              <div
+                key={`attendance-loading-${index}`}
+                className="grid grid-cols-[1fr_1fr_auto] items-center gap-4 border-b border-border p-3 last:border-b-0"
+              >
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-3 w-48 md:hidden" />
+                </div>
+                <Skeleton className="hidden h-4 w-48 md:block" />
+                <Skeleton className="h-8 w-44" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -208,22 +217,6 @@ function RestrictedState({
     <div className="rounded-xl border border-dashed border-border p-6">
       <h2 className="text-lg font-semibold">{title}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
-function StatusSummary({
-  stats,
-}: {
-  stats: ReturnType<typeof getStats>;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-sm" aria-live="polite">
-      <Badge variant="outline">Total: {stats.total}</Badge>
-      <Badge className="bg-emerald-600 text-white">Presentes: {stats.present}</Badge>
-      <Badge className="bg-yellow-500 text-yellow-950">Atrasados: {stats.late}</Badge>
-      <Badge variant="destructive">Ausentes: {stats.absent}</Badge>
-      <Badge variant="outline">Pendentes: {stats.pending}</Badge>
     </div>
   );
 }
@@ -323,10 +316,6 @@ export function AttendanceManagementPanel({
     setStatuses(nextStatuses);
   }, [attendanceData?.dateKey, attendanceData?.entries]);
 
-  const visibleMembers = attendanceData
-    ? getVisibleMembers(attendanceData.committees)
-    : [];
-  const totalStats = getStats({ members: visibleMembers, statuses });
   const selectedCommittee = attendanceData
     ? attendanceData.committees.find(
         (committee) => committee._id === selectedCommitteeId,
@@ -342,6 +331,65 @@ export function AttendanceManagementPanel({
       selectedCommitteeStats.pending === 0 &&
       !isSaving,
   );
+  const attendanceRows = selectedCommittee
+    ? selectedCommittee.members.map<AttendanceMemberRow>((member) => ({
+        _id: member._id,
+        name: member.name,
+        details: getMemberDetails(member) || "Sem detalhes",
+        status: statuses[member._id],
+      }))
+    : [];
+  const attendanceColumns: AdminTableColumn<AttendanceMemberRow>[] = [
+    {
+      key: "name",
+      label: "Membro",
+      render: (member) => {
+        const content = (
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate font-semibold">{member.name}</span>
+            <span className="truncate text-xs text-muted-foreground md:hidden">
+              {member.details}
+            </span>
+          </span>
+        );
+
+        if (!showAdminLinks) {
+          return content;
+        }
+
+        return (
+          <Link
+            to="/admin/members"
+            search={{ _id: member._id }}
+            className="block hover:underline"
+          >
+            {content}
+          </Link>
+        );
+      },
+    },
+    {
+      key: "details",
+      label: "Detalhes",
+      className: "hidden md:table-cell",
+    },
+    {
+      key: "status",
+      label: "Presença",
+      className: "text-right",
+      render: (member) => (
+        <StatusToggle
+          value={member.status}
+          onChange={(status) =>
+            setStatuses((currentStatuses) => ({
+              ...currentStatuses,
+              [member._id]: status,
+            }))
+          }
+        />
+      ),
+    },
+  ];
 
   async function handleSave(committee: AttendanceCommitteeSummary) {
     const isCommitteeComplete = committee.members.every(
@@ -417,10 +465,6 @@ export function AttendanceManagementPanel({
 
       {attendanceData && attendanceData.committees.length > 0 ? (
         <div className="flex flex-col gap-4" aria-busy={isSaving}>
-          <div className="flex flex-col gap-3 rounded-xl border border-border bg-background/50 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <StatusSummary stats={totalStats} />
-          </div>
-
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-2 sm:max-w-md">
               <span className="text-sm font-medium">Comitê</span>
@@ -459,70 +503,13 @@ export function AttendanceManagementPanel({
 
             {selectedCommittee && selectedCommitteeStats ? (
               <div className="flex flex-col gap-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold">
-                      {selectedCommittee.theme}
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedCommitteeStats.present} presentes, {selectedCommitteeStats.late} atrasados, {selectedCommitteeStats.absent} ausentes e {selectedCommitteeStats.pending} pendentes.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Membro</TableHead>
-                        <TableHead className="hidden md:table-cell">Detalhes</TableHead>
-                        <TableHead className="text-right">Presença</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {selectedCommittee.members.map((member) => {
-                        const memberName = showAdminLinks ? (
-                          <Link
-                            to="/admin/members"
-                            search={{ _id: member._id }}
-                            className="font-medium hover:underline"
-                          >
-                            {member.name}
-                          </Link>
-                        ) : (
-                          <span className="font-medium">{member.name}</span>
-                        );
-
-                        return (
-                          <TableRow key={`${selectedCommittee._id}-${member._id}`}>
-                            <TableCell>
-                              <div className="flex min-w-0 flex-col gap-1">
-                                {memberName}
-                                <span className="text-xs text-muted-foreground md:hidden">
-                                  {getMemberDetails(member) || "Sem detalhes"}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="hidden text-muted-foreground md:table-cell">
-                              {getMemberDetails(member) || "Sem detalhes"}
-                            </TableCell>
-                            <TableCell>
-                              <StatusToggle
-                                value={statuses[member._id]}
-                                onChange={(status) =>
-                                  setStatuses((currentStatuses) => ({
-                                    ...currentStatuses,
-                                    [member._id]: status,
-                                  }))
-                                }
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                <DynamicTable
+                  columns={attendanceColumns}
+                  data={attendanceRows}
+                  rowKey="_id"
+                  showColumnVisibility={false}
+                  showPagination={false}
+                />
 
                 <div className="flex justify-end border-t border-border pt-4">
                   <Button

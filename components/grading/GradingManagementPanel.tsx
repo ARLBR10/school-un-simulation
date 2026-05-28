@@ -3,13 +3,12 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { ListChecks, MinusCircle, Pencil, PlusCircle, Users } from "lucide-react";
+import { MinusCircle, Pencil, PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   DynamicTable,
   type AdminTableColumn,
-  type AdminTableSelectOption,
 } from "@/components/admin/DynamicTable";
 import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
@@ -51,6 +50,14 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
@@ -365,10 +372,8 @@ function buildMemberMetadata({
   const committeeLabelById: Record<string, string> = {};
   const memberCountryById: Record<string, string> = {};
   const memberDetailsById: Record<string, string> = {};
-  const memberLabelById: Record<string, string> = {};
   const memberNameById: Record<string, string> = {};
   const memberTypeById: Record<string, Doc<"members">["type"]> = {};
-  const memberOptions: AdminTableSelectOption[] = [];
 
   for (const committee of committees) {
     committeeLabelById[committee._id] = committee.theme;
@@ -380,24 +385,15 @@ function buildMemberMetadata({
 
     memberCountryById[member._id] = countryLabel;
     memberDetailsById[member._id] = details;
-    memberLabelById[member._id] = `${member.name} · ${countryLabel}`;
     memberNameById[member._id] = member.name;
     memberTypeById[member._id] = member.type;
-    memberOptions.push({
-      value: member._id,
-      label: member.tuitionId
-        ? `${member.name} (${member.tuitionId}) · ${countryLabel}`
-        : `${member.name} · ${countryLabel}`,
-    });
   }
 
   return {
     committeeLabelById,
     memberCountryById,
     memberDetailsById,
-    memberLabelById,
     memberNameById,
-    memberOptions,
     memberTypeById,
   };
 }
@@ -480,123 +476,6 @@ function getEntryCategoryLabel(entry: Pick<GradingEntryRow, "kind" | "category">
   return (
     getCategoryDefinition(entry.kind, entry.category)?.label ?? entry.category
   );
-}
-
-function getEntryColumns({
-  kind,
-  entries,
-  memberTypeById,
-  memberOptions,
-  categoryLabel,
-  graderType,
-  isAdmin,
-  showAdminLinks,
-}: {
-  kind: GradingEntryKind;
-  entries: GradingEntryRow[];
-  memberTypeById: Record<string, Doc<"members">["type"]>;
-  memberOptions: AdminTableSelectOption[];
-  categoryLabel: string;
-  graderType: GradingMemberType | undefined;
-  isAdmin: boolean;
-  showAdminLinks: boolean;
-}): AdminTableColumn<GradingEntryRow>[] {
-  return [
-    {
-      key: "member",
-      label: "Membro",
-      formSelectOptions: memberOptions,
-      formSelectPlaceholder: "Selecione um membro",
-      render: (entry) => {
-        const content = (
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate font-semibold">{entry.memberName}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {entry.memberDetails}
-            </span>
-          </span>
-        );
-
-        if (!showAdminLinks) {
-          return content;
-        }
-
-        return (
-          <Link
-            to="/admin/members"
-            search={{ _id: entry.member }}
-            className="block"
-          >
-            {content}
-          </Link>
-        );
-      },
-    },
-    {
-      key: "memberCommittee",
-      label: "Comitê",
-      showInForm: false,
-      hiddenByDefault: true,
-    },
-    {
-      key: "category",
-      label: "Categoria",
-      formLabel: categoryLabel,
-      render: (entry) => {
-        const category = getCategoryDefinition(entry.kind, entry.category);
-
-        return category?.label ?? entry.category;
-      },
-      formRender: ({ value, values, onChange, row }) => (
-        <CategorySelectInput
-          kind={kind}
-          memberId={values.member}
-          memberTypeById={memberTypeById}
-          entries={entries}
-          currentEntryId={row?._id}
-          graderType={graderType}
-          isAdmin={isAdmin}
-          value={value}
-          onChange={onChange}
-        />
-      ),
-    },
-    {
-      key: "_creationTime",
-      label: "Criado em",
-      showInForm: false,
-      render: (entry) => formatCreatedAt(entry._creationTime),
-    },
-    {
-      key: "amount",
-      label: "Pontos",
-      formLabel: kind === "deduction" ? "Valor da dedução" : "Pontos",
-      render: (entry) => formatAmount(entry.amount),
-      formRender: ({ value, values, onChange }) => {
-        const category = values.category
-          ? getCategoryDefinition(kind, values.category)
-          : undefined;
-
-        return (
-          <AmountInput
-            value={value}
-            maxAmount={category?.maxAmount}
-            defaultToMax={kind === "deduction"}
-            onChange={onChange}
-          />
-        );
-      },
-    },
-    {
-      key: "note",
-      label: "Observação",
-      hiddenByDefault: true,
-      render: (entry) => entry.note ?? "-",
-      formRender: ({ value, onChange }) => (
-        <NoteInput value={value} onChange={onChange} />
-      ),
-    },
-  ];
 }
 
 function EntryEditorForm({
@@ -739,9 +618,11 @@ function EntryEditorForm({
 
 function MemberSelectionTable({
   summaries,
+  showAdminLinks,
   onSelect,
 }: {
   summaries: MemberSummary[];
+  showAdminLinks: boolean;
   onSelect: (memberId: Doc<"members">["_id"]) => void;
 }) {
   const memberRows = summaries.map<MemberSelectionRow>((summary) => {
@@ -767,14 +648,30 @@ function MemberSelectionTable({
     {
       key: "name",
       label: "Membro",
-      render: (member) => (
-        <span className="flex min-w-0 flex-col">
-          <span className="truncate font-semibold">{member.name}</span>
-          <span className="truncate text-xs text-muted-foreground">
-            {member.details}
+      render: (member) => {
+        const content = (
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate font-semibold">{member.name}</span>
+            <span className="truncate text-xs text-muted-foreground">
+              {member.details}
+            </span>
           </span>
-        </span>
-      ),
+        );
+
+        if (!showAdminLinks) {
+          return content;
+        }
+
+        return (
+          <Link
+            to="/admin/members"
+            search={{ _id: member._id }}
+            className="block hover:underline"
+          >
+            {content}
+          </Link>
+        );
+      },
     },
     {
       key: "country",
@@ -814,6 +711,7 @@ function MemberSelectionTable({
       data={memberRows}
       rowKey="_id"
       openLabel="Abrir"
+      showPagination={false}
       onOpen={(member) => onSelect(member._id)}
     />
   );
@@ -1063,6 +961,7 @@ function MemberSelectionTab({
   metadata,
   graderType,
   isAdmin,
+  showAdminLinks,
   selectedMemberId,
   onSelectMember,
   onCreateEntry,
@@ -1074,6 +973,7 @@ function MemberSelectionTab({
   metadata: MemberMetadata;
   graderType: GradingMemberType | undefined;
   isAdmin: boolean;
+  showAdminLinks: boolean;
   selectedMemberId: Doc<"members">["_id"] | null;
   onSelectMember: (memberId: Doc<"members">["_id"] | null) => void;
   onCreateEntry: (
@@ -1092,7 +992,11 @@ function MemberSelectionTab({
 
   return (
     <section className="flex flex-col gap-4">
-      <MemberSelectionTable summaries={summaries} onSelect={onSelectMember} />
+      <MemberSelectionTable
+        summaries={summaries}
+        showAdminLinks={showAdminLinks}
+        onSelect={onSelectMember}
+      />
 
       <MemberGradingSheet
         summary={selectedSummary}
@@ -1292,6 +1196,7 @@ export function GradingManagementPanel({
   const [selectedMemberId, setSelectedMemberId] = useState<
     Doc<"members">["_id"] | null
   >(null);
+  const [selectedCommitteeId, setSelectedCommitteeId] = useState("");
   const manageData = useQuery(api.grading.getManageData);
   const entryCreate = useMutation(api.grading.create);
   const entryUpdate = useMutation(api.grading.update);
@@ -1325,33 +1230,14 @@ export function GradingManagementPanel({
     memberNameById: metadata.memberNameById,
   });
   const memberSummaries = buildMemberSummaries({ members, rows, metadata });
-  const grades = rows.filter((entry) => entry.kind === "grade");
-  const deductions = rows.filter((entry) => entry.kind === "deduction");
-  const scopeLabel = manageData.isCommitteeScoped
-    ? committees.map((committee) => committee.theme).join(", ") ||
-      "nenhum comitê atribuído"
-    : "todos os comitês disponíveis";
-
-  const gradeColumns = getEntryColumns({
-    kind: "grade",
-    entries: rows,
-    memberTypeById: metadata.memberTypeById,
-    memberOptions: metadata.memberOptions,
-    categoryLabel: "Categoria de pontuação",
-    graderType,
-    isAdmin,
-    showAdminLinks,
-  });
-  const deductionColumns = getEntryColumns({
-    kind: "deduction",
-    entries: rows,
-    memberTypeById: metadata.memberTypeById,
-    memberOptions: metadata.memberOptions,
-    categoryLabel: "Categoria de dedução",
-    graderType,
-    isAdmin,
-    showAdminLinks,
-  });
+  const selectedCommittee =
+    committees.find((committee) => committee._id === selectedCommitteeId) ??
+    committees[0];
+  const filteredMemberSummaries = selectedCommittee
+    ? memberSummaries.filter(
+        (summary) => summary.member.committee === selectedCommittee._id,
+      )
+    : memberSummaries;
 
   function resolveEntryAmount(
     kind: GradingEntryKind,
@@ -1532,83 +1418,56 @@ export function GradingManagementPanel({
     <PageShell className="gap-3 md:gap-4">
       <PageHeader title={title} description={description} />
 
-      <Tabs defaultValue="members" className="gap-4">
-        <div className="flex justify-center">
-          <TabsList className="h-auto flex-wrap rounded-xl bg-muted/70 p-1">
-            <TabsTrigger value="members" className="px-3 py-1.5">
-              <Users data-icon="inline-start" />
-              Por membro
-            </TabsTrigger>
-            <TabsTrigger value="separated" className="px-3 py-1.5">
-              <ListChecks data-icon="inline-start" />
-              Visão separada
-            </TabsTrigger>
-          </TabsList>
-        </div>
+      <div className="flex flex-col gap-2 sm:max-w-md">
+        <span className="text-sm font-medium">Comitê</span>
+        <Select
+          value={selectedCommittee?._id ?? ""}
+          onValueChange={(committeeId) => {
+            setSelectedCommitteeId(committeeId);
+            setSelectedMemberId(null);
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione um comitê" />
+          </SelectTrigger>
+          <SelectContent
+            position="popper"
+            className="max-w-[calc(100vw-2rem)] sm:max-w-md"
+          >
+            <SelectGroup>
+              {committees.map((committee) => {
+                const memberCount = memberSummaries.filter(
+                  (summary) => summary.member.committee === committee._id,
+                ).length;
 
-        <div className="max-w-xl" aria-live="polite">
-          <Card>
-            <CardHeader>
-              <CardTitle>Escopo</CardTitle>
-              <CardDescription>Comitês disponíveis para lançamento.</CardDescription>
-            </CardHeader>
-            <CardContent className="text-sm font-medium text-muted-foreground">
-              {scopeLabel}
-            </CardContent>
-          </Card>
-        </div>
+                return (
+                  <SelectItem
+                    key={committee._id}
+                    value={committee._id}
+                    className="[&>span:last-child]:truncate"
+                  >
+                    {committee.theme} ({memberCount})
+                  </SelectItem>
+                );
+              })}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
 
-        <TabsContent value="members">
-          <MemberSelectionTab
-            summaries={memberSummaries}
-            rows={rows}
-            metadata={metadata}
-            graderType={graderType}
-            isAdmin={isAdmin}
-            selectedMemberId={selectedMemberId}
-            onSelectMember={setSelectedMemberId}
-            onCreateEntry={createEntry}
-            onUpdateEntry={updateEntry}
-            onDeleteEntry={deleteEntry}
-          />
-        </TabsContent>
-
-        <TabsContent value="separated" className="flex flex-col gap-6">
-          <section className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold tracking-tight">Pontuações</h2>
-              <p className="text-sm text-muted-foreground">
-                Lance pontos positivos para os membros disponíveis no seu escopo.
-              </p>
-            </div>
-            <DynamicTable
-              columns={gradeColumns}
-              data={grades}
-              searchParamKey="_id"
-              onCreate={(values) => createEntry("grade", values)}
-              onUpdate={updateEntry}
-              onDelete={deleteEntry}
-            />
-          </section>
-
-          <section className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-lg font-semibold tracking-tight">Deduções</h2>
-              <p className="text-sm text-muted-foreground">
-                Registre perdas de pontos com histórico auditável de alterações.
-              </p>
-            </div>
-            <DynamicTable
-              columns={deductionColumns}
-              data={deductions}
-              searchParamKey="_id"
-              onCreate={(values) => createEntry("deduction", values)}
-              onUpdate={updateEntry}
-              onDelete={deleteEntry}
-            />
-          </section>
-        </TabsContent>
-      </Tabs>
+      <MemberSelectionTab
+        summaries={filteredMemberSummaries}
+        rows={rows}
+        metadata={metadata}
+        graderType={graderType}
+        isAdmin={isAdmin}
+        showAdminLinks={showAdminLinks}
+        selectedMemberId={selectedMemberId}
+        onSelectMember={setSelectedMemberId}
+        onCreateEntry={createEntry}
+        onUpdateEntry={updateEntry}
+        onDeleteEntry={deleteEntry}
+      />
     </PageShell>
   );
 }
