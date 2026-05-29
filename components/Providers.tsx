@@ -3,12 +3,13 @@
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
 import { Link } from "@tanstack/react-router";
-import { ConvexReactClient } from "convex/react";
+import { ConvexReactClient, useQuery } from "convex/react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
+import { api } from "@/convex/_generated/api";
 import { authClient } from "@/lib/auth-client";
 import { AuthLang_PT_BR } from "@/lib/better-auth-ui-lang";
 import { AppNotifications } from "@/components/AppNotifications";
@@ -37,6 +38,56 @@ function getSafeRedirectTo(redirectTo: string | null) {
   return "/";
 }
 
+function PostHogUserProperties() {
+  const { data: session } = authClient.useSession();
+  const userInfo = useQuery(api.auth.getCurrentUser);
+  const userId = session?.user.id;
+  const member = userInfo?.member;
+  const committee = useQuery(
+    api.committees.getById,
+    member?.committee ? { id: member.committee } : "skip",
+  );
+
+  useEffect(() => {
+    if (!userId || userInfo === undefined) {
+      return;
+    }
+
+    const name = member?.name ?? session?.user.name ?? null;
+    const email = session?.user.email ?? null;
+
+    posthog.identify(userId, {
+      $name: name,
+      $email: email,
+      "member.id": member?._id ?? null,
+      "member.name": member?.name ?? null,
+      "member.tuitionId": member?.tuitionId ?? null,
+      "member.type": member?.type ?? null,
+      "member.mediaFunction": member?.pressRole ?? null,
+      "member.committee": committee?.theme ?? member?.committee ?? null,
+      "member.committeeId": member?.committee ?? null,
+      name,
+      email,
+      emailVerified: session?.user.emailVerified ?? null,
+    });
+  }, [
+    committee?.theme,
+    member?._id,
+    member?.committee,
+    member?.name,
+    member?.pressRole,
+    member?.tuitionId,
+    member?.type,
+    session?.user.email,
+    session?.user.emailVerified,
+    session?.user.name,
+    userId,
+    userInfo,
+  ]);
+
+  return null;
+}
+
 export function ConvexClientProvider({
   children,
   initialToken,
@@ -51,6 +102,7 @@ export function ConvexClientProvider({
       initialToken={initialToken}
     >
       <AppNotifications />
+      <PostHogUserProperties />
       {children}
     </ConvexBetterAuthProvider>
   );
