@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { MinusCircle, Pencil, PlusCircle } from "lucide-react";
+import { Minus, Pencil, Plus, PlusCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -39,6 +44,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import {
@@ -58,12 +73,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import {
   getAllowedCategoriesForMemberAndGraderType,
   getCategoryDefinition,
+  type GradingCategoryDefinition,
   type GradingMemberType,
 } from "@/lib/grading-categories";
 import { getCountryByCode } from "@/lib/country-list";
@@ -88,13 +103,10 @@ type MemberSummary = {
   entries: GradingEntryRow[];
 };
 
-type MemberSelectionRow = {
+type MemberSelectionRow = Record<string, ReactNode> & {
   _id: Doc<"members">["_id"];
   name: string;
   details: string;
-  country: string;
-  committee: string;
-  gradeTotal: number;
   deductionTotal: number;
   balance: number;
 };
@@ -362,6 +374,14 @@ function getCountryLabel(member: Doc<"members">) {
   return `${country?.name ?? member.delegatedCountry} (${member.delegatedCountry})`;
 }
 
+function getMemberDetails(member: Doc<"members">, countryLabel: string) {
+  if (member.tuitionId) {
+    return `${member.tuitionId} · ${countryLabel}`;
+  }
+
+  return countryLabel;
+}
+
 function buildMemberMetadata({
   members,
   committees,
@@ -381,7 +401,7 @@ function buildMemberMetadata({
 
   for (const member of members) {
     const countryLabel = getCountryLabel(member);
-    const details = [member.tuitionId, countryLabel].filter(Boolean).join(" · ");
+    const details = getMemberDetails(member, countryLabel);
 
     memberCountryById[member._id] = countryLabel;
     memberDetailsById[member._id] = details;
@@ -476,6 +496,25 @@ function getEntryCategoryLabel(entry: Pick<GradingEntryRow, "kind" | "category">
   return (
     getCategoryDefinition(entry.kind, entry.category)?.label ?? entry.category
   );
+}
+
+function getGradeCategoryShortLabel(category: GradingCategoryDefinition) {
+  const labels: Record<string, string> = {
+    argumentation: "Argumentação",
+    economic_bloc_dialogue: "Diálogo entre blocos",
+    position_paper: "DPO",
+    resolution_paragraph_creation: "Parágrafos",
+  };
+
+  return labels[category.value] ?? category.label;
+}
+
+function clampAmount(value: number, maxAmount: number) {
+  return Math.min(Math.max(value, 0), maxAmount);
+}
+
+function roundAmount(value: number) {
+  return Number(value.toFixed(2));
 }
 
 function EntryEditorForm({
@@ -618,13 +657,51 @@ function EntryEditorForm({
 
 function MemberSelectionTable({
   summaries,
+  metadata,
+  graderType,
+  isAdmin,
   showAdminLinks,
-  onSelect,
+  onOpenDeductions,
+  onCreateEntry,
+  onUpdateEntry,
 }: {
   summaries: MemberSummary[];
+  metadata: MemberMetadata;
+  graderType: GradingMemberType | undefined;
+  isAdmin: boolean;
   showAdminLinks: boolean;
-  onSelect: (memberId: Doc<"members">["_id"]) => void;
+  onOpenDeductions: (memberId: Doc<"members">["_id"]) => void;
+  onCreateEntry: (
+    kind: GradingEntryKind,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+  onUpdateEntry: (
+    entry: GradingEntryRow,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
 }) {
+  const allGradeCategories = summaries.reduce<GradingCategoryDefinition[]>(
+    (categories, summary) => {
+      for (const category of getAllowedCategoriesForMemberAndGraderType(
+        "grade",
+        metadata.memberTypeById[summary.member._id] as
+          | GradingMemberType
+          | undefined,
+        graderType,
+        isAdmin,
+      )) {
+        if (!categories.some((current) => current.value === category.value)) {
+          categories.push(category);
+        }
+      }
+
+      return categories;
+    },
+    [],
+  );
+  const summaryById = new Map(
+    summaries.map((summary) => [summary.member._id, summary]),
+  );
   const memberRows = summaries.map<MemberSelectionRow>((summary) => {
     const gradeTotal = summary.entries
       .filter((entry) => entry.kind === "grade")
@@ -637,9 +714,6 @@ function MemberSelectionTable({
       _id: summary.member._id,
       name: summary.name,
       details: summary.details,
-      country: summary.country,
-      committee: summary.committee,
-      gradeTotal,
       deductionTotal,
       balance: gradeTotal - deductionTotal,
     };
@@ -649,54 +723,69 @@ function MemberSelectionTable({
       key: "name",
       label: "Membro",
       render: (member) => {
-        const content = (
-          <span className="flex min-w-0 flex-col">
-            <span className="truncate font-semibold">{member.name}</span>
-            <span className="truncate text-xs text-muted-foreground">
-              {member.details}
-            </span>
-          </span>
-        );
+        const summary = summaryById.get(member._id);
 
-        if (!showAdminLinks) {
-          return content;
-        }
-
-        return (
-          <Link
-            to="/admin/members"
-            search={{ _id: member._id }}
-            className="block hover:underline"
-          >
-            {content}
-          </Link>
+        return summary ? (
+          <MemberIdentity summary={summary} showAdminLinks={showAdminLinks} />
+        ) : (
+          member.name
         );
       },
     },
-    {
-      key: "country",
-      label: "País representado",
-    },
-    {
-      key: "committee",
-      label: "Comitê",
-    },
-    {
-      key: "gradeTotal",
-      label: "Pontuação",
-      hiddenByDefault: true,
-      render: (member) => `+${formatAmount(member.gradeTotal)}`,
-    },
+    ...allGradeCategories.map<AdminTableColumn<MemberSelectionRow>>((category) => ({
+      key: category.value,
+      label: getGradeCategoryShortLabel(category),
+      render: (member) => {
+        const summary = summaryById.get(member._id);
+
+        if (!summary) {
+          return "-";
+        }
+
+        const entry = summary.entries.find(
+          (currentEntry) =>
+            currentEntry.kind === "grade" &&
+            currentEntry.category === category.value,
+        );
+
+        return (
+          <GradeAmountInput
+            member={summary.member}
+            category={category}
+            entry={entry}
+            metadata={metadata}
+            graderType={graderType}
+            isAdmin={isAdmin}
+            onCreateEntry={onCreateEntry}
+            onUpdateEntry={onUpdateEntry}
+          />
+        );
+      },
+    })),
     {
       key: "deductionTotal",
       label: "Deduções",
-      hiddenByDefault: true,
-      render: (member) => `-${formatAmount(member.deductionTotal)}`,
+      render: (member) => (
+        <div className="flex items-center gap-2">
+          <Badge
+            variant={member.deductionTotal > 0 ? "destructive" : "secondary"}
+          >
+            -{formatAmount(member.deductionTotal)}
+          </Badge>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenDeductions(member._id)}
+          >
+            Deduções
+          </Button>
+        </div>
+      ),
     },
     {
       key: "balance",
       label: "Saldo",
-      hiddenByDefault: true,
       render: (member) => (
         <Badge variant={member.balance < 0 ? "destructive" : "secondary"}>
           {formatAmount(member.balance)}
@@ -710,10 +799,218 @@ function MemberSelectionTable({
       columns={memberColumns}
       data={memberRows}
       rowKey="_id"
-      openLabel="Abrir"
       showPagination={false}
-      onOpen={(member) => onSelect(member._id)}
     />
+  );
+}
+
+function MemberIdentity({
+  summary,
+  showAdminLinks,
+}: {
+  summary: MemberSummary;
+  showAdminLinks: boolean;
+}) {
+  const content = (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate font-semibold">{summary.name}</span>
+      <span className="truncate text-xs text-muted-foreground">
+        {summary.details}
+      </span>
+    </span>
+  );
+
+  if (!showAdminLinks) {
+    return content;
+  }
+
+  return (
+    <Link
+      to="/admin/members"
+      search={{ _id: summary.member._id }}
+      className="block hover:underline"
+    >
+      {content}
+    </Link>
+  );
+}
+
+function GradeAmountInput({
+  member,
+  category,
+  entry,
+  metadata,
+  graderType,
+  isAdmin,
+  onCreateEntry,
+  onUpdateEntry,
+}: {
+  member: Doc<"members">;
+  category: GradingCategoryDefinition;
+  entry?: GradingEntryRow;
+  metadata: MemberMetadata;
+  graderType: GradingMemberType | undefined;
+  isAdmin: boolean;
+  onCreateEntry: (
+    kind: GradingEntryKind,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+  onUpdateEntry: (
+    entry: GradingEntryRow,
+    values: EntryFormValues,
+  ) => Promise<boolean>;
+}) {
+  const [draftAmount, setDraftAmount] = useState(entry?.amount ?? 0);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const allowedCategories = getAllowedCategoriesForMemberAndGraderType(
+    "grade",
+    metadata.memberTypeById[member._id] as GradingMemberType | undefined,
+    graderType,
+    isAdmin,
+  );
+  const canEditCategory = allowedCategories.some(
+    (allowedCategory) => allowedCategory.value === category.value,
+  );
+
+  useEffect(() => {
+    setDraftAmount(entry?.amount ?? 0);
+  }, [entry?._id, entry?.amount]);
+
+  async function saveAmount() {
+    const nextAmount = roundAmount(clampAmount(draftAmount, category.maxAmount));
+
+    if (entry && nextAmount === entry.amount) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const values: EntryFormValues = {
+        member: member._id,
+        category: category.value,
+        amount: String(nextAmount),
+        note: entry?.note,
+      };
+
+      const saved = entry
+        ? await onUpdateEntry(entry, values)
+        : await onCreateEntry("grade", values);
+
+      if (!saved) {
+        setDraftAmount(entry?.amount ?? 0);
+        return;
+      }
+
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function changeDraftAmount(change: number) {
+    setDraftAmount((currentAmount) =>
+      roundAmount(clampAmount(currentAmount + change, category.maxAmount)),
+    );
+  }
+
+  if (!canEditCategory) {
+    return <span className="text-muted-foreground">-</span>;
+  }
+
+  return (
+    <div className="flex min-w-28 items-center gap-2">
+      <Badge variant={entry ? "secondary" : "outline"}>
+        {entry ? formatAmount(entry.amount) : "Não lançada"}
+      </Badge>
+      <Drawer
+        open={isEditing}
+        onOpenChange={(open) => {
+          setIsEditing(open);
+
+          if (open) {
+            setDraftAmount(entry?.amount ?? 0);
+          }
+        }}
+      >
+        <DrawerTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7"
+            aria-label={`Editar ${category.label} de ${member.name}`}
+          >
+            <Pencil />
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent>
+          <div className="mx-auto w-full max-w-sm">
+            <DrawerHeader>
+              <DrawerTitle>{getGradeCategoryShortLabel(category)}</DrawerTitle>
+              <DrawerDescription>
+                {member.name} · máximo de {formatAmount(category.maxAmount)} ponto(s)
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="p-4 pb-0">
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8 shrink-0 rounded-full"
+                  disabled={isSaving || draftAmount <= 0}
+                  onClick={() => changeDraftAmount(-0.1)}
+                >
+                  <Minus />
+                  <span className="sr-only">Diminuir</span>
+                </Button>
+                <div className="flex-1 text-center">
+                  <div className="text-7xl font-bold tracking-tighter">
+                    {formatAmount(draftAmount)}
+                  </div>
+                  <div className="mt-3 text-[0.70rem] font-medium tracking-[0.35em] text-muted-foreground uppercase">
+                    pontos
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8 shrink-0 rounded-full"
+                  disabled={isSaving || draftAmount >= category.maxAmount}
+                  onClick={() => changeDraftAmount(0.1)}
+                >
+                  <Plus />
+                  <span className="sr-only">Aumentar</span>
+                </Button>
+              </div>
+            </div>
+            <DrawerFooter>
+              <Button
+                type="button"
+                onClick={() => void saveAmount()}
+                disabled={isSaving}
+              >
+                Salvar pontuação
+              </Button>
+              <DrawerClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSaving}
+                  onClick={() => setDraftAmount(entry?.amount ?? 0)}
+                >
+                  Cancelar
+                </Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </div>
   );
 }
 
@@ -752,7 +1049,7 @@ function MemberEntryListInput({
     <div className="flex flex-col gap-3 rounded-md border border-input bg-background p-3">
       {summary.entries.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          Nenhum lançamento criado para este membro.
+          Nenhuma dedução criada para este membro.
         </p>
       ) : (
         summary.entries.map((entry) => {
@@ -857,8 +1154,8 @@ function EntryEditorDialog({
 }) {
   const title = entry ? "Editar lançamento" : "Adicionar lançamento";
   const description = entry
-    ? "Ajuste a categoria, os pontos ou a observação deste registro."
-    : "Escolha se o próximo registro aumenta ou desconta a pontuação.";
+    ? "Ajuste a categoria, o valor ou a observação desta dedução."
+    : "Registre uma dedução para este membro.";
 
   return (
     <Dialog
@@ -895,60 +1192,25 @@ function EntryEditorDialog({
             }}
           />
         ) : (
-          <Tabs defaultValue="grade" className="gap-4">
-            <TabsList>
-              <TabsTrigger value="grade">
-                <PlusCircle data-icon="inline-start" />
-                Pontuação
-              </TabsTrigger>
-              <TabsTrigger value="deduction">
-                <MinusCircle data-icon="inline-start" />
-                Dedução
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="grade">
-              <EntryEditorForm
-                kind="grade"
-                member={summary.member}
-                memberTypeById={metadata.memberTypeById}
-                entries={rows}
-                graderType={graderType}
-                isAdmin={isAdmin}
-                submitLabel="Adicionar pontuação"
-                onCancel={() => onOpenChange(false)}
-                onSubmit={async (values) => {
-                  const created = await onCreateEntry("grade", values);
+          <EntryEditorForm
+            kind="deduction"
+            member={summary.member}
+            memberTypeById={metadata.memberTypeById}
+            entries={rows}
+            graderType={graderType}
+            isAdmin={isAdmin}
+            submitLabel="Adicionar dedução"
+            onCancel={() => onOpenChange(false)}
+            onSubmit={async (values) => {
+              const created = await onCreateEntry("deduction", values);
 
-                  if (created) {
-                    onOpenChange(false);
-                  }
+              if (created) {
+                onOpenChange(false);
+              }
 
-                  return created;
-                }}
-              />
-            </TabsContent>
-            <TabsContent value="deduction">
-              <EntryEditorForm
-                kind="deduction"
-                member={summary.member}
-                memberTypeById={metadata.memberTypeById}
-                entries={rows}
-                graderType={graderType}
-                isAdmin={isAdmin}
-                submitLabel="Adicionar dedução"
-                onCancel={() => onOpenChange(false)}
-                onSubmit={async (values) => {
-                  const created = await onCreateEntry("deduction", values);
-
-                  if (created) {
-                    onOpenChange(false);
-                  }
-
-                  return created;
-                }}
-              />
-            </TabsContent>
-          </Tabs>
+              return created;
+            }}
+          />
         )}
       </DialogContent>
     </Dialog>
@@ -994,8 +1256,13 @@ function MemberSelectionTab({
     <section className="flex flex-col gap-4">
       <MemberSelectionTable
         summaries={summaries}
+        metadata={metadata}
+        graderType={graderType}
+        isAdmin={isAdmin}
         showAdminLinks={showAdminLinks}
-        onSelect={onSelectMember}
+        onOpenDeductions={onSelectMember}
+        onCreateEntry={onCreateEntry}
+        onUpdateEntry={onUpdateEntry}
       />
 
       <MemberGradingSheet
@@ -1090,6 +1357,11 @@ function MemberGradingSheet({
     }
   }
 
+  const deductionSummary: MemberSummary = {
+    ...summary,
+    entries: summary.entries.filter((entry) => entry.kind === "deduction"),
+  };
+
   return (
     <Sheet
       open={open}
@@ -1117,16 +1389,16 @@ function MemberGradingSheet({
 
         <div className="flex flex-col gap-5 px-4 py-4 sm:px-6">
           <InlinePanel
-            title="Linha do tempo"
-            description="Pontuações e deduções aparecem juntas, com ações rápidas para adicionar, editar e remover."
+            title="Deduções"
+            description="Gerencie apenas os descontos deste membro. As pontuações ficam editáveis diretamente na tabela."
           >
             <div className="flex justify-center rounded-md border border-input bg-background p-3">
               <Button type="button" variant="outline" onClick={handleOpenCreate}>
-                Adicionar lançamento
+                Adicionar dedução
               </Button>
             </div>
             <MemberEntryListInput
-              summary={summary}
+              summary={deductionSummary}
               onEdit={handleOpenEdit}
               onDelete={handleDelete}
             />
