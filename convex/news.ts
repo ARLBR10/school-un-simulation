@@ -130,12 +130,7 @@ function canSeeNews(news: Doc<"news">, member: Doc<"members">) {
     return news.author === member._id;
   }
 
-  const committeeIds = news.committee ?? [];
-  if (committeeIds.length === 0) {
-    return true;
-  }
-
-  return member.committee ? committeeIds.includes(member.committee) : false;
+  return true;
 }
 
 export const list = query({
