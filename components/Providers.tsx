@@ -6,7 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { ConvexReactClient, useQuery } from "convex/react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { api } from "@/convex/_generated/api";
@@ -21,6 +21,7 @@ if (!convexUrl) {
 }
 
 const convex = new ConvexReactClient(convexUrl);
+const PostHogReadyContext = createContext(false);
 
 function getSafeRedirectTo(redirectTo: string | null) {
   if (!redirectTo) {
@@ -39,6 +40,7 @@ function getSafeRedirectTo(redirectTo: string | null) {
 }
 
 function PostHogUserProperties() {
+  const isPostHogReady = useContext(PostHogReadyContext);
   const { data: session } = authClient.useSession();
   const userInfo = useQuery(api.auth.getCurrentUser);
   const userId = session?.user.id;
@@ -49,7 +51,7 @@ function PostHogUserProperties() {
   );
 
   useEffect(() => {
-    if (!userId || userInfo === undefined) {
+    if (!isPostHogReady || !userId || userInfo === undefined) {
       return;
     }
 
@@ -72,6 +74,7 @@ function PostHogUserProperties() {
     });
   }, [
     committee?.theme,
+    isPostHogReady,
     member?._id,
     member?.committee,
     member?.name,
@@ -138,6 +141,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
   const hasInitialized = useRef(false);
   const previousUserId = useRef<string | null>(null);
+  const [isReady, setIsReady] = useState(false);
   const userId = session?.user.id;
   const authSessionId = session?.session.id;
 
@@ -146,19 +150,20 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    posthog.init(import.meta.env.VITE_POSTHOG_KEY as string, {
+    const posthogKey = import.meta.env.VITE_POSTHOG_KEY;
+
+    if (!posthogKey) {
+      return;
+    }
+
+    posthog.init(posthogKey, {
       api_host: import.meta.env.VITE_POSTHOG_HOST,
       defaults: "2026-01-30",
-      bootstrap: userId
-        ? {
-            distinctID: userId,
-            isIdentifiedID: true,
-          }
-        : undefined,
     });
 
     hasInitialized.current = true;
-  }, [isPending, userId]);
+    setIsReady(true);
+  }, [isPending]);
 
   useEffect(() => {
     if (!hasInitialized.current) {
@@ -181,7 +186,11 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     previousUserId.current = userId;
   }, [authSessionId, userId]);
 
-  return <PHProvider client={posthog}>{children}</PHProvider>;
+  return (
+    <PHProvider client={posthog}>
+      <PostHogReadyContext value={isReady}>{children}</PostHogReadyContext>
+    </PHProvider>
+  );
 }
 
 export default function AllProviders({
