@@ -13,6 +13,7 @@ import {
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Popover,
   PopoverContent,
@@ -224,9 +225,13 @@ function RestrictedState({
 function StatusToggle({
   value,
   onChange,
+  className,
+  labelClassName,
 }: {
   value: AttendanceStatus | undefined;
   onChange: (status: AttendanceStatus) => void;
+  className?: string;
+  labelClassName?: string;
 }) {
   return (
     <ToggleGroup
@@ -243,7 +248,7 @@ function StatusToggle({
       }}
       variant="outline"
       size="sm"
-      className="ml-auto"
+      className={cn("ml-auto grid grid-cols-3", className)}
     >
       <ToggleGroupItem
         value="present"
@@ -254,7 +259,7 @@ function StatusToggle({
         )}
       >
         <CheckCircle2 data-icon="inline-start" />
-        Presente
+        <span className={labelClassName}>Presente</span>
       </ToggleGroupItem>
       <ToggleGroupItem
         value="late"
@@ -265,7 +270,7 @@ function StatusToggle({
         )}
       >
         <Clock3 data-icon="inline-start" />
-        Atraso
+        <span className={labelClassName}>Atraso</span>
       </ToggleGroupItem>
       <ToggleGroupItem
         value="absent"
@@ -276,7 +281,7 @@ function StatusToggle({
         )}
       >
         <CircleSlash data-icon="inline-start" />
-        Ausente
+        <span className={labelClassName}>Ausente</span>
       </ToggleGroupItem>
     </ToggleGroup>
   );
@@ -376,10 +381,11 @@ export function AttendanceManagementPanel({
     {
       key: "status",
       label: "Presença",
-      className: "text-right",
+      className: "text-right [&>div]:overflow-visible [&>div]:text-clip",
       render: (member) => (
         <StatusToggle
           value={member.status}
+          labelClassName="hidden lg:inline"
           onChange={(status) =>
             setStatuses((currentStatuses) => ({
               ...currentStatuses,
@@ -503,9 +509,35 @@ export function AttendanceManagementPanel({
 
             {selectedCommittee && selectedCommitteeStats ? (
               <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-3 md:hidden">
+                  {attendanceRows.map((member) => (
+                    <Card key={member._id} size="sm">
+                      <CardContent className="flex flex-col gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold">{member.name}</p>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {member.details}
+                          </p>
+                        </div>
+                        <StatusToggle
+                          value={member.status}
+                          className="w-full"
+                          onChange={(status) =>
+                            setStatuses((currentStatuses) => ({
+                              ...currentStatuses,
+                              [member._id]: status,
+                            }))
+                          }
+                        />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
                 <DynamicTable
                   columns={attendanceColumns}
                   data={attendanceRows}
+                  className="hidden md:flex"
                   rowKey="_id"
                   showColumnVisibility={false}
                   showPagination={false}
