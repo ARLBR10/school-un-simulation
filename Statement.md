@@ -22,10 +22,8 @@ I hope I will become the Chief of Logistics in 2027, and with a bit of code, I c
 - Less scattered data. I never got access to who every single member was, so the attendance system was a mess and required manual intervention.
 - Automatic Nameplate generators.
 
-<details>
-<summary>Tradução em português</summary>
-
-## 2026
+## Tradução em português
+### 2026
 
 Bem... A Simulação da ONU chegou ao fim. Foram 3 dias incríveis em que eu finalmente me senti conectado com TODOS os meus colegas da escola, incluindo Logística, Mídia, Mesarios, Chefes de Setor e o Secretário-Geral.
 
@@ -47,5 +45,3 @@ Espero me tornar o Chefe de Logística em 2027 e, com um pouco de código, trans
 - Parâmetros de avaliação mais iguais entre os comitês, reduzindo desigualdades entre diferentes avaliadores [(talvez finalmente deixem meu workflow de Análise de Documentos com IA?)](./convex/documents.ts#documentAnalysisWorkflow)
 - Dados menos espalhados. Eu nunca tive acesso a quem eram todos os membros, então o sistema de presença ficou uma bagunça e exigiu intervenção manual.
 - Geradores automáticos de placas de identificação.
-
-</details>
