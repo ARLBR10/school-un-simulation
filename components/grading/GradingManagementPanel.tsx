@@ -301,6 +301,7 @@ function CategorySelectInput({
     entries
       .filter(
         (entry) =>
+          kind === "grade" &&
           entry._id !== currentEntryId &&
           entry.member === memberId &&
           entry.kind === kind,
@@ -1559,15 +1560,17 @@ export function GradingManagementPanel({
       return false;
     }
 
-    const duplicateEntry = rows.find(
-      (entry) =>
-        entry._id !== entryId &&
-        entry.member === member &&
-        entry.kind === kind &&
-        entry.category === category,
-    );
+    const hasDuplicateGrade =
+      kind === "grade" &&
+      rows.some(
+        (entry) =>
+          entry._id !== entryId &&
+          entry.member === member &&
+          entry.kind === kind &&
+          entry.category === category,
+      );
 
-    if (duplicateEntry) {
+    if (hasDuplicateGrade) {
       toast.error(duplicateGradingEntryMessage);
       return false;
     }
