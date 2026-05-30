@@ -416,7 +416,10 @@ export const getClassReportData = query({
     }
 
     const [members, entries, committees] = await Promise.all([
-      ctx.db.query("members").take(999),
+      ctx.db
+        .query("members")
+        .withIndex("by_type", (q) => q.eq("type", "delegate"))
+        .take(999),
       ctx.db.query("gradingEntries").take(999),
       ctx.db.query("committees").take(999),
     ]);
