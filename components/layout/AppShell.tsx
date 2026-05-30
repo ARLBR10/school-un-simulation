@@ -76,7 +76,7 @@ type NavigationItem = {
     | "/admin/news"
     | "/admin/grades"
     | "/admin/attendance"
-    | "/admin/class-attendance"
+    | "/admin/class-utils"
     | "/admin/documents"
     | "/press/news"
     | "/press/approvals"
@@ -109,7 +109,7 @@ const adminNavigationLinks: NavigationItem[] = [
   { href: "/admin/news", label: "Notícias", icon: Newspaper },
   { href: "/admin/grades", label: "Notas", icon: ClipboardCheck },
   { href: "/admin/attendance", label: "Presenças", icon: UserCheck },
-  { href: "/admin/class-attendance", label: "Presenças por turma", icon: School },
+  { href: "/admin/class-utils", label: "Class Utils", icon: School },
   { href: "/admin/documents", label: "Documentos", icon: FileText },
 ];
 
@@ -489,10 +489,10 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
     ];
   }
 
-  if (pathname.startsWith("/admin/class-attendance")) {
+  if (pathname.startsWith("/admin/class-utils")) {
     return [
       { href: "/admin", label: "Administração" },
-      { label: "Presenças por turma" },
+      { label: "Class Utils" },
     ];
   }
 

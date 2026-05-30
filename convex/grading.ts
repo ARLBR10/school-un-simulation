@@ -33,6 +33,21 @@ export type GradingManageData = {
   isCommitteeScoped: boolean;
 };
 
+type ClassGradingMemberSummary = Pick<
+  Doc<"members">,
+  "_id" | "name" | "type" | "tuitionId" | "schoolClass" | "committee"
+> & {
+  points: number;
+  deductions: number;
+  total: number;
+  committeeTheme?: string;
+};
+
+export type ClassGradingReportData = {
+  currentMember: Doc<"members">;
+  members: ClassGradingMemberSummary[];
+};
+
 function getGradingAuditSnapshot(entry: Doc<"gradingEntries">) {
   return {
     id: entry._id,
@@ -386,6 +401,88 @@ export const getManageData = query({
       committees,
       isAdmin: scope.isAdmin,
       isCommitteeScoped: scope.isCommitteeScoped,
+    };
+  },
+});
+
+export const getClassReportData = query({
+  args: {},
+  async handler(ctx): Promise<ClassGradingReportData | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+    const actor = userInfo?.member ?? null;
+
+    if (actor?.type !== "admin") {
+      return null;
+    }
+
+    const [members, entries, committees] = await Promise.all([
+      ctx.db.query("members").take(999),
+      ctx.db.query("gradingEntries").take(999),
+      ctx.db.query("committees").take(999),
+    ]);
+    const committeesById = new Map(
+      committees.map((committee) => [committee._id, committee]),
+    );
+    const totalsByMemberId = new Map<
+      Id<"members">,
+      { points: number; deductions: number }
+    >();
+
+    for (const entry of entries) {
+      const totals = totalsByMemberId.get(entry.member) ?? {
+        points: 0,
+        deductions: 0,
+      };
+
+      if (entry.kind === "grade") {
+        totals.points += entry.amount;
+      } else {
+        totals.deductions += entry.amount;
+      }
+
+      totalsByMemberId.set(entry.member, totals);
+    }
+
+    return {
+      currentMember: actor,
+      members: members
+        .map((member) => {
+          const totals = totalsByMemberId.get(member._id) ?? {
+            points: 0,
+            deductions: 0,
+          };
+          const committee = member.committee
+            ? committeesById.get(member.committee)
+            : undefined;
+
+          return {
+            _id: member._id,
+            name: member.name,
+            type: member.type,
+            tuitionId: member.tuitionId,
+            schoolClass: member.schoolClass,
+            committee: member.committee,
+            points: totals.points,
+            deductions: totals.deductions,
+            total: totals.points - totals.deductions,
+            committeeTheme: committee?.theme,
+          };
+        })
+        .sort((leftMember, rightMember) => {
+          const classComparison = (leftMember.schoolClass ?? "").localeCompare(
+            rightMember.schoolClass ?? "",
+            "pt-BR",
+            { sensitivity: "base" },
+          );
+
+          if (classComparison !== 0) {
+            return classComparison;
+          }
+
+          return leftMember.name.localeCompare(rightMember.name, "pt-BR", {
+            sensitivity: "base",
+          });
+        }),
     };
   },
 });
