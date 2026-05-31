@@ -167,9 +167,6 @@ function downloadGradingCsv(reportData: ClassGradingReportData) {
     "Turma",
     "Nome",
     "Matricula",
-    "Tipo",
-    "Pontos",
-    "Deducoes",
     "Total final",
   ];
   const rows = reportData.members.map((member) => {
@@ -179,13 +176,6 @@ function downloadGradingCsv(reportData: ClassGradingReportData) {
       className,
       member.name,
       member.tuitionId,
-      getMemberTypeLabel(member),
-      formatGradingValue(
-        getScaledGradingValue(member.points, className, member.type),
-      ),
-      formatGradingValue(
-        getScaledGradingValue(member.deductions, className, member.type),
-      ),
       formatGradingValue(
         getScaledGradingValue(member.total, className, member.type),
       ),
