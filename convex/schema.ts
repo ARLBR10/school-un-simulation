@@ -19,7 +19,13 @@ export default defineSchema({
     tuitionId: v.optional(v.string()),
     schoolClass: v.optional(v.string()),
     type: memberTypes,
-    pressRole: v.optional(v.union(v.literal("writer"), v.literal("media"))),
+    pressRole: v.optional(
+      v.union(
+        v.literal("writer"),
+        v.literal("media"),
+        v.literal("photographer"),
+      ),
+    ),
     delegatedCountry: v.optional(countriesConvexSchema), // @TODO: Be one of a big fat array of all the countries
     committee: v.optional(v.id("committees")),
   })

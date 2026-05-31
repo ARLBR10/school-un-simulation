@@ -145,6 +145,7 @@ const memberTypeLabels: Record<Doc<"members">["type"], string> = {
 const pressRoleLabels: Record<NonNullable<Doc<"members">["pressRole"]>, string> = {
   writer: "Redator",
   media: "Mídia",
+  photographer: "Fotógrafo",
 };
 
 function normalizeRequiredString(value: string | undefined) {

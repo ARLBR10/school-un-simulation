@@ -66,6 +66,7 @@ const memberTypeLabels: Record<Doc<"members">["type"], string> = {
 const pressRoleLabels: Record<NonNullable<Doc<"members">["pressRole"]>, string> = {
   writer: "Redator",
   media: "Mídia",
+  photographer: "Fotógrafo",
 };
 
 export const Route = createFileRoute("/admin/members")({
@@ -102,6 +103,7 @@ const pressRoleOptions: AdminTableSelectOption[] = [
   { value: noPressRoleOptionValue, label: "Sem função de imprensa" },
   { value: "writer", label: pressRoleLabels.writer },
   { value: "media", label: pressRoleLabels.media },
+  { value: "photographer", label: pressRoleLabels.photographer },
 ];
 
 const noUserOptionValue = "__no_user__";
@@ -190,7 +192,7 @@ function isMemberType(value: string): value is Doc<"members">["type"] {
 }
 
 function isPressRole(value: string): value is NonNullable<Doc<"members">["pressRole"]> {
-  return value === "writer" || value === "media";
+  return value === "writer" || value === "media" || value === "photographer";
 }
 
 function normalizeOptionalString(value: string | undefined) {

@@ -30,7 +30,11 @@ export const memberTypes = v.union(
   v.literal("admin"), // Coordenação, Secretary General, Meg Dev (@ARLBR10)
 );
 
-export const pressRoles = v.union(v.literal("writer"), v.literal("media"));
+export const pressRoles = v.union(
+  v.literal("writer"),
+  v.literal("media"),
+  v.literal("photographer"),
+);
 
 const memberCreateArgs = {
   // Keep this up-to-date with the members table.

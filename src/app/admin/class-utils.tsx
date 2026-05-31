@@ -73,6 +73,7 @@ const memberTypeLabels: Record<Doc<"members">["type"], string> = {
 const pressRoleLabels: Record<NonNullable<Doc<"members">["pressRole"]>, string> = {
   writer: "Redator",
   media: "Mídia",
+  photographer: "Fotógrafo",
 };
 
 function getClassName(member: Pick<ReportMember, "schoolClass">) {
