@@ -70,15 +70,40 @@ const memberTypeLabels: Record<Doc<"members">["type"], string> = {
   admin: "Administrador",
 };
 
+const pressRoleLabels: Record<NonNullable<Doc<"members">["pressRole"]>, string> = {
+  writer: "Redator",
+  media: "Mídia",
+};
+
 function getClassName(member: Pick<ReportMember, "schoolClass">) {
   return member.schoolClass?.trim() || "Sem turma";
+}
+
+function getMemberTypeLabel(
+  member: Pick<GradingReportMember, "type" | "pressRole">,
+) {
+  const typeLabel = memberTypeLabels[member.type];
+
+  if (member.type === "press" && member.pressRole) {
+    return `${typeLabel} - ${pressRoleLabels[member.pressRole]}`;
+  }
+
+  return typeLabel;
 }
 
 function getGradingScale(className: string) {
   return className.toLocaleUpperCase("pt-BR").startsWith("3ª SÉRIE") ? 2.5 : 1;
 }
 
-function getScaledGradingValue(value: number, className: string) {
+function getScaledGradingValue(
+  value: number,
+  className: string,
+  memberType?: Doc<"members">["type"],
+) {
+  if (memberType && memberType !== "delegate") {
+    return value / 2.5;
+  }
+
   return value / getGradingScale(className);
 }
 
@@ -141,6 +166,7 @@ function downloadGradingCsv(reportData: ClassGradingReportData) {
     "Turma",
     "Nome",
     "Matricula",
+    "Tipo",
     "Pontos",
     "Deducoes",
     "Total final",
@@ -152,9 +178,16 @@ function downloadGradingCsv(reportData: ClassGradingReportData) {
       className,
       member.name,
       member.tuitionId,
-      formatGradingValue(getScaledGradingValue(member.points, className)),
-      formatGradingValue(getScaledGradingValue(member.deductions, className)),
-      formatGradingValue(getScaledGradingValue(member.total, className)),
+      getMemberTypeLabel(member),
+      formatGradingValue(
+        getScaledGradingValue(member.points, className, member.type),
+      ),
+      formatGradingValue(
+        getScaledGradingValue(member.deductions, className, member.type),
+      ),
+      formatGradingValue(
+        getScaledGradingValue(member.total, className, member.type),
+      ),
     ];
   });
   const csv = [headers, ...rows]
@@ -463,17 +496,20 @@ function ClassGradingCard({
   classNameLabel: string;
   members: GradingReportMember[];
 }) {
-  const points = getScaledGradingValue(
-    members.reduce((total, member) => total + member.points, 0),
-    classNameLabel,
+  const points = members.reduce(
+    (sum, member) =>
+      sum + getScaledGradingValue(member.points, classNameLabel, member.type),
+    0,
   );
-  const deductions = getScaledGradingValue(
-    members.reduce((total, member) => total + member.deductions, 0),
-    classNameLabel,
+  const deductions = members.reduce(
+    (sum, member) =>
+      sum + getScaledGradingValue(member.deductions, classNameLabel, member.type),
+    0,
   );
-  const total = getScaledGradingValue(
-    members.reduce((sum, member) => sum + member.total, 0),
-    classNameLabel,
+  const total = members.reduce(
+    (sum, member) =>
+      sum + getScaledGradingValue(member.total, classNameLabel, member.type),
+    0,
   );
 
   return (
@@ -527,16 +563,26 @@ function ClassGradingCard({
                 <TableRow key={member._id}>
                   <TableCell className="font-medium">{member.name}</TableCell>
                   <TableCell>{member.tuitionId ?? "-"}</TableCell>
-                  <TableCell>{memberTypeLabels[member.type]}</TableCell>
+                  <TableCell>{getMemberTypeLabel(member)}</TableCell>
                   <TableCell>{member.committeeTheme ?? "-"}</TableCell>
                   <TableCell className="text-right">
-                    {formatGradingValue(getScaledGradingValue(member.points, className))}
+                    {formatGradingValue(
+                      getScaledGradingValue(member.points, className, member.type),
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
-                    {formatGradingValue(getScaledGradingValue(member.deductions, className))}
+                    {formatGradingValue(
+                      getScaledGradingValue(
+                        member.deductions,
+                        className,
+                        member.type,
+                      ),
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-medium">
-                    {formatGradingValue(getScaledGradingValue(member.total, className))}
+                    {formatGradingValue(
+                      getScaledGradingValue(member.total, className, member.type),
+                    )}
                   </TableCell>
                 </TableRow>
               );

@@ -20,6 +20,13 @@ export type GradingCategoryDefinition = {
 // Delegates receive these entries; clerks grade them, with logistics as backup.
 const delegateGraderTypes: GradingMemberType[] = ["clerk", "logistics"];
 
+export const nonDelegateGradeMemberTypes: GradingMemberType[] = [
+  "logistics",
+  "press",
+  "clerk",
+  "admin",
+];
+
 export const gradeCategories: GradingCategoryDefinition[] = [
   {
     value: "position_paper",
@@ -52,6 +59,13 @@ export const gradeCategories: GradingCategoryDefinition[] = [
     graderTypes: delegateGraderTypes,
     maxAmount: 1,
     day: 2,
+  },
+  {
+    value: "non_delegate_score",
+    label: "Pontuação de não delegado",
+    memberTypes: nonDelegateGradeMemberTypes,
+    graderTypes: ["admin"],
+    maxAmount: 2.5,
   },
 ];
 

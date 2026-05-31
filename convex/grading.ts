@@ -4,6 +4,7 @@ import {
   canGraderUseCategory,
   getAllowedMemberTypesForGraderType,
   getCategoryDefinition,
+  nonDelegateGradeMemberTypes,
   type GradingMemberType,
 } from "@/lib/grading-categories";
 
@@ -35,7 +36,13 @@ export type GradingManageData = {
 
 type ClassGradingMemberSummary = Pick<
   Doc<"members">,
-  "_id" | "name" | "type" | "tuitionId" | "schoolClass" | "committee"
+  | "_id"
+  | "name"
+  | "type"
+  | "pressRole"
+  | "tuitionId"
+  | "schoolClass"
+  | "committee"
 > & {
   points: number;
   deductions: number;
@@ -415,11 +422,22 @@ export const getClassReportData = query({
       return null;
     }
 
-    const [members, entries, committees] = await Promise.all([
-      ctx.db
-        .query("members")
-        .withIndex("by_type", (q) => q.eq("type", "delegate"))
-        .take(999),
+    const reportMemberTypes: GradingMemberType[] = [
+      "delegate",
+      ...nonDelegateGradeMemberTypes,
+    ];
+    const members: Doc<"members">[] = [];
+
+    for (const memberType of reportMemberTypes) {
+      members.push(
+        ...(await ctx.db
+          .query("members")
+          .withIndex("by_type", (q) => q.eq("type", memberType))
+          .take(999)),
+      );
+    }
+
+    const [entries, committees] = await Promise.all([
       ctx.db.query("gradingEntries").take(999),
       ctx.db.query("committees").take(999),
     ]);
@@ -462,6 +480,7 @@ export const getClassReportData = query({
             _id: member._id,
             name: member.name,
             type: member.type,
+            pressRole: member.pressRole,
             tuitionId: member.tuitionId,
             schoolClass: member.schoolClass,
             committee: member.committee,

@@ -22,6 +22,7 @@ function AdminGradesPage() {
       description="Registre pontuações e deduções dos membros da simulação."
       restrictedTitle="Acesso administrativo necessário"
       restrictedDescription="Esta página é reservada para administradores e funções autorizadas a lançar notas."
+      enableNonDelegateTab
       showAdminLinks
     />
   );

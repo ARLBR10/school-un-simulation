@@ -8,7 +8,7 @@ import {
 } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
-import { Minus, Pencil, Plus, PlusCircle } from "lucide-react";
+import { NotebookPen, Pencil, PlusCircle, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -65,6 +65,7 @@ import {
 } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -106,6 +107,7 @@ type MemberSummary = {
 type MemberSelectionRow = Record<string, ReactNode> & {
   _id: Doc<"members">["_id"];
   name: string;
+  type: string;
   details: string;
   deductionTotal: number;
   balance: number;
@@ -123,12 +125,27 @@ type GradingManagementPanelProps = {
   description: string;
   restrictedTitle: string;
   restrictedDescription: string;
+  enableNonDelegateTab?: boolean;
   showAdminLinks?: boolean;
 };
 
 const duplicateGradingEntryErrorCode = "duplicate_grading_entry";
 const duplicateGradingEntryMessage =
   "Este lançamento já existe para este membro.";
+
+const memberTypeLabels: Record<Doc<"members">["type"], string> = {
+  delegate: "Delegado",
+  logistics: "Logística",
+  press: "Imprensa",
+  clerk: "Mesário",
+  teacher: "Professor",
+  admin: "Administrador",
+};
+
+const pressRoleLabels: Record<NonNullable<Doc<"members">["pressRole"]>, string> = {
+  writer: "Redator",
+  media: "Mídia",
+};
 
 function normalizeRequiredString(value: string | undefined) {
   const trimmedValue = value?.trim();
@@ -148,6 +165,16 @@ function normalizeOptionalString(value: string | undefined) {
   }
 
   return trimmedValue;
+}
+
+function getMemberTypeLabel(member: Doc<"members">) {
+  const typeLabel = memberTypeLabels[member.type];
+
+  if (member.type === "press" && member.pressRole) {
+    return `${typeLabel} - ${pressRoleLabels[member.pressRole]}`;
+  }
+
+  return typeLabel;
 }
 
 function parseAmount(value: string | undefined) {
@@ -503,6 +530,7 @@ function getGradeCategoryShortLabel(category: GradingCategoryDefinition) {
   const labels: Record<string, string> = {
     argumentation: "Argumentação",
     economic_bloc_dialogue: "Diálogo entre blocos",
+    non_delegate_score: "Pontuação",
     position_paper: "DPO",
     resolution_paragraph_creation: "Parágrafos",
   };
@@ -700,6 +728,26 @@ function MemberSelectionTable({
     },
     [],
   );
+  const allDeductionCategories = summaries.reduce<GradingCategoryDefinition[]>(
+    (categories, summary) => {
+      for (const category of getAllowedCategoriesForMemberAndGraderType(
+        "deduction",
+        metadata.memberTypeById[summary.member._id] as
+          | GradingMemberType
+          | undefined,
+        graderType,
+        isAdmin,
+      )) {
+        if (!categories.some((current) => current.value === category.value)) {
+          categories.push(category);
+        }
+      }
+
+      return categories;
+    },
+    [],
+  );
+  const hasDeductionCategories = allDeductionCategories.length > 0;
   const summaryById = new Map(
     summaries.map((summary) => [summary.member._id, summary]),
   );
@@ -714,6 +762,7 @@ function MemberSelectionTable({
     return {
       _id: summary.member._id,
       name: summary.name,
+      type: getMemberTypeLabel(summary.member),
       details: summary.details,
       deductionTotal,
       balance: gradeTotal - deductionTotal,
@@ -732,6 +781,10 @@ function MemberSelectionTable({
           member.name
         );
       },
+    },
+    {
+      key: "type",
+      label: "Tipo",
     },
     ...allGradeCategories.map<AdminTableColumn<MemberSelectionRow>>((category) => ({
       key: category.value,
@@ -763,30 +816,36 @@ function MemberSelectionTable({
         );
       },
     })),
-    {
-      key: "deductionTotal",
-      label: "Deduções",
-      render: (member) => (
-        <div className="flex items-center gap-2">
-          <Badge
-            variant={member.deductionTotal > 0 ? "destructive" : "secondary"}
-          >
-            -{formatAmount(member.deductionTotal)}
-          </Badge>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onOpenDeductions(member._id)}
-          >
-            Deduções
-          </Button>
-        </div>
-      ),
-    },
+    ...(hasDeductionCategories
+      ? [
+          {
+            key: "deductionTotal",
+            label: "Deduções",
+            render: (member) => (
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={
+                    member.deductionTotal > 0 ? "destructive" : "secondary"
+                  }
+                >
+                  -{formatAmount(member.deductionTotal)}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onOpenDeductions(member._id)}
+                >
+                  Deduções
+                </Button>
+              </div>
+            ),
+          } satisfies AdminTableColumn<MemberSelectionRow>,
+        ]
+      : []),
     {
       key: "balance",
-      label: "Saldo",
+      label: hasDeductionCategories ? "Saldo" : "Total",
       render: (member) => (
         <Badge variant={member.balance < 0 ? "destructive" : "secondary"}>
           {formatAmount(member.balance)}
@@ -911,12 +970,6 @@ function GradeAmountInput({
     }
   }
 
-  function changeDraftAmount(change: number) {
-    setDraftAmount((currentAmount) =>
-      roundAmount(clampAmount(currentAmount + change, category.maxAmount)),
-    );
-  }
-
   if (!canEditCategory) {
     return <span className="text-muted-foreground">-</span>;
   }
@@ -956,19 +1009,8 @@ function GradeAmountInput({
               </DrawerDescription>
             </DrawerHeader>
             <div className="p-4 pb-0">
-              <div className="flex items-center justify-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-8 shrink-0 rounded-full"
-                  disabled={isSaving || draftAmount <= 0}
-                  onClick={() => changeDraftAmount(-0.1)}
-                >
-                  <Minus />
-                  <span className="sr-only">Diminuir</span>
-                </Button>
-                <div className="flex-1 text-center">
+              <div className="flex flex-col gap-5 rounded-lg border border-input bg-background px-4 py-5">
+                <div className="text-center">
                   <div className="text-7xl font-bold tracking-tighter">
                     {formatAmount(draftAmount)}
                   </div>
@@ -976,17 +1018,22 @@ function GradeAmountInput({
                     pontos
                   </div>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="size-8 shrink-0 rounded-full"
-                  disabled={isSaving || draftAmount >= category.maxAmount}
-                  onClick={() => changeDraftAmount(0.1)}
-                >
-                  <Plus />
-                  <span className="sr-only">Aumentar</span>
-                </Button>
+                <Slider
+                  value={[draftAmount]}
+                  min={0}
+                  max={category.maxAmount}
+                  step={0.1}
+                  disabled={isSaving}
+                  onValueChange={([nextValue]) => {
+                    setDraftAmount(
+                      roundAmount(clampAmount(nextValue, category.maxAmount)),
+                    );
+                  }}
+                />
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>0</span>
+                  <span>Máximo {formatAmount(category.maxAmount)}</span>
+                </div>
               </div>
             </div>
             <DrawerFooter>
@@ -1423,6 +1470,51 @@ function MemberGradingSheet({
   );
 }
 
+function CommitteeSelect({
+  committees,
+  memberSummaries,
+  selectedCommitteeId,
+  onSelectCommittee,
+}: {
+  committees: Pick<Doc<"committees">, "_id" | "theme">[];
+  memberSummaries: MemberSummary[];
+  selectedCommitteeId: string;
+  onSelectCommittee: (committeeId: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:max-w-md">
+      <span className="text-sm font-medium">Comitê</span>
+      <Select value={selectedCommitteeId} onValueChange={onSelectCommittee}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Selecione um comitê" />
+        </SelectTrigger>
+        <SelectContent
+          position="popper"
+          className="max-w-[calc(100vw-2rem)] sm:max-w-md"
+        >
+          <SelectGroup>
+            {committees.map((committee) => {
+              const memberCount = memberSummaries.filter(
+                (summary) => summary.member.committee === committee._id,
+              ).length;
+
+              return (
+                <SelectItem
+                  key={committee._id}
+                  value={committee._id}
+                  className="[&>span:last-child]:truncate"
+                >
+                  {committee.theme} ({memberCount})
+                </SelectItem>
+              );
+            })}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
 function LoadingPanel({
   title,
   description,
@@ -1464,6 +1556,7 @@ export function GradingManagementPanel({
   description,
   restrictedTitle,
   restrictedDescription,
+  enableNonDelegateTab = false,
   showAdminLinks = false,
 }: GradingManagementPanelProps) {
   const [selectedMemberId, setSelectedMemberId] = useState<
@@ -1506,11 +1599,17 @@ export function GradingManagementPanel({
   const selectedCommittee =
     committees.find((committee) => committee._id === selectedCommitteeId) ??
     committees[0];
-  const filteredMemberSummaries = selectedCommittee
-    ? memberSummaries.filter(
+  const delegateMemberSummaries = memberSummaries.filter(
+    (summary) => summary.member.type === "delegate",
+  );
+  const nonDelegateMemberSummaries = memberSummaries.filter(
+    (summary) => summary.member.type !== "delegate",
+  );
+  const filteredDelegateMemberSummaries = selectedCommittee
+    ? delegateMemberSummaries.filter(
         (summary) => summary.member.committee === selectedCommittee._id,
       )
-    : memberSummaries;
+    : delegateMemberSummaries;
 
   function resolveEntryAmount(
     kind: GradingEntryKind,
@@ -1693,56 +1792,99 @@ export function GradingManagementPanel({
     <PageShell className="gap-3 md:gap-4">
       <PageHeader title={title} description={description} />
 
-      <div className="flex flex-col gap-2 sm:max-w-md">
-        <span className="text-sm font-medium">Comitê</span>
-        <Select
-          value={selectedCommittee?._id ?? ""}
-          onValueChange={(committeeId) => {
-            setSelectedCommitteeId(committeeId);
-            setSelectedMemberId(null);
-          }}
+      {isAdmin && enableNonDelegateTab ? (
+        <Tabs
+          defaultValue="delegates"
+          className="gap-4"
+          onValueChange={() => setSelectedMemberId(null)}
         >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Selecione um comitê" />
-          </SelectTrigger>
-          <SelectContent
-            position="popper"
-            className="max-w-[calc(100vw-2rem)] sm:max-w-md"
-          >
-            <SelectGroup>
-              {committees.map((committee) => {
-                const memberCount = memberSummaries.filter(
-                  (summary) => summary.member.committee === committee._id,
-                ).length;
+          <TabsList className="mx-auto h-11 p-1">
+            <TabsTrigger className="h-9 px-4 text-base" value="delegates">
+              <NotebookPen className="size-5" data-icon="inline-start" />
+              Delegados
+            </TabsTrigger>
+            <TabsTrigger className="h-9 px-4 text-base" value="non-delegates">
+              <UsersRound className="size-5" data-icon="inline-start" />
+              Não delegados
+            </TabsTrigger>
+          </TabsList>
 
-                return (
-                  <SelectItem
-                    key={committee._id}
-                    value={committee._id}
-                    className="[&>span:last-child]:truncate"
-                  >
-                    {committee.theme} ({memberCount})
-                  </SelectItem>
-                );
-              })}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </div>
+          <TabsContent className="flex flex-col gap-4" value="delegates">
+            <CommitteeSelect
+              committees={committees}
+              memberSummaries={delegateMemberSummaries}
+              selectedCommitteeId={selectedCommittee?._id ?? ""}
+              onSelectCommittee={(committeeId) => {
+                setSelectedCommitteeId(committeeId);
+                setSelectedMemberId(null);
+              }}
+            />
+            <MemberSelectionTab
+              summaries={filteredDelegateMemberSummaries}
+              rows={rows}
+              metadata={metadata}
+              graderType={graderType}
+              isAdmin={isAdmin}
+              showAdminLinks={showAdminLinks}
+              selectedMemberId={selectedMemberId}
+              onSelectMember={setSelectedMemberId}
+              onCreateEntry={createEntry}
+              onUpdateEntry={updateEntry}
+              onDeleteEntry={deleteEntry}
+            />
+          </TabsContent>
 
-      <MemberSelectionTab
-        summaries={filteredMemberSummaries}
-        rows={rows}
-        metadata={metadata}
-        graderType={graderType}
-        isAdmin={isAdmin}
-        showAdminLinks={showAdminLinks}
-        selectedMemberId={selectedMemberId}
-        onSelectMember={setSelectedMemberId}
-        onCreateEntry={createEntry}
-        onUpdateEntry={updateEntry}
-        onDeleteEntry={deleteEntry}
-      />
+          <TabsContent className="flex flex-col gap-4" value="non-delegates">
+            <Card>
+              <CardHeader>
+                <CardTitle>Pontuação de não delegados</CardTitle>
+                <CardDescription>
+                  Atribua uma pontuação única de até 2,5 pontos para logística,
+                  imprensa e mesários.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            <MemberSelectionTab
+              summaries={nonDelegateMemberSummaries}
+              rows={rows}
+              metadata={metadata}
+              graderType={graderType}
+              isAdmin={isAdmin}
+              showAdminLinks={showAdminLinks}
+              selectedMemberId={selectedMemberId}
+              onSelectMember={setSelectedMemberId}
+              onCreateEntry={createEntry}
+              onUpdateEntry={updateEntry}
+              onDeleteEntry={deleteEntry}
+            />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <>
+          <CommitteeSelect
+            committees={committees}
+            memberSummaries={delegateMemberSummaries}
+            selectedCommitteeId={selectedCommittee?._id ?? ""}
+            onSelectCommittee={(committeeId) => {
+              setSelectedCommitteeId(committeeId);
+              setSelectedMemberId(null);
+            }}
+          />
+          <MemberSelectionTab
+            summaries={filteredDelegateMemberSummaries}
+            rows={rows}
+            metadata={metadata}
+            graderType={graderType}
+            isAdmin={isAdmin}
+            showAdminLinks={showAdminLinks}
+            selectedMemberId={selectedMemberId}
+            onSelectMember={setSelectedMemberId}
+            onCreateEntry={createEntry}
+            onUpdateEntry={updateEntry}
+            onDeleteEntry={deleteEntry}
+          />
+        </>
+      )}
     </PageShell>
   );
 }
