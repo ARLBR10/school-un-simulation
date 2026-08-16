@@ -66,8 +66,8 @@ function PressNewsPage() {
           </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild variant="outline">
-              <Link to="/news">Ver notícias públicas</Link>
+            <Button render={<Link to="/news" />} variant="outline">
+              Ver notícias públicas
             </Button>
           </CardContent>
         </Card>
@@ -83,11 +83,9 @@ function PressNewsPage() {
           "Escreva notícias e acompanhe a aprovação antes da publicação."
         }
         action={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/news">
-              <Newspaper data-icon="inline-start" />
-              Ver página pública
-            </Link>
+          <Button render={<Link to="/news" />} variant="outline" size="sm">
+            <Newspaper data-icon="inline-start" />
+            Ver página pública
           </Button>
         }
       />

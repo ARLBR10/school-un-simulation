@@ -71,11 +71,13 @@ export function FontColorToolbarPlugin() {
         }
       }}
     >
-      <ColorPickerTrigger asChild>
-        <Button variant="outline" size="icon-sm">
-          <BaselineIcon className="size-4" />
-        </Button>
-      </ColorPickerTrigger>
+      <ColorPickerTrigger
+        render={
+          <Button variant="outline" size="icon-sm">
+            <BaselineIcon className="size-4" />
+          </Button>
+        }
+      />
       <ColorPickerContent>
         <ColorPickerArea />
         <div className="flex items-center gap-2">

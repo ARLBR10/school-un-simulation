@@ -9,8 +9,9 @@ import {
   useRef,
   useState,
 } from "react"
+import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area"
+
 import { useDataGrid } from "@/components/reui/data-grid/data-grid"
-import { ScrollArea as ScrollAreaPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 
@@ -360,21 +361,21 @@ function DataGridScrollArea({
         </ScrollAreaPrimitive.Viewport>
 
         {showHorizontal && (
-          <ScrollAreaPrimitive.ScrollAreaScrollbar
+          <ScrollAreaPrimitive.Scrollbar
             data-slot="data-grid-scrollbar"
             data-orientation="horizontal"
             orientation="horizontal"
             className="flex touch-none p-px transition-colors select-none data-[orientation=horizontal]:h-2.5 data-[orientation=horizontal]:flex-col data-[orientation=horizontal]:border-t data-[orientation=horizontal]:border-t-transparent data-[orientation=vertical]:h-full data-[orientation=vertical]:w-2.5 data-[orientation=vertical]:border-s data-[orientation=vertical]:border-s-transparent"
           >
-            <ScrollAreaPrimitive.ScrollAreaThumb
+            <ScrollAreaPrimitive.Thumb
               data-slot="data-grid-thumb"
               className="bg-border rounded-full relative flex-1"
             />
-          </ScrollAreaPrimitive.ScrollAreaScrollbar>
+          </ScrollAreaPrimitive.Scrollbar>
         )}
 
         {showVertical && (
-          <ScrollAreaPrimitive.ScrollAreaScrollbar
+          <ScrollAreaPrimitive.Scrollbar
             data-slot="data-grid-scrollbar"
             data-orientation="vertical"
             orientation="vertical"
@@ -383,11 +384,11 @@ function DataGridScrollArea({
               usesCustomVerticalScrollbar && "pointer-events-none opacity-0"
             )}
           >
-            <ScrollAreaPrimitive.ScrollAreaThumb
+            <ScrollAreaPrimitive.Thumb
               data-slot="data-grid-thumb"
               className="bg-border rounded-full relative flex-1"
             />
-          </ScrollAreaPrimitive.ScrollAreaScrollbar>
+          </ScrollAreaPrimitive.Scrollbar>
         )}
       </ScrollAreaPrimitive.Root>
 

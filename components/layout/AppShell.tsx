@@ -149,22 +149,22 @@ function AppSidebarLink({
   return (
     <SidebarMenuItem>
       <SidebarMenuButton
-        asChild
+        render={
+          <Link
+            to={item.href}
+            onClick={() => {
+              if (isMobile) {
+                setOpenMobile(false);
+              }
+            }}
+          />
+        }
         isActive={isActive}
         tooltip={item.label}
         className="h-9 text-sm"
       >
-        <Link
-          to={item.href}
-          onClick={() => {
-            if (isMobile) {
-              setOpenMobile(false);
-            }
-          }}
-        >
-          <Icon />
-          <span>{item.label}</span>
-        </Link>
+        <Icon />
+        <span>{item.label}</span>
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
@@ -211,20 +211,23 @@ function AppSidebarFooter() {
             />
           </SignedIn>
           <SignedOut>
-            <SidebarMenuButton asChild tooltip="Entrar">
-              <Link
-                to="/auth/$path"
-                params={{ path: "sign-in" }}
-                search={{ redirectTo: location.href }}
-                onClick={() => {
-                  if (isMobile) {
-                    setOpenMobile(false);
-                  }
-                }}
-              >
-                <LogIn />
-                <span>Entrar</span>
-              </Link>
+            <SidebarMenuButton
+              render={
+                <Link
+                  to="/auth/$path"
+                  params={{ path: "sign-in" }}
+                  search={{ redirectTo: location.href }}
+                  onClick={() => {
+                    if (isMobile) {
+                      setOpenMobile(false);
+                    }
+                  }}
+                />
+              }
+              tooltip="Entrar"
+            >
+              <LogIn />
+              <span>Entrar</span>
             </SidebarMenuButton>
           </SignedOut>
         </SidebarMenuItem>
@@ -291,15 +294,15 @@ function AppSidebar() {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild size="lg" tooltip="Início">
-              <Link to="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Landmark className="size-4" />
-                </div>
-                <span className="truncate font-medium">
-                  Simulação da ONU
-                </span>
-              </Link>
+            <SidebarMenuButton
+              render={<Link to="/" />}
+              size="lg"
+              tooltip="Início"
+            >
+              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                <Landmark className="size-4" />
+              </div>
+              <span className="truncate font-medium">Simulação da ONU</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -590,8 +593,11 @@ function SiteHeader() {
                     }
                   >
                     {item.href && !isLastItem ? (
-                      <BreadcrumbLink asChild className="block truncate">
-                        <Link to={item.href}>{item.label}</Link>
+                      <BreadcrumbLink
+                        render={<Link to={item.href} />}
+                        className="block truncate"
+                      >
+                        {item.label}
                       </BreadcrumbLink>
                     ) : (
                       <BreadcrumbPage className="block truncate text-sm font-medium">

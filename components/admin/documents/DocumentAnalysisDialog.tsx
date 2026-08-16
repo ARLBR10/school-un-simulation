@@ -102,15 +102,15 @@ export function DocumentAnalysisDialog({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
-          {isProcessing ? (
-            <LoaderCircle data-icon="inline-start" className="animate-spin" />
-          ) : (
-            <FileText data-icon="inline-start" />
-          )}
-          {isProcessing ? "Processando" : "Detalhes"}
-        </Button>
+      <DialogTrigger
+        render={<Button type="button" variant="outline" size="sm" />}
+      >
+        {isProcessing ? (
+          <LoaderCircle data-icon="inline-start" className="animate-spin" />
+        ) : (
+          <FileText data-icon="inline-start" />
+        )}
+        {isProcessing ? "Processando" : "Detalhes"}
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100vh-2rem)] overflow-hidden sm:max-w-2xl">
         <DialogHeader>
@@ -138,20 +138,22 @@ export function DocumentAnalysisDialog({
           </p>
           {showRerunAction ? (
             <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canRunAnalysis || isProcessing || isRerunning}
-                >
-                  {isRerunning ? (
-                    <LoaderCircle data-icon="inline-start" className="animate-spin" />
-                  ) : (
-                    <RotateCcw data-icon="inline-start" />
-                  )}
-                  {hasExistingAnalysis ? "Reprocessar" : "Executar análise"}
-                </Button>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!canRunAnalysis || isProcessing || isRerunning}
+                  />
+                }
+              >
+                {isRerunning ? (
+                  <LoaderCircle data-icon="inline-start" className="animate-spin" />
+                ) : (
+                  <RotateCcw data-icon="inline-start" />
+                )}
+                {hasExistingAnalysis ? "Reprocessar" : "Executar análise"}
               </AlertDialogTrigger>
               <AlertDialogContent size="sm">
                 <AlertDialogHeader>

@@ -58,15 +58,18 @@ export function NotAuthorizedContent() {
           Acesso restrito a membros vinculados à simulação.
         </p>
         <div className="flex flex-col items-center gap-3 px-6 text-center sm:px-8">
-          <Button asChild className="w-full sm:w-auto">
-            <Link
-              to="/auth/$path"
-              params={{ path: "sign-out" }}
-              search={{ redirectTo: "/auth/sign-in" }}
-            >
-              <LogOut data-icon="inline-start" />
-              Sair e usar Email escolar
-            </Link>
+          <Button
+            render={
+              <Link
+                to="/auth/$path"
+                params={{ path: "sign-out" }}
+                search={{ redirectTo: "/auth/sign-in" }}
+              />
+            }
+            className="w-full sm:w-auto"
+          >
+            <LogOut data-icon="inline-start" />
+            Sair e usar Email escolar
           </Button>
           <p className="max-w-md text-xs leading-5 text-muted-foreground">
             Use essa opção se entrou com outra conta e quer trocar para o e-mail

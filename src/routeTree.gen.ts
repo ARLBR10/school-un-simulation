@@ -9,83 +9,43 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './app/__root'
-import { Route as TermsRouteImport } from './app/terms'
-import { Route as RulesRouteImport } from './app/rules'
-import { Route as PrivacyRouteImport } from './app/privacy'
-import { Route as InvitesRouteImport } from './app/invites'
-import { Route as HomeRouteImport } from './app/home'
-import { Route as GradingRouteImport } from './app/grading'
-import { Route as DpoRouteImport } from './app/dpo'
-import { Route as DocumentsRouteImport } from './app/documents'
-import { Route as AttendanceRouteImport } from './app/attendance'
-import { Route as AdminRouteImport } from './app/admin'
 import { Route as IndexRouteImport } from './app/index'
-import { Route as NewsIndexRouteImport } from './app/news/index'
-import { Route as CommitteesIndexRouteImport } from './app/committees/index'
-import { Route as AdminIndexRouteImport } from './app/admin/index'
-import { Route as PressNewsRouteImport } from './app/press/news'
-import { Route as PressApprovalsRouteImport } from './app/press/approvals'
-import { Route as OrganizationPathRouteImport } from './app/organization/$path'
-import { Route as NewsIdRouteImport } from './app/news/$id'
-import { Route as ErrorNot_authorizedRouteImport } from './app/error/not_authorized'
-import { Route as CommitteesIdRouteImport } from './app/committees/$id'
-import { Route as AuthSingUpRouteImport } from './app/auth/sing-up'
-import { Route as AuthPathRouteImport } from './app/auth/$path'
-import { Route as ApiUploadthingRouteImport } from './app/api/uploadthing'
-import { Route as AdminUsersRouteImport } from './app/admin/users'
-import { Route as AdminNewsRouteImport } from './app/admin/news'
-import { Route as AdminMembersRouteImport } from './app/admin/members'
-import { Route as AdminGradesRouteImport } from './app/admin/grades'
-import { Route as AdminDocumentsRouteImport } from './app/admin/documents'
-import { Route as AdminCommitteesRouteImport } from './app/admin/committees'
-import { Route as AdminClassUtilsRouteImport } from './app/admin/class-utils'
-import { Route as AdminAttendanceRouteImport } from './app/admin/attendance'
+import { Route as AdminRouteImport } from './app/admin'
+import { Route as AttendanceRouteImport } from './app/attendance'
+import { Route as DocumentsRouteImport } from './app/documents'
+import { Route as DpoRouteImport } from './app/dpo'
+import { Route as GradingRouteImport } from './app/grading'
+import { Route as HomeRouteImport } from './app/home'
+import { Route as InvitesRouteImport } from './app/invites'
+import { Route as PrivacyRouteImport } from './app/privacy'
+import { Route as RulesRouteImport } from './app/rules'
+import { Route as TermsRouteImport } from './app/terms'
 import { Route as AccountPathRouteImport } from './app/account/$path'
+import { Route as AdminIndexRouteImport } from './app/admin/index'
+import { Route as AdminAttendanceRouteImport } from './app/admin/attendance'
+import { Route as AdminClassUtilsRouteImport } from './app/admin/class-utils'
+import { Route as AdminCommitteesRouteImport } from './app/admin/committees'
+import { Route as AdminDocumentsRouteImport } from './app/admin/documents'
+import { Route as AdminGradesRouteImport } from './app/admin/grades'
+import { Route as AdminMembersRouteImport } from './app/admin/members'
+import { Route as AdminNewsRouteImport } from './app/admin/news'
+import { Route as AdminUsersRouteImport } from './app/admin/users'
+import { Route as ApiUploadthingRouteImport } from './app/api/uploadthing'
+import { Route as AuthPathRouteImport } from './app/auth/$path'
+import { Route as AuthSingUpRouteImport } from './app/auth/sing-up'
+import { Route as CommitteesIndexRouteImport } from './app/committees/index'
+import { Route as CommitteesIdRouteImport } from './app/committees/$id'
+import { Route as ErrorNot_authorizedRouteImport } from './app/error/not_authorized'
+import { Route as NewsIndexRouteImport } from './app/news/index'
+import { Route as NewsIdRouteImport } from './app/news/$id'
+import { Route as OrganizationPathRouteImport } from './app/organization/$path'
+import { Route as PressApprovalsRouteImport } from './app/press/approvals'
+import { Route as PressNewsRouteImport } from './app/press/news'
 import { Route as ApiAuthSplatRouteImport } from './app/api/auth/$'
 
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RulesRoute = RulesRouteImport.update({
-  id: '/rules',
-  path: '/rules',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InvitesRoute = InvitesRouteImport.update({
-  id: '/invites',
-  path: '/invites',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GradingRoute = GradingRouteImport.update({
-  id: '/grading',
-  path: '/grading',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DpoRoute = DpoRouteImport.update({
-  id: '/dpo',
-  path: '/dpo',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentsRoute = DocumentsRouteImport.update({
-  id: '/documents',
-  path: '/documents',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AttendanceRoute = AttendanceRouteImport.update({
-  id: '/attendance',
-  path: '/attendance',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRoute = AdminRouteImport.update({
@@ -93,19 +53,54 @@ const AdminRoute = AdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AttendanceRoute = AttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
   getParentRoute: () => rootRouteImport,
 } as any)
-const NewsIndexRoute = NewsIndexRouteImport.update({
-  id: '/news/',
-  path: '/news/',
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CommitteesIndexRoute = CommitteesIndexRouteImport.update({
-  id: '/committees/',
-  path: '/committees/',
+const DpoRoute = DpoRouteImport.update({
+  id: '/dpo',
+  path: '/dpo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GradingRoute = GradingRouteImport.update({
+  id: '/grading',
+  path: '/grading',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InvitesRoute = InvitesRouteImport.update({
+  id: '/invites',
+  path: '/invites',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RulesRoute = RulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AccountPathRoute = AccountPathRouteImport.update({
+  id: '/account/$path',
+  path: '/account/$path',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -113,79 +108,9 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AdminRoute,
 } as any)
-const PressNewsRoute = PressNewsRouteImport.update({
-  id: '/press/news',
-  path: '/press/news',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PressApprovalsRoute = PressApprovalsRouteImport.update({
-  id: '/press/approvals',
-  path: '/press/approvals',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OrganizationPathRoute = OrganizationPathRouteImport.update({
-  id: '/organization/$path',
-  path: '/organization/$path',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NewsIdRoute = NewsIdRouteImport.update({
-  id: '/news/$id',
-  path: '/news/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ErrorNot_authorizedRoute = ErrorNot_authorizedRouteImport.update({
-  id: '/error/not_authorized',
-  path: '/error/not_authorized',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CommitteesIdRoute = CommitteesIdRouteImport.update({
-  id: '/committees/$id',
-  path: '/committees/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthSingUpRoute = AuthSingUpRouteImport.update({
-  id: '/auth/sing-up',
-  path: '/auth/sing-up',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthPathRoute = AuthPathRouteImport.update({
-  id: '/auth/$path',
-  path: '/auth/$path',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiUploadthingRoute = ApiUploadthingRouteImport.update({
-  id: '/api/uploadthing',
-  path: '/api/uploadthing',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminUsersRoute = AdminUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminNewsRoute = AdminNewsRouteImport.update({
-  id: '/news',
-  path: '/news',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminMembersRoute = AdminMembersRouteImport.update({
-  id: '/members',
-  path: '/members',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminGradesRoute = AdminGradesRouteImport.update({
-  id: '/grades',
-  path: '/grades',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminDocumentsRoute = AdminDocumentsRouteImport.update({
-  id: '/documents',
-  path: '/documents',
-  getParentRoute: () => AdminRoute,
-} as any)
-const AdminCommitteesRoute = AdminCommitteesRouteImport.update({
-  id: '/committees',
-  path: '/committees',
+const AdminAttendanceRoute = AdminAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminClassUtilsRoute = AdminClassUtilsRouteImport.update({
@@ -193,14 +118,89 @@ const AdminClassUtilsRoute = AdminClassUtilsRouteImport.update({
   path: '/class-utils',
   getParentRoute: () => AdminRoute,
 } as any)
-const AdminAttendanceRoute = AdminAttendanceRouteImport.update({
-  id: '/attendance',
-  path: '/attendance',
+const AdminCommitteesRoute = AdminCommitteesRouteImport.update({
+  id: '/committees',
+  path: '/committees',
   getParentRoute: () => AdminRoute,
 } as any)
-const AccountPathRoute = AccountPathRouteImport.update({
-  id: '/account/$path',
-  path: '/account/$path',
+const AdminDocumentsRoute = AdminDocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminGradesRoute = AdminGradesRouteImport.update({
+  id: '/grades',
+  path: '/grades',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMembersRoute = AdminMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminNewsRoute = AdminNewsRouteImport.update({
+  id: '/news',
+  path: '/news',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiUploadthingRoute = ApiUploadthingRouteImport.update({
+  id: '/api/uploadthing',
+  path: '/api/uploadthing',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthPathRoute = AuthPathRouteImport.update({
+  id: '/auth/$path',
+  path: '/auth/$path',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthSingUpRoute = AuthSingUpRouteImport.update({
+  id: '/auth/sing-up',
+  path: '/auth/sing-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommitteesIndexRoute = CommitteesIndexRouteImport.update({
+  id: '/committees/',
+  path: '/committees/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommitteesIdRoute = CommitteesIdRouteImport.update({
+  id: '/committees/$id',
+  path: '/committees/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ErrorNot_authorizedRoute = ErrorNot_authorizedRouteImport.update({
+  id: '/error/not_authorized',
+  path: '/error/not_authorized',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewsIndexRoute = NewsIndexRouteImport.update({
+  id: '/news/',
+  path: '/news/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NewsIdRoute = NewsIdRouteImport.update({
+  id: '/news/$id',
+  path: '/news/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OrganizationPathRoute = OrganizationPathRouteImport.update({
+  id: '/organization/$path',
+  path: '/organization/$path',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PressApprovalsRoute = PressApprovalsRouteImport.update({
+  id: '/press/approvals',
+  path: '/press/approvals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PressNewsRoute = PressNewsRouteImport.update({
+  id: '/press/news',
+  path: '/press/news',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -450,67 +450,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/rules': {
-      id: '/rules'
-      path: '/rules'
-      fullPath: '/rules'
-      preLoaderRoute: typeof RulesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/invites': {
-      id: '/invites'
-      path: '/invites'
-      fullPath: '/invites'
-      preLoaderRoute: typeof InvitesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/grading': {
-      id: '/grading'
-      path: '/grading'
-      fullPath: '/grading'
-      preLoaderRoute: typeof GradingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dpo': {
-      id: '/dpo'
-      path: '/dpo'
-      fullPath: '/dpo'
-      preLoaderRoute: typeof DpoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents': {
-      id: '/documents'
-      path: '/documents'
-      fullPath: '/documents'
-      preLoaderRoute: typeof DocumentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/attendance': {
-      id: '/attendance'
-      path: '/attendance'
-      fullPath: '/attendance'
-      preLoaderRoute: typeof AttendanceRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin': {
@@ -520,25 +464,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/attendance': {
+      id: '/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AttendanceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/news/': {
-      id: '/news/'
-      path: '/news'
-      fullPath: '/news/'
-      preLoaderRoute: typeof NewsIndexRouteImport
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/committees/': {
-      id: '/committees/'
-      path: '/committees'
-      fullPath: '/committees/'
-      preLoaderRoute: typeof CommitteesIndexRouteImport
+    '/dpo': {
+      id: '/dpo'
+      path: '/dpo'
+      fullPath: '/dpo'
+      preLoaderRoute: typeof DpoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/grading': {
+      id: '/grading'
+      path: '/grading'
+      fullPath: '/grading'
+      preLoaderRoute: typeof GradingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invites': {
+      id: '/invites'
+      path: '/invites'
+      fullPath: '/invites'
+      preLoaderRoute: typeof InvitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/rules': {
+      id: '/rules'
+      path: '/rules'
+      fullPath: '/rules'
+      preLoaderRoute: typeof RulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/account/$path': {
+      id: '/account/$path'
+      path: '/account/$path'
+      fullPath: '/account/$path'
+      preLoaderRoute: typeof AccountPathRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -548,109 +541,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/press/news': {
-      id: '/press/news'
-      path: '/press/news'
-      fullPath: '/press/news'
-      preLoaderRoute: typeof PressNewsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/press/approvals': {
-      id: '/press/approvals'
-      path: '/press/approvals'
-      fullPath: '/press/approvals'
-      preLoaderRoute: typeof PressApprovalsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/organization/$path': {
-      id: '/organization/$path'
-      path: '/organization/$path'
-      fullPath: '/organization/$path'
-      preLoaderRoute: typeof OrganizationPathRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/news/$id': {
-      id: '/news/$id'
-      path: '/news/$id'
-      fullPath: '/news/$id'
-      preLoaderRoute: typeof NewsIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/error/not_authorized': {
-      id: '/error/not_authorized'
-      path: '/error/not_authorized'
-      fullPath: '/error/not_authorized'
-      preLoaderRoute: typeof ErrorNot_authorizedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/committees/$id': {
-      id: '/committees/$id'
-      path: '/committees/$id'
-      fullPath: '/committees/$id'
-      preLoaderRoute: typeof CommitteesIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/sing-up': {
-      id: '/auth/sing-up'
-      path: '/auth/sing-up'
-      fullPath: '/auth/sing-up'
-      preLoaderRoute: typeof AuthSingUpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/$path': {
-      id: '/auth/$path'
-      path: '/auth/$path'
-      fullPath: '/auth/$path'
-      preLoaderRoute: typeof AuthPathRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/uploadthing': {
-      id: '/api/uploadthing'
-      path: '/api/uploadthing'
-      fullPath: '/api/uploadthing'
-      preLoaderRoute: typeof ApiUploadthingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin/users': {
-      id: '/admin/users'
-      path: '/users'
-      fullPath: '/admin/users'
-      preLoaderRoute: typeof AdminUsersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/news': {
-      id: '/admin/news'
-      path: '/news'
-      fullPath: '/admin/news'
-      preLoaderRoute: typeof AdminNewsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/members': {
-      id: '/admin/members'
-      path: '/members'
-      fullPath: '/admin/members'
-      preLoaderRoute: typeof AdminMembersRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/grades': {
-      id: '/admin/grades'
-      path: '/grades'
-      fullPath: '/admin/grades'
-      preLoaderRoute: typeof AdminGradesRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/documents': {
-      id: '/admin/documents'
-      path: '/documents'
-      fullPath: '/admin/documents'
-      preLoaderRoute: typeof AdminDocumentsRouteImport
-      parentRoute: typeof AdminRoute
-    }
-    '/admin/committees': {
-      id: '/admin/committees'
-      path: '/committees'
-      fullPath: '/admin/committees'
-      preLoaderRoute: typeof AdminCommitteesRouteImport
+    '/admin/attendance': {
+      id: '/admin/attendance'
+      path: '/attendance'
+      fullPath: '/admin/attendance'
+      preLoaderRoute: typeof AdminAttendanceRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/class-utils': {
@@ -660,18 +555,123 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminClassUtilsRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/admin/attendance': {
-      id: '/admin/attendance'
-      path: '/attendance'
-      fullPath: '/admin/attendance'
-      preLoaderRoute: typeof AdminAttendanceRouteImport
+    '/admin/committees': {
+      id: '/admin/committees'
+      path: '/committees'
+      fullPath: '/admin/committees'
+      preLoaderRoute: typeof AdminCommitteesRouteImport
       parentRoute: typeof AdminRoute
     }
-    '/account/$path': {
-      id: '/account/$path'
-      path: '/account/$path'
-      fullPath: '/account/$path'
-      preLoaderRoute: typeof AccountPathRouteImport
+    '/admin/documents': {
+      id: '/admin/documents'
+      path: '/documents'
+      fullPath: '/admin/documents'
+      preLoaderRoute: typeof AdminDocumentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/grades': {
+      id: '/admin/grades'
+      path: '/grades'
+      fullPath: '/admin/grades'
+      preLoaderRoute: typeof AdminGradesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/members': {
+      id: '/admin/members'
+      path: '/members'
+      fullPath: '/admin/members'
+      preLoaderRoute: typeof AdminMembersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/news': {
+      id: '/admin/news'
+      path: '/news'
+      fullPath: '/admin/news'
+      preLoaderRoute: typeof AdminNewsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api/uploadthing': {
+      id: '/api/uploadthing'
+      path: '/api/uploadthing'
+      fullPath: '/api/uploadthing'
+      preLoaderRoute: typeof ApiUploadthingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/$path': {
+      id: '/auth/$path'
+      path: '/auth/$path'
+      fullPath: '/auth/$path'
+      preLoaderRoute: typeof AuthPathRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/sing-up': {
+      id: '/auth/sing-up'
+      path: '/auth/sing-up'
+      fullPath: '/auth/sing-up'
+      preLoaderRoute: typeof AuthSingUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/committees/': {
+      id: '/committees/'
+      path: '/committees'
+      fullPath: '/committees/'
+      preLoaderRoute: typeof CommitteesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/committees/$id': {
+      id: '/committees/$id'
+      path: '/committees/$id'
+      fullPath: '/committees/$id'
+      preLoaderRoute: typeof CommitteesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/error/not_authorized': {
+      id: '/error/not_authorized'
+      path: '/error/not_authorized'
+      fullPath: '/error/not_authorized'
+      preLoaderRoute: typeof ErrorNot_authorizedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/news/': {
+      id: '/news/'
+      path: '/news'
+      fullPath: '/news/'
+      preLoaderRoute: typeof NewsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/news/$id': {
+      id: '/news/$id'
+      path: '/news/$id'
+      fullPath: '/news/$id'
+      preLoaderRoute: typeof NewsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/organization/$path': {
+      id: '/organization/$path'
+      path: '/organization/$path'
+      fullPath: '/organization/$path'
+      preLoaderRoute: typeof OrganizationPathRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/press/approvals': {
+      id: '/press/approvals'
+      path: '/press/approvals'
+      fullPath: '/press/approvals'
+      preLoaderRoute: typeof PressApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/press/news': {
+      id: '/press/news'
+      path: '/press/news'
+      fullPath: '/press/news'
+      preLoaderRoute: typeof PressNewsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {

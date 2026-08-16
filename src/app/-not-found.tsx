@@ -27,14 +27,12 @@ export function NotFound() {
           </CardDescription>
         </CardHeader>
         <div className="flex justify-center px-6 sm:px-8">
-          <Button asChild variant="outline" className="group">
-            <Link to="/">
-              <MoveLeft
-                data-icon="inline-start"
-                className="transition-transform group-hover:-translate-x-1"
-              />
-              Voltar para o início
-            </Link>
+          <Button render={<Link to="/" />} variant="outline" className="group">
+            <MoveLeft
+              data-icon="inline-start"
+              className="transition-transform group-hover:-translate-x-1"
+            />
+            Voltar para o início
           </Button>
         </div>
       </Card>

@@ -147,19 +147,21 @@ export function DatePickerInput({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full justify-start px-2.5 font-normal"
-        >
-          <CalendarIcon data-icon="inline-start" />
-          {selectedDate ? (
-            format(selectedDate, "PPP", { locale: ptBR })
-          ) : (
-            <span>Selecione uma data</span>
-          )}
-        </Button>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full justify-start px-2.5 font-normal"
+          />
+        }
+      >
+        <CalendarIcon data-icon="inline-start" />
+        {selectedDate ? (
+          format(selectedDate, "PPP", { locale: ptBR })
+        ) : (
+          <span>Selecione uma data</span>
+        )}
       </PopoverTrigger>
 
       <PopoverContent className="w-auto p-0" align="start">

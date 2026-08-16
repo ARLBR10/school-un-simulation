@@ -10,7 +10,7 @@ import {
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import type { LexicalEditor } from "lexical";
 
-import { Popover as PopoverPrimitive } from "radix-ui";
+import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 
 // import { TwitterIcon, YoutubeIcon } from "lucide-react"
 
@@ -28,7 +28,6 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Popover,
-  PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 
@@ -275,30 +274,35 @@ export function AutoEmbedPlugin(): JSX.Element {
               <PopoverPrimitive.Portal container={anchorElementRef.current}>
                 <div className="-translate-y-full transform">
                   <PopoverTrigger />
-                  <PopoverContent
-                    className="min-w-36 p-0"
+                  <PopoverPrimitive.Positioner
                     align="start"
                     side="right"
+                    className="isolate z-50"
                   >
-                    <Command>
-                      <CommandList>
-                        <CommandGroup>
-                          {options.map((option, _i: number) => (
-                            <CommandItem
-                              key={option.key}
-                              value={option.title}
-                              onSelect={() => {
-                                selectOptionAndCleanUp(option);
-                              }}
-                              className="flex items-center gap-2"
-                            >
-                              {option.title}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
+                    <PopoverPrimitive.Popup
+                      data-slot="popover-content"
+                      className="z-50 flex w-72 min-w-36 origin-(--transform-origin) flex-col gap-2.5 rounded-lg bg-popover p-0 text-sm text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden duration-100 data-[side=bottom]:slide-in-from-top-2 data-[side=inline-end]:slide-in-from-left-2 data-[side=inline-start]:slide-in-from-right-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95"
+                    >
+                      <Command>
+                        <CommandList>
+                          <CommandGroup>
+                            {options.map((option, _i: number) => (
+                              <CommandItem
+                                key={option.key}
+                                value={option.title}
+                                onSelect={() => {
+                                  selectOptionAndCleanUp(option);
+                                }}
+                                className="flex items-center gap-2"
+                              >
+                                {option.title}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverPrimitive.Popup>
+                  </PopoverPrimitive.Positioner>
                 </div>
               </PopoverPrimitive.Portal>
             </Popover>

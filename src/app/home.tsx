@@ -59,18 +59,27 @@ function HomePage() {
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
-            <Button asChild size="lg" className="w-full sm:w-auto">
-              <Link
-                to="/auth/$path"
-                params={{ path: "sign-in" }}
-                search={{ redirectTo: "/home" }}
-              >
-                Entrar na plataforma
-                <ArrowRight data-icon="inline-end" />
-              </Link>
+            <Button
+              render={
+                <Link
+                  to="/auth/$path"
+                  params={{ path: "sign-in" }}
+                  search={{ redirectTo: "/home" }}
+                />
+              }
+              size="lg"
+              className="w-full sm:w-auto"
+            >
+              Entrar na plataforma
+              <ArrowRight data-icon="inline-end" />
             </Button>
-            <Button asChild variant="outline" size="lg" className="w-full sm:w-auto">
-              <Link to="/privacy">Ver privacidade</Link>
+            <Button
+              render={<Link to="/privacy" />}
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto"
+            >
+              Ver privacidade
             </Button>
           </div>
         </div>

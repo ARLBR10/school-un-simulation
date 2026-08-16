@@ -101,10 +101,10 @@ function CommitteeDelegatesDialog({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
-          Ver delegados
-        </Button>
+      <DialogTrigger
+        render={<Button type="button" variant="outline" size="sm" />}
+      >
+        Ver delegados
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)] overflow-hidden sm:max-w-2xl">
         <DialogHeader>

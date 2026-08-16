@@ -52,8 +52,8 @@ export function Welcome({ className, ...props }: ComponentProps<"section">) {
             </CardDescription>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button asChild>
-              <Link to="/committees">Ver comitês</Link>
+            <Button nativeButton={false} render={<Link to="/committees" />}>
+              Ver comitês
             </Button>
           </div>
         </CardHeader>

@@ -280,17 +280,19 @@ function DataGridColumnHeaderInner<TData, TValue>({
     return (
       <div className="flex h-full items-center justify-between gap-1.5">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className={headerButtonClassName}
-              disabled={isLoading || recordCount === 0}
-            >
-              {icon && icon}
-              {resolvedTitle}
-              {sortIcon}
-            </Button>
-          </DropdownMenuTrigger>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                className={headerButtonClassName}
+                disabled={isLoading || recordCount === 0}
+              >
+                {icon && icon}
+                {resolvedTitle}
+                {sortIcon}
+              </Button>
+            }
+          />
           <DropdownMenuContent className="w-40" align="start">
             {menuItems}
           </DropdownMenuContent>

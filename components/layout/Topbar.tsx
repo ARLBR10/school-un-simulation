@@ -95,39 +95,42 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
           </SignedIn>
           <SignedOut>
             <Button
-              asChild
+              render={
+                <Link
+                  to="/auth/$path"
+                  params={{ path: "sign-in" }}
+                  search={{ redirectTo: location.href }}
+                />
+              }
+              nativeButton={false}
               variant="outline"
               size="sm"
               className="group h-10 rounded-xl border-[rgba(255,255,255,0.12)] bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-4 font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
             >
-              <Link
-                to="/auth/$path"
-                params={{ path: "sign-in" }}
-                search={{ redirectTo: location.href }}
+              Entrar
+              <span
+                aria-hidden="true"
+                className="transition-transform duration-200 group-hover:translate-x-0.5"
               >
-                Entrar
-                <span
-                  aria-hidden="true"
-                  className="transition-transform duration-200 group-hover:translate-x-0.5"
-                >
-                  {"->"}
-                </span>
-              </Link>
+                {"->"}
+              </span>
             </Button>
           </SignedOut>
         </div>
 
         <div className="md:hidden">
           <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10"
-              >
-                <Menu className="size-5" />
-                <span className="sr-only">Abrir menu</span>
-              </Button>
+            <SheetTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10"
+                />
+              }
+            >
+              <Menu className="size-5" />
+              <span className="sr-only">Abrir menu</span>
             </SheetTrigger>
             <SheetContent
               side="right"
@@ -149,13 +152,17 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
 
                 <nav className="flex flex-col px-3 py-4 text-base text-white/80">
                   {navigationLinks.map((link) => (
-                    <SheetClose key={link.href} asChild>
-                      <Link
-                        to={link.href}
-                        className="rounded-lg px-3 py-2 transition-colors hover:bg-white/10 hover:text-white"
-                      >
-                        {link.label}
-                      </Link>
+                    <SheetClose
+                      nativeButton={false}
+                      key={link.href}
+                      render={
+                        <Link
+                          to={link.href}
+                          className="rounded-lg px-3 py-2 transition-colors hover:bg-white/10 hover:text-white"
+                        />
+                      }
+                    >
+                      {link.label}
                     </SheetClose>
                   ))}
                 </nav>
@@ -180,21 +187,24 @@ export function Topbar({ className, ...props }: ComponentProps<"header">) {
                     />
                   </SignedIn>
                   <SignedOut>
-                    <SheetClose asChild>
-                      <Link
-                        to="/auth/$path"
-                        params={{ path: "sign-in" }}
-                        search={{ redirectTo: location.href }}
-                        className="group mt-2 inline-flex h-10 w-full items-center justify-center rounded-xl border border-[rgba(255,255,255,0.12)] bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-4 text-[0.8rem] font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
+                    <SheetClose
+                      nativeButton={false}
+                      render={
+                        <Link
+                          to="/auth/$path"
+                          params={{ path: "sign-in" }}
+                          search={{ redirectTo: location.href }}
+                          className="group mt-2 inline-flex h-10 w-full items-center justify-center rounded-xl border border-[rgba(255,255,255,0.12)] bg-[linear-gradient(135deg,rgba(216,221,231,0.2),rgba(216,221,231,0.06))] px-4 text-[0.8rem] font-semibold text-[var(--foreground)] shadow-[0_12px_30px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(255,255,255,0.24)] hover:bg-[linear-gradient(135deg,rgba(216,221,231,0.28),rgba(216,221,231,0.1))]"
+                        />
+                      }
+                    >
+                      Entrar
+                      <span
+                        aria-hidden="true"
+                        className="transition-transform duration-200 group-hover:translate-x-0.5"
                       >
-                        Entrar
-                        <span
-                          aria-hidden="true"
-                          className="transition-transform duration-200 group-hover:translate-x-0.5"
-                        >
-                          {"->"}
-                        </span>
-                      </Link>
+                        {"->"}
+                      </span>
                     </SheetClose>
                   </SignedOut>
                 </div>

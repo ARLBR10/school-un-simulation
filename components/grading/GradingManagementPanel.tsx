@@ -260,8 +260,15 @@ function AmountInput({
           min={0}
           max={maxAmount}
           step={0.1}
-          onValueChange={([nextValue]) => {
-            onChange(String(Number(nextValue.toFixed(2))));
+          onValueChange={(nextValue) => {
+            const nextAmount =
+              typeof nextValue === "number" ? nextValue : nextValue[0];
+
+            if (nextAmount === undefined) {
+              return;
+            }
+
+            onChange(String(Number(nextAmount.toFixed(2))));
           }}
         />
       </div>
@@ -1025,9 +1032,16 @@ function GradeAmountInput({
                   max={category.maxAmount}
                   step={0.1}
                   disabled={isSaving}
-                  onValueChange={([nextValue]) => {
+                  onValueChange={(nextValue) => {
+                    const nextAmount =
+                      typeof nextValue === "number" ? nextValue : nextValue[0];
+
+                    if (nextAmount === undefined) {
+                      return;
+                    }
+
                     setDraftAmount(
-                      roundAmount(clampAmount(nextValue, category.maxAmount)),
+                      roundAmount(clampAmount(nextAmount, category.maxAmount)),
                     );
                   }}
                 />
@@ -1129,10 +1143,12 @@ function MemberEntryListInput({
                     Editar
                   </Button>
                   <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button type="button" variant="outline" size="sm">
-                        Remover
-                      </Button>
+                    <AlertDialogTrigger
+                      render={
+                        <Button type="button" variant="outline" size="sm" />
+                      }
+                    >
+                      Remover
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
@@ -1485,12 +1501,17 @@ function CommitteeSelect({
   return (
     <div className="flex flex-col gap-2 sm:max-w-md">
       <span className="text-sm font-medium">Comitê</span>
-      <Select value={selectedCommitteeId} onValueChange={onSelectCommittee}>
+      <Select
+        value={selectedCommitteeId}
+        onValueChange={(nextValue) => {
+          onSelectCommittee(nextValue ?? "");
+        }}
+      >
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Selecione um comitê" />
         </SelectTrigger>
         <SelectContent
-          position="popper"
+          alignItemWithTrigger={false}
           className="max-w-[calc(100vw-2rem)] sm:max-w-md"
         >
           <SelectGroup>

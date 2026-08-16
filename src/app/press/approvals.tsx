@@ -70,8 +70,8 @@ function PressApprovalsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild variant="outline">
-              <Link to="/press/news">Voltar para notícias da imprensa</Link>
+            <Button render={<Link to="/press/news" />} variant="outline">
+              Voltar para notícias da imprensa
             </Button>
           </CardContent>
         </Card>
@@ -85,11 +85,13 @@ function PressApprovalsPage() {
         title="Aprovações da imprensa"
         description="Revise, aprove ou negue notícias enviadas por redatores."
         action={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/press/news">
-              <Newspaper data-icon="inline-start" />
-              Ver notícias da imprensa
-            </Link>
+          <Button
+            render={<Link to="/press/news" />}
+            variant="outline"
+            size="sm"
+          >
+            <Newspaper data-icon="inline-start" />
+            Ver notícias da imprensa
           </Button>
         }
       />

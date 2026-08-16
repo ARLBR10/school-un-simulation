@@ -146,11 +146,9 @@ function DatePicker({
 
   return (
     <Popover>
-      <PopoverTrigger asChild>
-        <Button type="button" variant="outline">
-          <CalendarIcon data-icon="inline-start" />
-          {formatDateKey(dateKey)}
-        </Button>
+      <PopoverTrigger render={<Button type="button" variant="outline" />}>
+        <CalendarIcon data-icon="inline-start" />
+        {formatDateKey(dateKey)}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="end">
         <Calendar
@@ -235,9 +233,10 @@ function StatusToggle({
 }) {
   return (
     <ToggleGroup
-      type="single"
-      value={value ?? ""}
-      onValueChange={(nextValue) => {
+      value={value ? [value] : []}
+      onValueChange={(nextValues) => {
+        const nextValue = nextValues[0];
+
         if (
           nextValue === "present" ||
           nextValue === "late" ||
@@ -255,7 +254,7 @@ function StatusToggle({
         aria-label="Marcar presente"
         className={cn(
           value === "present" &&
-            "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600/90 hover:text-white data-[state=on]:bg-emerald-600 data-[state=on]:text-white",
+            "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-600/90 hover:text-white data-pressed:bg-emerald-600 data-pressed:text-white",
         )}
       >
         <CheckCircle2 data-icon="inline-start" />
@@ -266,7 +265,7 @@ function StatusToggle({
         aria-label="Marcar atraso"
         className={cn(
           value === "late" &&
-            "border-yellow-500 bg-yellow-500 text-yellow-950 hover:bg-yellow-500/90 hover:text-yellow-950 data-[state=on]:bg-yellow-500 data-[state=on]:text-yellow-950",
+            "border-yellow-500 bg-yellow-500 text-yellow-950 hover:bg-yellow-500/90 hover:text-yellow-950 data-pressed:bg-yellow-500 data-pressed:text-yellow-950",
         )}
       >
         <Clock3 data-icon="inline-start" />
@@ -277,7 +276,7 @@ function StatusToggle({
         aria-label="Marcar ausente"
         className={cn(
           value === "absent" &&
-            "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:text-destructive-foreground data-[state=on]:bg-destructive data-[state=on]:text-destructive-foreground",
+            "border-destructive bg-destructive text-destructive-foreground hover:bg-destructive/90 hover:text-destructive-foreground data-pressed:bg-destructive data-pressed:text-destructive-foreground",
         )}
       >
         <CircleSlash data-icon="inline-start" />
@@ -476,13 +475,15 @@ export function AttendanceManagementPanel({
               <span className="text-sm font-medium">Comitê</span>
               <Select
                 value={selectedCommittee?._id ?? ""}
-                onValueChange={setSelectedCommitteeId}
+                onValueChange={(nextValue) => {
+                  setSelectedCommitteeId(nextValue ?? "");
+                }}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecione um comitê" />
                 </SelectTrigger>
                 <SelectContent
-                  position="popper"
+                  alignItemWithTrigger={false}
                   className="max-w-[calc(100vw-2rem)] sm:max-w-md"
                 >
                   <SelectGroup>

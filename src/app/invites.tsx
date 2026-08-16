@@ -120,14 +120,16 @@ function InvitesPage() {
             </CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button asChild>
-              <Link
-                to="/auth/$path"
-                params={{ path: "sign-in" }}
-                search={{ redirectTo: token ? `/invites?token=${token}` : "/invites" }}
-              >
-                Entrar
-              </Link>
+            <Button
+              render={
+                <Link
+                  to="/auth/$path"
+                  params={{ path: "sign-in" }}
+                  search={{ redirectTo: token ? `/invites?token=${token}` : "/invites" }}
+                />
+              }
+            >
+              Entrar
             </Button>
           </CardFooter>
         </Card>

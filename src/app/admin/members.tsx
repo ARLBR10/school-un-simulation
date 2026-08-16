@@ -585,16 +585,18 @@ function MemberInviteDialog({
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => void handleOpenChange(nextOpen)}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={Boolean(member.userId)}
-        >
-          <QrCode data-icon="inline-start" />
-          {currentInvite ? "Ver convite" : "Gerar convite"}
-        </Button>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={Boolean(member.userId)}
+          />
+        }
+      >
+        <QrCode data-icon="inline-start" />
+        {currentInvite ? "Ver convite" : "Gerar convite"}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -746,10 +748,10 @@ function MemberGradingDialog({
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm" disabled={disabled}>
-          Ver notas
-        </Button>
+      <DialogTrigger
+        render={<Button type="button" variant="outline" size="sm" disabled={disabled} />}
+      >
+        Ver notas
       </DialogTrigger>
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
@@ -882,10 +884,10 @@ function BulkCreateMembersDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
-          Importar em lote
-        </Button>
+      <DialogTrigger
+        render={<Button type="button" variant="outline" size="sm" />}
+      >
+        Importar em lote
       </DialogTrigger>
       <DialogContent className="grid max-h-[calc(100svh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-3xl">
         <DialogHeader>
@@ -904,10 +906,10 @@ function BulkCreateMembersDialog({
         />
 
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isSubmitting}>
-              Cancelar
-            </Button>
+          <DialogClose
+            render={<Button type="button" variant="outline" disabled={isSubmitting} />}
+          >
+            Cancelar
           </DialogClose>
           <Button type="button" disabled={isSubmitting} onClick={handleSubmit}>
             Importar membros
@@ -952,10 +954,10 @@ function AssignClassesDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
-          Vincular turmas
-        </Button>
+      <DialogTrigger
+        render={<Button type="button" variant="outline" size="sm" />}
+      >
+        Vincular turmas
       </DialogTrigger>
       <DialogContent className="grid max-h-[calc(100svh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] sm:max-w-3xl">
         <DialogHeader>
@@ -975,10 +977,10 @@ function AssignClassesDialog({
         />
 
         <DialogFooter>
-          <DialogClose asChild>
-            <Button type="button" variant="outline" disabled={isSubmitting}>
-              Cancelar
-            </Button>
+          <DialogClose
+            render={<Button type="button" variant="outline" disabled={isSubmitting} />}
+          >
+            Cancelar
           </DialogClose>
           <Button type="button" disabled={isSubmitting} onClick={handleSubmit}>
             Vincular turmas

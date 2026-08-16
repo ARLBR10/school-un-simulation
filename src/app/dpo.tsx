@@ -109,14 +109,16 @@ function DpoPage() {
             </CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button asChild>
-              <Link
-                to="/auth/$path"
-                params={{ path: "sign-in" }}
-                search={{ redirectTo: "/dpo" }}
-              >
-                Entrar
-              </Link>
+            <Button
+              render={
+                <Link
+                  to="/auth/$path"
+                  params={{ path: "sign-in" }}
+                  search={{ redirectTo: "/dpo" }}
+                />
+              }
+            >
+              Entrar
             </Button>
           </CardFooter>
         </Card>

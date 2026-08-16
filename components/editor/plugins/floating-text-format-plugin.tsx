@@ -196,7 +196,7 @@ function TextFormatFloatingToolbar({
       {editor.isEditable() && (
         <>
           <ToggleGroup
-            type="multiple"
+            multiple
             defaultValue={[
               isBold ? "bold" : "",
               isItalic ? "italic" : "",
@@ -270,9 +270,9 @@ function TextFormatFloatingToolbar({
             <Separator orientation="vertical" />
           </ToggleGroup>
           <ToggleGroup
-            type="single"
+            multiple={false}
             defaultValue={
-              isSubscript ? "subscript" : isSuperscript ? "superscript" : ""
+              isSubscript ? ["subscript"] : isSuperscript ? ["superscript"] : []
             }
           >
             <ToggleGroupItem

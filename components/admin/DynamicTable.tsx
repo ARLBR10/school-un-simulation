@@ -551,15 +551,17 @@ export function DynamicTable<T extends AdminTableRow>({
               return (
                 <div className="flex justify-end">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Abrir ações"
-                      >
-                        <MoreHorizontal />
-                      </Button>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Abrir ações"
+                        />
+                      }
+                    >
+                      <MoreHorizontal />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-40">
                       <DropdownMenuGroup>
@@ -583,14 +585,17 @@ export function DynamicTable<T extends AdminTableRow>({
                           <DropdownMenuSeparator />
                           <DropdownMenuGroup>
                             <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem
-                                  variant="destructive"
-                                  onSelect={(event) => event.preventDefault()}
-                                >
-                                  <Trash2 />
-                                  Excluir
-                                </DropdownMenuItem>
+                              <AlertDialogTrigger
+                                nativeButton={false}
+                                render={
+                                  <DropdownMenuItem
+                                    variant="destructive"
+                                    onSelect={(event) => event.preventDefault()}
+                                  />
+                                }
+                              >
+                                <Trash2 />
+                                Excluir
                               </AlertDialogTrigger>
                               <AlertDialogContent size="sm">
                                 <AlertDialogHeader>
