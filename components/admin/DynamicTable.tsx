@@ -567,14 +567,14 @@ export function DynamicTable<T extends AdminTableRow>({
                       <DropdownMenuGroup>
                         <DropdownMenuItem
                           disabled={!onUpdate}
-                          onSelect={() => handleOpenEdit(row.original, row.index)}
+                          onClick={() => handleOpenEdit(row.original, row.index)}
                         >
                           <Pencil />
                           Editar
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={!rowId}
-                          onSelect={() => void navigator.clipboard.writeText(rowId)}
+                          onClick={() => void navigator.clipboard.writeText(rowId)}
                         >
                           <Copy />
                           Copiar ID
