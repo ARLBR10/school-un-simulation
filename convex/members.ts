@@ -89,38 +89,62 @@ export const assignStudentMembershipFromEmail = internalMutation({
   args: {
     userId: v.string(),
     email: v.string(),
+    name: v.string(),
   },
+  returns: v.null(),
   async handler(ctx, args) {
-    console.log('before')
-    const [emailName, emailTuitionId] = args.email
-      .replace(/@.*/, "")
-      .split(".") as string[];
-
-    console.log(args)
-    
-    if (!(emailName && emailTuitionId)) {
+    const activeEvent = await ctx.db
+      .query("events")
+      .withIndex("by_status", (q) => q.eq("status", "active"))
+      .unique();
+    if (!activeEvent) {
       return null;
     }
 
-    const activeEvent = await ctx.runQuery(internal.events.getActive, {});
-    const usersByTuitionId = await ctx.db
+    const existingMemberships = await ctx.db
       .query("members")
-      .withIndex("by_tuitionId", (q) => q.eq("tuitionId", emailTuitionId))
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .take(100);
-    const userByTuitionId =
-      usersByTuitionId.find((member) => member.eventId === activeEvent?._id) ??
-      usersByTuitionId.find((member) => member.eventId === undefined);
-
-    if (userByTuitionId && userByTuitionId.userId === undefined) {
-      await ctx.db.patch("members", userByTuitionId!._id!, {
-        userId: args.userId
-      });
-    } else if (userByTuitionId?.userId) {
-      getPostHog().captureException(ctx, {
-        error: new Error("User with institutional email sign-up and couldn't be associated to an existing member"),
-        distinctId: args.userId
-      })
+    if (
+      existingMemberships.some(
+        (member) =>
+          member.type === "admin" || member.eventId === activeEvent._id,
+      )
+    ) {
+      return null;
     }
+
+    const emailLocalPart = args.email.slice(0, args.email.lastIndexOf("@"));
+    const emailTuitionId = emailLocalPart.split(".").at(-1)?.trim();
+
+    if (emailTuitionId) {
+      const usersByTuitionId = await ctx.db
+        .query("members")
+        .withIndex("by_tuitionId", (q) => q.eq("tuitionId", emailTuitionId))
+        .take(100);
+      const userByTuitionId =
+        usersByTuitionId.find(
+          (member) => member.eventId === activeEvent._id,
+        ) ??
+        usersByTuitionId.find((member) => member.eventId === undefined);
+
+      if (userByTuitionId && userByTuitionId.userId === undefined) {
+        await ctx.db.patch("members", userByTuitionId._id, {
+          userId: args.userId,
+        });
+        return null;
+      }
+    }
+
+    const name = args.name.trim();
+    await ctx.db.insert("members", {
+      userId: args.userId,
+      name: name || emailLocalPart,
+      type: "unassigned",
+      eventId: activeEvent._id,
+    });
+
+    return null;
   },
 });
 

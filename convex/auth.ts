@@ -24,9 +24,9 @@ import type { DataModel, Doc } from "./_generated/dataModel";
 
 const siteUrl = process.env.SITE_URL!;
 const studentEmailDomains =
-  process.env.ALLOWED_DOMAIN?.split(",").map((domain) =>
-    domain.trim().toLowerCase(),
-  ) ?? [];
+  process.env.ALLOWED_DOMAIN?.split(",")
+    .map((domain) => domain.trim().toLowerCase().replace(/^@/, ""))
+    .filter(Boolean) ?? [];
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
@@ -62,6 +62,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
             {
               userId: newSession.session.userId,
               email,
+              name: newSession.user.name,
             },
           );
         } catch (error) {
