@@ -18,6 +18,7 @@ import {
   CheckCircle2,
   Copy,
   FileText,
+  Filter,
   Globe,
   Hash,
   KeyRound,
@@ -33,6 +34,7 @@ import {
   Trash2,
   User,
   Users,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
@@ -59,6 +61,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -67,6 +78,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   DataGrid,
   DataGridContainer,
@@ -94,6 +112,19 @@ type AdminTableFormValues<T extends AdminTableRow> = {
 };
 
 type AdminTableActionResult = boolean | void;
+
+export type DynamicTableFilter<T extends AdminTableRow = AdminTableRow> = {
+  id: string;
+  label: string;
+  options: AdminTableSelectOption[];
+  key?: keyof T;
+  value?: string;
+  onValueChange?: (value: string) => void;
+  getValue?: (row: T) => ReactNode;
+  matches?: (row: T, value: string) => boolean;
+};
+
+export type DynamicTableFilterPreset = Record<string, string>;
 
 export type AdminTableColumn<T extends AdminTableRow> = {
   key: keyof T;
@@ -132,6 +163,8 @@ type DynamicTableProps<T extends AdminTableRow> = {
   className?: string;
   showColumnVisibility?: boolean;
   showPagination?: boolean;
+  filters?: DynamicTableFilter<T>[];
+  defaultFilterPreset?: DynamicTableFilterPreset;
   openLabel?: ReactNode;
   rowKey?: keyof T;
   copyIdKey?: keyof T;
@@ -345,6 +378,8 @@ export function DynamicTable<T extends AdminTableRow>({
   className,
   showColumnVisibility = true,
   showPagination = true,
+  filters = [],
+  defaultFilterPreset = {},
   openLabel = "Abrir",
   rowKey,
   copyIdKey,
@@ -365,6 +400,10 @@ export function DynamicTable<T extends AdminTableRow>({
     getDefaultColumnVisibility(columns),
   );
   const [globalFilter, setGlobalFilter] = useState("");
+  const [filterValues, setFilterValues] = useState<DynamicTableFilterPreset>(
+    defaultFilterPreset,
+  );
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [rowToEdit, setRowToEdit] = useState<T | null>(null);
@@ -484,6 +523,71 @@ export function DynamicTable<T extends AdminTableRow>({
     [columns],
   );
 
+  function getFilterValue(filter: DynamicTableFilter<T>) {
+    return filter.value ?? filterValues[filter.id] ?? "";
+  }
+
+  function updateFilterValue(filter: DynamicTableFilter<T>, value: string) {
+    if (filter.value === undefined) {
+      setFilterValues((currentValues) => ({
+        ...currentValues,
+        [filter.id]: value,
+      }));
+    }
+
+    filter.onValueChange?.(value);
+  }
+
+  const filteredTableData = useMemo(
+    () =>
+      tableData.filter((row) =>
+        filters.every((filter) => {
+          const filterValue = getFilterValue(filter);
+
+          if (!filterValue) {
+            return true;
+          }
+
+          if (filter.matches) {
+            return filter.matches(row, filterValue);
+          }
+
+          const rowValue = filter.getValue
+            ? filter.getValue(row)
+            : filter.key
+              ? row[filter.key]
+              : row[filter.id];
+
+          if (Array.isArray(rowValue)) {
+            return rowValue.some(
+              (value) => normalizeSearchValue(value) === normalizeSearchValue(filterValue),
+            );
+          }
+
+          return normalizeSearchValue(rowValue) === normalizeSearchValue(filterValue);
+        }),
+      ),
+    [filterValues, filters, tableData],
+  );
+
+  const activeFilterCount = filters.filter((filter) => getFilterValue(filter)).length;
+
+  function resetFilters() {
+    setFilterValues((currentValues) =>
+      filters.reduce<DynamicTableFilterPreset>(
+        (nextValues, filter) => ({
+          ...nextValues,
+          [filter.id]: "",
+        }),
+        currentValues,
+      ),
+    );
+
+    for (const filter of filters) {
+      filter.onValueChange?.("");
+    }
+  }
+
   const cellSortingFn = useMemo<SortingFn<T>>(
     () => (leftRow, rightRow, columnId) =>
       compareCellValues(leftRow.getValue(columnId), rightRow.getValue(columnId)),
@@ -540,7 +644,7 @@ export function DynamicTable<T extends AdminTableRow>({
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => onOpen(row.original, row.index)}
+                      onClick={() => onOpen(row.original, tableData.indexOf(row.original))}
                     >
                       {openLabel}
                     </Button>
@@ -567,7 +671,9 @@ export function DynamicTable<T extends AdminTableRow>({
                       <DropdownMenuGroup>
                         <DropdownMenuItem
                           disabled={!onUpdate}
-                          onClick={() => handleOpenEdit(row.original, row.index)}
+                          onClick={() =>
+                            handleOpenEdit(row.original, tableData.indexOf(row.original))
+                          }
                         >
                           <Pencil />
                           Editar
@@ -609,7 +715,10 @@ export function DynamicTable<T extends AdminTableRow>({
                                   <AlertDialogAction
                                     variant="destructive"
                                     onClick={() =>
-                                      void handleDeleteRow(row.original, row.index)
+                                      void handleDeleteRow(
+                                        row.original,
+                                        tableData.indexOf(row.original),
+                                      )
                                     }
                                   >
                                     Excluir
@@ -638,7 +747,7 @@ export function DynamicTable<T extends AdminTableRow>({
   ];
 
   const table = useReactTable({
-    data: tableData,
+    data: filteredTableData,
     columns: dataGridColumns,
     state: {
       sorting,
@@ -906,17 +1015,89 @@ export function DynamicTable<T extends AdminTableRow>({
       <Card>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full sm:max-w-xs [&_svg]:size-4">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={globalFilter}
-                onChange={(event) => setGlobalFilter(event.target.value)}
-                placeholder="Buscar registros..."
-                className="pl-9"
-              />
+            <div className="w-full sm:max-w-xs">
+              <div className="relative w-full sm:max-w-xs [&_svg]:size-4">
+                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={globalFilter}
+                  onChange={(event) => setGlobalFilter(event.target.value)}
+                  placeholder="Buscar registros..."
+                  className="pl-9"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-auto">
+            <div className="flex flex-wrap items-center justify-end gap-2 self-end sm:self-auto">
+              {filters.length > 0 ? (
+                <Popover open={isFilterOpen} onOpenChange={setIsFilterOpen}>
+                  <PopoverTrigger
+                    render={
+                      <Button type="button" variant="outline" size="sm" />
+                    }
+                  >
+                    <Filter data-icon="inline-start" />
+                    Filtros
+                    {activeFilterCount > 0 ? (
+                      <span className="border-l border-border pl-2 text-muted-foreground">
+                        {activeFilterCount}
+                      </span>
+                    ) : null}
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-72 p-0">
+                    <PopoverHeader className="sr-only">
+                      <PopoverTitle>Filtros da tabela</PopoverTitle>
+                    </PopoverHeader>
+                    <Command>
+                      <CommandInput placeholder="Buscar filtros..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum filtro encontrado.</CommandEmpty>
+                        {filters.map((filter) => {
+                          const value = getFilterValue(filter);
+
+                          return (
+                            <CommandGroup key={filter.id} heading={filter.label}>
+                              <CommandItem
+                                value={`${filter.id} ${filter.label} Todos`}
+                                data-checked={!value}
+                                onSelect={() => updateFilterValue(filter, "")}
+                              >
+                                Todos
+                              </CommandItem>
+                              {filter.options.map((option) => (
+                                <CommandItem
+                                  key={option.value}
+                                  value={`${filter.id} ${filter.label} ${option.label}`}
+                                  disabled={option.disabled}
+                                  data-checked={option.value === value}
+                                  onSelect={() =>
+                                    updateFilterValue(
+                                      filter,
+                                      option.value === value ? "" : option.value,
+                                    )
+                                  }
+                                >
+                                  {option.label}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          );
+                        })}
+                        {activeFilterCount > 0 ? (
+                          <>
+                            <CommandSeparator />
+                            <CommandGroup>
+                              <CommandItem onSelect={resetFilters}>
+                                <X />
+                                Limpar filtros
+                              </CommandItem>
+                            </CommandGroup>
+                          </>
+                        ) : null}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              ) : null}
               {showColumnVisibility ? (
                 <DataGridColumnVisibility
                   table={table}

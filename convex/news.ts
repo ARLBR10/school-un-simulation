@@ -13,6 +13,11 @@ import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { getPostHog } from "./posthog";
+import {
+  getOperationalEventId,
+  isEventInOperationalScope,
+  resolveEventId,
+} from "./events";
 
 type NewsPatch = Partial<Omit<Doc<"news">, "_id" | "_creationTime">>;
 type NewsApprovalStatus = "pending" | "approved" | "denied";
@@ -47,11 +52,15 @@ export type NewsListItem = {
   _creationTime: number;
   title: string;
   authorName: string | null;
+  eventName: string | null;
+  isPastEvent: boolean;
 };
 
 export type NewsDetail = Doc<"news"> & {
   authorName: string | null;
   committeeNames: string[];
+  eventName: string | null;
+  isPastEvent: boolean;
 };
 
 export type NewsManageItem = NewsDetail;
@@ -99,7 +108,45 @@ function getNewsAuditSnapshot(news: Doc<"news">) {
     reviewedBy: news.reviewedBy ?? null,
     reviewedAt: news.reviewedAt ?? null,
     denialReason: news.denialReason ?? null,
+    eventId: news.eventId ?? null,
   };
+}
+
+async function getNewsEvent(
+  ctx: Pick<import("./_generated/server").QueryCtx, "db">,
+  news: Doc<"news">,
+) {
+  return news.eventId
+    ? await ctx.db.get("events", news.eventId)
+    : await ctx.db
+        .query("events")
+        .withIndex("by_slug", (q) => q.eq("slug", "school-onu-2026"))
+        .first();
+}
+
+async function resolveNewsEventId(
+  ctx: import("./_generated/server").MutationCtx,
+  args: {
+    eventId?: Id<"events">;
+    author?: Id<"members">;
+    committee?: Id<"committees">[];
+  },
+) {
+  const referencedEventIds = new Set<Id<"events">>();
+  if (args.author) {
+    const author = await ctx.db.get("members", args.author);
+    if (author?.eventId) referencedEventIds.add(author.eventId);
+  }
+  for (const committeeId of args.committee ?? []) {
+    const committee = await ctx.db.get("committees", committeeId);
+    if (committee?.eventId) referencedEventIds.add(committee.eventId);
+  }
+  if (args.eventId) referencedEventIds.add(args.eventId);
+  if (referencedEventIds.size > 1) {
+    throw new Error("Autor e comitês da notícia precisam pertencer ao mesmo evento.");
+  }
+
+  return await resolveEventId(ctx, referencedEventIds.values().next().value);
 }
 
 function getNewsAuditChanges(news: Doc<"news">, patch: NewsPatch) {
@@ -160,11 +207,16 @@ export const list = query({
       }
     }
 
-    return visibleNews.map((n) => ({
-      _id: n._id,
-      _creationTime: n._creationTime,
-      title: n.title,
-      authorName: n.author ? (authorsById.get(n.author) ?? null) : null,
+    return await Promise.all(visibleNews.map(async (n) => {
+      const event = await getNewsEvent(ctx, n);
+      return {
+        _id: n._id,
+        _creationTime: n._creationTime,
+        title: n.title,
+        authorName: n.author ? (authorsById.get(n.author) ?? null) : null,
+        eventName: event?.name ?? null,
+        isPastEvent: event?.status === "past",
+      };
     }));
   },
 });
@@ -211,10 +263,13 @@ export const getById = query({
       }
     }
 
+    const event = await getNewsEvent(ctx, news);
     return {
       ...news,
       authorName,
       committeeNames,
+      eventName: event?.name ?? null,
+      isPastEvent: event?.status === "past",
     };
   },
 });
@@ -242,13 +297,27 @@ export const getManageList = query({
     }
 
     const member = userInfo.member;
-    const news = isPressApprover(member)
+    const operationalEventId = await getOperationalEventId(ctx, member);
+    if (!operationalEventId) return null;
+    const candidateNews = isPressApprover(member)
       ? await ctx.db.query("news").order("desc").take(999)
       : await ctx.db
           .query("news")
           .withIndex("by_author", (q) => q.eq("author", member._id))
           .order("desc")
           .take(999);
+    const news: Doc<"news">[] = [];
+    for (const newsItem of candidateNews) {
+      if (
+        await isEventInOperationalScope(
+          ctx,
+          newsItem.eventId,
+          operationalEventId,
+        )
+      ) {
+        news.push(newsItem);
+      }
+    }
     const authorIds = [...new Set(news.map((n) => n.author).filter(Boolean))] as Id<"members">[];
     const committeeIds = [
       ...new Set(news.flatMap((n) => n.committee ?? [])),
@@ -270,14 +339,19 @@ export const getManageList = query({
       }
     }
 
-    return news.map((newsItem) => ({
-      ...newsItem,
-      authorName: newsItem.author
-        ? (authorsById.get(newsItem.author) ?? null)
-        : null,
-      committeeNames: (newsItem.committee ?? [])
-        .map((committeeId) => committeesById.get(committeeId))
-        .filter((name): name is string => Boolean(name)),
+    return await Promise.all(news.map(async (newsItem) => {
+      const event = await getNewsEvent(ctx, newsItem);
+      return {
+        ...newsItem,
+        authorName: newsItem.author
+          ? (authorsById.get(newsItem.author) ?? null)
+          : null,
+        committeeNames: (newsItem.committee ?? [])
+          .map((committeeId) => committeesById.get(committeeId))
+          .filter((name): name is string => Boolean(name)),
+        eventName: event?.name ?? null,
+        isPastEvent: event?.status === "past",
+      };
     }));
   },
 });
@@ -299,11 +373,25 @@ export const getPendingApprovalSummary = query({
       .withIndex("by_approvalStatus", (q) => q.eq("approvalStatus", "pending"))
       .order("desc")
       .take(50);
+    const operationalEventId = await getOperationalEventId(ctx, userInfo.member);
+    if (!operationalEventId) return null;
+    const scopedPendingNews: Doc<"news">[] = [];
+    for (const newsItem of pendingNews) {
+      if (
+        await isEventInOperationalScope(
+          ctx,
+          newsItem.eventId,
+          operationalEventId,
+        )
+      ) {
+        scopedPendingNews.push(newsItem);
+      }
+    }
 
-    const latest = pendingNews[0] ?? null;
+    const latest = scopedPendingNews[0] ?? null;
 
     return {
-      count: pendingNews.length,
+      count: scopedPendingNews.length,
       latest: latest
         ? {
             _id: latest._id,
@@ -321,6 +409,7 @@ export const create = mutation({
     committee: v.optional(v.array(v.id("committees"))),
     title: v.string(),
     body: v.string(),
+    eventId: v.optional(v.id("events")),
   },
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
@@ -351,10 +440,30 @@ export const create = mutation({
         : userInfo.member.type === "press"
           ? userInfo.member._id
           : undefined;
+    if (
+      userInfo.member.type === "press" &&
+      !isPressApprover(userInfo.member) &&
+      author !== userInfo.member._id
+    ) {
+      return null;
+    }
 
     const approvalStatus = isPressApprover(userInfo.member) ? "approved" : "pending";
     const reviewedBy = approvalStatus === "approved" ? userInfo.member._id : undefined;
     const reviewedAt = approvalStatus === "approved" ? Date.now() : undefined;
+
+    const eventId = await resolveNewsEventId(ctx, {
+      eventId: args.eventId,
+      author,
+      committee: args.committee,
+    });
+    const operationalEventId = await getOperationalEventId(ctx, userInfo.member);
+    if (
+      !operationalEventId ||
+      !(await isEventInOperationalScope(ctx, eventId, operationalEventId))
+    ) {
+      throw new Error("A notícia precisa pertencer ao evento atual.");
+    }
 
     const newNews: Omit<Doc<"news">, "_id" | "_creationTime"> = {
       title: args.title,
@@ -366,6 +475,7 @@ export const create = mutation({
       ...(args.committee !== undefined && args.committee.length > 0
         ? { committee: args.committee }
         : {}),
+      eventId,
     };
     const newsId = await ctx.db.insert("news", newNews);
     const createdNews = await ctx.db.get("news", newsId);
@@ -410,6 +520,7 @@ export const update = mutation({
     approvalStatus: v.optional(
       v.union(v.literal("pending"), v.literal("approved"), v.literal("denied")),
     ),
+    eventId: v.optional(v.id("events")),
   },
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
@@ -430,6 +541,17 @@ export const update = mutation({
 
     const existingNews = await ctx.db.get("news", args.id);
     if (!existingNews) {
+      return null;
+    }
+    const operationalEventId = await getOperationalEventId(ctx, userInfo.member);
+    if (
+      !operationalEventId ||
+      !(await isEventInOperationalScope(
+        ctx,
+        existingNews.eventId,
+        operationalEventId,
+      ))
+    ) {
       return null;
     }
 
@@ -463,6 +585,18 @@ export const update = mutation({
     if ("committee" in args) {
       const committee = args.committee ?? [];
       newsPatch.committee = committee.length > 0 ? committee : undefined;
+    }
+
+    if (
+      args.eventId !== undefined ||
+      "author" in args ||
+      "committee" in args
+    ) {
+      newsPatch.eventId = await resolveNewsEventId(ctx, {
+        eventId: args.eventId ?? existingNews.eventId,
+        author: newsPatch.author ?? existingNews.author,
+        committee: newsPatch.committee ?? existingNews.committee,
+      });
     }
 
     if (isPressApprover(userInfo.member) && "approvalStatus" in args) {
@@ -534,6 +668,17 @@ export const purge = mutation({
     if (!existingNews) {
       return null;
     }
+    const operationalEventId = await getOperationalEventId(ctx, userInfo.member);
+    if (
+      !operationalEventId ||
+      !(await isEventInOperationalScope(
+        ctx,
+        existingNews.eventId,
+        operationalEventId,
+      ))
+    ) {
+      return null;
+    }
 
     if (!isPressApprover(userInfo.member) && existingNews.author !== userInfo.member._id) {
       return null;
@@ -576,6 +721,17 @@ export const approve = mutation({
     if (!existingNews) {
       return null;
     }
+    const operationalEventId = await getOperationalEventId(ctx, userInfo.member);
+    if (
+      !operationalEventId ||
+      !(await isEventInOperationalScope(
+        ctx,
+        existingNews.eventId,
+        operationalEventId,
+      ))
+    ) {
+      return null;
+    }
 
     await ctx.db.patch("news", args.id, {
       approvalStatus: "approved",
@@ -602,6 +758,17 @@ export const deny = mutation({
 
     const existingNews = await ctx.db.get("news", args.id);
     if (!existingNews) {
+      return null;
+    }
+    const operationalEventId = await getOperationalEventId(ctx, userInfo.member);
+    if (
+      !operationalEventId ||
+      !(await isEventInOperationalScope(
+        ctx,
+        existingNews.eventId,
+        operationalEventId,
+      ))
+    ) {
       return null;
     }
 

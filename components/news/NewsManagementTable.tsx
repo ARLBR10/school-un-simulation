@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import {
   DynamicTable,
   type AdminTableColumn,
+  type DynamicTableFilter,
 } from "@/components/admin/DynamicTable";
 import { AdminTableSelectInput } from "@/components/admin/AdminTableSelectInput";
 import { createDateColumn } from "@/components/admin/DynamicTableFields";
@@ -188,6 +189,8 @@ export function NewsManagementTable({
   canApprove = false,
   allowApprovalStatusEdit = false,
   isLoading,
+  filters,
+  defaultFilterPreset,
 }: {
   newsData: NewsManagementRow[] | null | undefined;
   membersData?: Doc<"members">[] | null;
@@ -198,6 +201,8 @@ export function NewsManagementTable({
   canApprove?: boolean;
   allowApprovalStatusEdit?: boolean;
   isLoading?: boolean;
+  filters?: DynamicTableFilter<NewsManagementRow>[];
+  defaultFilterPreset?: Record<string, string>;
 }) {
   const newsCreate = useMutation(api.news.create);
   const newsUpdate = useMutation(api.news.update);
@@ -360,6 +365,16 @@ export function NewsManagementTable({
       columns={newsColumns}
       data={newsData ?? []}
       isLoading={isLoading}
+      filters={[
+        ...(filters ?? []),
+        {
+          id: "approvalStatus",
+          label: "Status",
+          options: approvalStatusOptions,
+          getValue: (news) => news.approvalStatus ?? "approved",
+        },
+      ]}
+      defaultFilterPreset={defaultFilterPreset}
       rowKey="title"
       searchParamKey="_id"
       onCreate={allowCreate ? async (values) => {

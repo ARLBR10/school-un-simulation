@@ -6,6 +6,10 @@ import { useQuery } from "convex/react";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { NewsManagementTable } from "@/components/news/NewsManagementTable";
 import { api } from "@/convex/_generated/api";
+import {
+  isRowFromSelectedEvent,
+  useAdminEventFilter,
+} from "@/hooks/use-admin-event-filter";
 
 export const Route = createFileRoute("/admin/news")({
   head: () => ({
@@ -24,6 +28,14 @@ function AdminNewsPage() {
   const newsData = useQuery(api.news.getAll);
   const membersData = useQuery(api.members.getAll);
   const committeesData = useQuery(api.committees.getAll);
+  const eventsData = useQuery(api.events.getAll);
+  const {
+    activeEvent,
+    eventId: selectedEventId,
+    filter: eventFilter,
+  } = useAdminEventFilter(eventsData);
+  const isSelectedEvent = (eventId: Parameters<typeof isRowFromSelectedEvent>[0]) =>
+    isRowFromSelectedEvent(eventId, selectedEventId, activeEvent);
 
   return (
     <PageShell>
@@ -33,16 +45,23 @@ function AdminNewsPage() {
       />
 
       <NewsManagementTable
-        newsData={newsData}
-        membersData={membersData}
-        committeesData={committeesData}
+        newsData={newsData?.filter((newsItem) => isSelectedEvent(newsItem.eventId))}
+        membersData={membersData?.filter((member) => isSelectedEvent(member.eventId))}
+        committeesData={committeesData?.filter((committee) =>
+          isSelectedEvent(committee.eventId),
+        )}
+        filters={[eventFilter]}
+        defaultFilterPreset={
+          activeEvent ? { event: activeEvent._id } : undefined
+        }
         allowAuthorSelection
         canApprove
         allowApprovalStatusEdit
         isLoading={
           newsData === undefined ||
           membersData === undefined ||
-          committeesData === undefined
+          committeesData === undefined ||
+          eventsData === undefined
         }
       />
     </PageShell>

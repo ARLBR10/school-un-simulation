@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { Streamdown } from "streamdown";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
+import { EventBadges } from "@/components/events/EventBadges";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -100,6 +101,11 @@ export function NewsDetailView({ id }: { id: string }) {
           >
             <motion.header variants={blockVariants}>
               <PageHeader title={news.title} />
+              <EventBadges
+                eventName={news.eventName}
+                isPastEvent={news.isPastEvent}
+                className="mt-2"
+              />
               <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <CalendarDays aria-hidden="true" className="size-3.5" />

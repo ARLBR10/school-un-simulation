@@ -60,6 +60,7 @@ const memberTypeLabels: Record<AttendanceMember["type"], string> = {
   press: "Imprensa",
   clerk: "Mesário",
   teacher: "Professor",
+  unassigned: "Função não definida",
   admin: "Administrador",
 };
 

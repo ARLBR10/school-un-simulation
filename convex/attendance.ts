@@ -9,6 +9,10 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { getPostHog } from "./posthog";
+import {
+  getOperationalEventId,
+  isEventInOperationalScope,
+} from "./events";
 
 export const attendanceStatus = v.union(
   v.literal("present"),
@@ -129,8 +133,24 @@ async function getAccessibleCommittees(
   ctx: QueryCtx | MutationCtx,
   actor: Doc<"members">,
 ) {
+  const operationalEventId = await getOperationalEventId(ctx, actor);
+  if (!operationalEventId) return null;
+
   if (actor.type === "admin") {
-    return await ctx.db.query("committees").take(999);
+    const candidates = await ctx.db.query("committees").take(999);
+    const committees: Doc<"committees">[] = [];
+    for (const committee of candidates) {
+      if (
+        await isEventInOperationalScope(
+          ctx,
+          committee.eventId,
+          operationalEventId,
+        )
+      ) {
+        committees.push(committee);
+      }
+    }
+    return committees;
   }
 
   if (actor.type !== "logistics" && actor.type !== "clerk") {
@@ -143,7 +163,10 @@ async function getAccessibleCommittees(
   for (const committeeId of committeeIds) {
     const committee = await ctx.db.get("committees", committeeId);
 
-    if (committee) {
+    if (
+      committee &&
+      await isEventInOperationalScope(ctx, committee.eventId, operationalEventId)
+    ) {
       committees.push(committee);
     }
   }
@@ -159,7 +182,10 @@ async function getCommitteeMembers(ctx: QueryCtx, committee: Doc<"committees">) 
     .take(999);
 
   for (const member of assignedMembers) {
-    if (isTrackedMemberType(member.type)) {
+    if (
+      isTrackedMemberType(member.type) &&
+      member.eventId === committee.eventId
+    ) {
       membersById.set(member._id, toMemberSummary(member));
     }
   }
@@ -184,7 +210,10 @@ async function getMembersForCommittees(
       .take(999);
 
     for (const member of assignedMembers) {
-      if (isTrackedMemberType(member.type)) {
+      if (
+        isTrackedMemberType(member.type) &&
+        member.eventId === committee.eventId
+      ) {
         membersById.set(member._id, member);
       }
     }
@@ -196,7 +225,7 @@ async function getMembersForCommittees(
 async function getEntriesForMembers(
   ctx: QueryCtx,
   dateKey: string,
-  members: Pick<Doc<"members">, "_id">[],
+  members: Pick<Doc<"members">, "_id" | "eventId">[],
 ) {
   const entriesById = new Map<Id<"attendanceEntries">, Doc<"attendanceEntries">>();
 
@@ -208,7 +237,7 @@ async function getEntriesForMembers(
       )
       .unique();
 
-    if (entry) {
+    if (entry && entry.eventId === member.eventId) {
       entriesById.set(entry._id, entry);
     }
   }
@@ -294,6 +323,18 @@ async function resolveAuthorizedTargetCommittee({
 }) {
   if (!isTrackedMemberType(targetMember.type)) {
     throw new Error("attendance_member_type_not_tracked");
+  }
+
+  const operationalEventId = await getOperationalEventId(ctx, actor);
+  if (
+    !operationalEventId ||
+    !(await isEventInOperationalScope(
+      ctx,
+      targetMember.eventId,
+      operationalEventId,
+    ))
+  ) {
+    throw new Error("attendance_member_outside_event");
   }
 
   const targetCommitteeIds = getCommitteeIdsForMember(targetMember);
@@ -383,7 +424,9 @@ export const getClassReportData = query({
     }
 
     const dateKey = resolveDateKey(actor, args.dateKey);
-    const [members, attendanceEntries, committees] = await Promise.all([
+    const operationalEventId = await getOperationalEventId(ctx, actor);
+    if (!operationalEventId) return null;
+    const [memberCandidates, attendanceCandidates, committeeCandidates] = await Promise.all([
       ctx.db.query("members").take(999),
       ctx.db
         .query("attendanceEntries")
@@ -391,6 +434,24 @@ export const getClassReportData = query({
         .take(999),
       ctx.db.query("committees").take(999),
     ]);
+    const members: Doc<"members">[] = [];
+    const attendanceEntries: Doc<"attendanceEntries">[] = [];
+    const committees: Doc<"committees">[] = [];
+    for (const member of memberCandidates) {
+      if (await isEventInOperationalScope(ctx, member.eventId, operationalEventId)) {
+        members.push(member);
+      }
+    }
+    for (const entry of attendanceCandidates) {
+      if (await isEventInOperationalScope(ctx, entry.eventId, operationalEventId)) {
+        attendanceEntries.push(entry);
+      }
+    }
+    for (const committee of committeeCandidates) {
+      if (await isEventInOperationalScope(ctx, committee.eventId, operationalEventId)) {
+        committees.push(committee);
+      }
+    }
     const entriesByMemberId = new Map<
       Id<"members">,
       Doc<"attendanceEntries">
@@ -541,9 +602,17 @@ export const saveStatuses = mutation({
         committee,
         status,
         updatedAt: Date.now(),
+        eventId: member.eventId,
       };
 
+      if (!nextEntry.eventId) {
+        throw new Error("attendance_member_without_event");
+      }
+
       if (existingEntry) {
+        if (existingEntry.eventId !== nextEntry.eventId) {
+          throw new Error("attendance_entry_outside_event");
+        }
         await ctx.db.patch("attendanceEntries", existingEntry._id, nextEntry);
       } else {
         await ctx.db.insert("attendanceEntries", {
@@ -556,6 +625,7 @@ export const saveStatuses = mutation({
       if (member.type === "delegate" && status === "late") {
         await ctx.db.insert("gradingEntries", {
           member: member._id,
+          eventId: nextEntry.eventId,
           ...lateDelegateDeduction,
           note: getLateDelegateDeductionNote(dateKey),
         });
@@ -573,7 +643,10 @@ export const saveStatuses = mutation({
           .take(999);
 
         for (const deduction of lateDeductions) {
-          if (deduction.note === getLateDelegateDeductionNote(dateKey)) {
+          if (
+            deduction.eventId === nextEntry.eventId &&
+            deduction.note === getLateDelegateDeductionNote(dateKey)
+          ) {
             await ctx.db.delete("gradingEntries", deduction._id);
           }
         }

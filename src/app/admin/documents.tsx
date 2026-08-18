@@ -17,6 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import {
+  isRowFromSelectedEvent,
+  useAdminEventFilter,
+} from "@/hooks/use-admin-event-filter";
+import {
   documentTypeOptions,
   formatDocumentFileSize,
   formatDocumentScoreCell,
@@ -32,6 +36,7 @@ type DocumentAdminRow = {
   _id: Doc<"docs">["_id"];
   _creationTime: number;
   member: Doc<"members">["_id"];
+  eventId?: Doc<"events">["_id"];
   fileName: string;
   fileUrl: string;
   fileSize: string;
@@ -60,6 +65,7 @@ function createDocumentRow(document: Doc<"docs">): DocumentAdminRow {
     _id: document._id,
     _creationTime: document._creationTime,
     member: document.member,
+    eventId: document.eventId,
     fileName: document.uploadthing.name,
     fileUrl: document.uploadthing.ufsUrl,
     fileSize: `${formatDocumentFileSize(document.uploadthing.size)} MB`,
@@ -72,12 +78,26 @@ function createDocumentRow(document: Doc<"docs">): DocumentAdminRow {
 }
 
 function DocumentsPage() {
+  const eventsData = useQuery(api.events.getAll);
+  const {
+    activeEvent,
+    eventId: selectedEventId,
+    filter: eventFilter,
+  } = useAdminEventFilter(eventsData);
   const documentsData = useQuery(api.documents.getAll);
   const membersData = useQuery(api.members.getAll);
   const documentCreate = useMutation(api.documents.create);
   const documentUpdate = useMutation(api.documents.update);
   const documentDelete = useMutation(api.documents.purge);
-  const documentRows = (documentsData ?? []).map(createDocumentRow);
+  const documentRows = (documentsData ?? [])
+    .filter((document) =>
+      isRowFromSelectedEvent(
+        document.eventId,
+        selectedEventId,
+        activeEvent,
+      ),
+    )
+    .map(createDocumentRow);
   const documentById = new Map(
     (documentsData ?? []).map((document) => [document._id, document]),
   );
@@ -85,7 +105,9 @@ function DocumentsPage() {
   const memberNameById: Record<string, string> = {};
   const memberOptions: AdminTableSelectOption[] = [];
 
-  for (const member of membersData ?? []) {
+  for (const member of (membersData ?? []).filter((item) =>
+    isRowFromSelectedEvent(item.eventId, selectedEventId, activeEvent),
+  )) {
     memberNameById[member._id] = member.name;
     memberOptions.push({
       value: member._id,
@@ -200,7 +222,23 @@ function DocumentsPage() {
       <DynamicTable
         columns={documentColumns}
         data={documentRows}
-        isLoading={documentsData === undefined || membersData === undefined}
+        filters={[
+          eventFilter,
+          {
+            id: "type",
+            key: "type",
+            label: "Tipo",
+            options: documentTypeOptions,
+          },
+        ]}
+        defaultFilterPreset={
+          activeEvent ? { event: activeEvent._id } : undefined
+        }
+        isLoading={
+          documentsData === undefined ||
+          membersData === undefined ||
+          eventsData === undefined
+        }
         rowKey="fileName"
         searchParamKey="_id"
         onCreate={async (values) => {

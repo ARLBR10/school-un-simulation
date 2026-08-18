@@ -2,8 +2,13 @@ import { v } from "convex/values";
 
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalQuery, mutation, query } from "./_generated/server";
+import { internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { getPostHog } from "./posthog";
+import {
+  getOperationalEventId,
+  isEventInOperationalScope,
+  resolveEventId,
+} from "./events";
 
 export type CommitteeClerkSummary = {
   _id: Id<"members">;
@@ -19,7 +24,59 @@ export type CommitteeDelegateSummary = {
 export type CommitteeSummary = Doc<"committees"> & {
   clerks: CommitteeClerkSummary[];
   delegates: CommitteeDelegateSummary[];
+  event: Pick<Doc<"events">, "_id" | "name" | "year" | "status"> | null;
+  isPastEvent: boolean;
 };
+
+async function getCommitteeEvent(
+  ctx: Pick<import("./_generated/server").QueryCtx, "db">,
+  committee: Doc<"committees">,
+) {
+  const event = committee.eventId
+    ? await ctx.db.get("events", committee.eventId)
+    : await ctx.db
+        .query("events")
+        .withIndex("by_slug", (q) => q.eq("slug", "school-onu-2026"))
+        .first();
+
+  return event
+    ? { _id: event._id, name: event.name, year: event.year, status: event.status }
+    : null;
+}
+
+async function buildCommitteeSummaries(
+  ctx: QueryCtx,
+  committees: Doc<"committees">[],
+) {
+  const allMembers = await ctx.db.query("members").take(999);
+
+  return await Promise.all(committees.map(async (committee) => {
+    const clerks: CommitteeClerkSummary[] = allMembers
+      .filter(
+        (member) => member.committee === committee._id && member.type === "clerk",
+      )
+      .map((clerk) => ({ _id: clerk._id, name: clerk.name }));
+    const delegates: CommitteeDelegateSummary[] = allMembers
+      .filter(
+        (member) =>
+          member.committee === committee._id && member.type === "delegate",
+      )
+      .map((delegate) => ({
+        _id: delegate._id,
+        name: delegate.name,
+        delegatedCountry: delegate.delegatedCountry ?? null,
+      }));
+    const event = await getCommitteeEvent(ctx, committee);
+
+    return {
+      ...committee,
+      clerks,
+      delegates,
+      event,
+      isPastEvent: event?.status === "past",
+    };
+  }));
+}
 
 export const getAll = query({
   args: {},
@@ -43,33 +100,39 @@ export const list = query({
       return null;
     }
 
-    const committees = await ctx.db.query("committees").take(999);
-    const allMembers = await ctx.db.query("members").take(999);
+    return await buildCommitteeSummaries(
+      ctx,
+      await ctx.db.query("committees").take(999),
+    );
+  },
+});
 
-    return committees.map((committee) => {
-      const clerks: CommitteeClerkSummary[] = allMembers
-        .filter(
-          (member) => member.committee === committee._id && member.type === "clerk",
+export const listForManagement = query({
+  args: {},
+  async handler(ctx): Promise<CommitteeSummary[] | null> {
+    const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
+    const member = userInfo?.member;
+    if (!member || (member.type !== "press" && member.type !== "admin")) {
+      return null;
+    }
+
+    const operationalEventId = await getOperationalEventId(ctx, member);
+    if (!operationalEventId) return null;
+    const candidates = await ctx.db.query("committees").take(999);
+    const committees: Doc<"committees">[] = [];
+    for (const committee of candidates) {
+      if (
+        await isEventInOperationalScope(
+          ctx,
+          committee.eventId,
+          operationalEventId,
         )
-        .map((clerk) => ({ _id: clerk._id, name: clerk.name }));
+      ) {
+        committees.push(committee);
+      }
+    }
 
-      const delegates: CommitteeDelegateSummary[] = allMembers
-        .filter(
-          (member) =>
-            member.committee === committee._id && member.type === "delegate",
-        )
-        .map((delegate) => ({
-          _id: delegate._id,
-          name: delegate.name,
-          delegatedCountry: delegate.delegatedCountry ?? null,
-        }));
-
-      return {
-        ...committee,
-        clerks,
-        delegates,
-      };
-    });
+    return await buildCommitteeSummaries(ctx, committees);
   },
 });
 
@@ -112,10 +175,13 @@ export const getById = query({
         delegatedCountry: delegate.delegatedCountry ?? null,
       }));
 
+    const event = await getCommitteeEvent(ctx, committee);
     return {
       ...committee,
       clerks,
       delegates,
+      event,
+      isPastEvent: event?.status === "past",
     };
   },
 });
@@ -125,6 +191,7 @@ export const create = mutation({
     theme: v.string(),
     topics: v.array(v.string()),
     description: v.string(),
+    eventId: v.optional(v.id("events")),
   },
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
@@ -147,6 +214,7 @@ export const create = mutation({
       theme: args.theme,
       topics: args.topics,
       description: args.description,
+      eventId: await resolveEventId(ctx, args.eventId),
     };
     const committeeId = await ctx.db.insert("committees", newCommittee);
 
@@ -168,6 +236,7 @@ export const update = mutation({
     theme: v.optional(v.string()),
     topics: v.optional(v.array(v.string())),
     description: v.optional(v.string()),
+    eventId: v.optional(v.id("events")),
   },
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
@@ -186,12 +255,27 @@ export const update = mutation({
       return null;
     }
 
+    const existingCommittee = await ctx.db.get("committees", args.id);
+    if (!existingCommittee) return null;
+    if (
+      args.eventId !== undefined &&
+      existingCommittee.eventId !== undefined &&
+      existingCommittee.eventId !== args.eventId
+    ) {
+      throw new Error(
+        "O evento de um comitê não pode ser alterado. Crie um novo comitê para a nova edição.",
+      );
+    }
+
     const committeePatch: Partial<
       Omit<Doc<"committees">, "_id" | "_creationTime">
     > = {
       ...("theme" in args ? { theme: args.theme } : {}),
       ...("topics" in args ? { topics: args.topics } : {}),
       ...("description" in args ? { description: args.description } : {}),
+      ...(args.eventId !== undefined
+        ? { eventId: await resolveEventId(ctx, args.eventId) }
+        : {}),
     };
 
     await ctx.db.patch("committees", args.id, committeePatch);

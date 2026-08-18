@@ -53,6 +53,10 @@ import {
   getAllowedCategoriesForMemberType,
   getCategoryDefinition,
 } from "@/lib/grading-categories";
+import {
+  isRowFromSelectedEvent,
+  useAdminEventFilter,
+} from "@/hooks/use-admin-event-filter";
 
 const memberTypeLabels: Record<Doc<"members">["type"], string> = {
   delegate: "Delegado",
@@ -60,6 +64,7 @@ const memberTypeLabels: Record<Doc<"members">["type"], string> = {
   press: "Imprensa",
   clerk: "Mesário",
   teacher: "Professor",
+  unassigned: "Função não definida",
   admin: "Administrador",
 };
 
@@ -88,6 +93,7 @@ const memberTypes: Doc<"members">["type"][] = [
   "press",
   "clerk",
   "teacher",
+  "unassigned",
   "admin",
 ];
 
@@ -992,6 +998,12 @@ function AssignClassesDialog({
 }
 
 function MembersPage() {
+  const eventsData = useQuery(api.events.getAll);
+  const {
+    activeEvent,
+    eventId: selectedEventId,
+    filter: eventFilter,
+  } = useAdminEventFilter(eventsData);
   const membersData = useQuery(api.members.getAll);
   const committeesData = useQuery(api.committees.getAll);
   const usersData = useQuery(api.auth_admin.getAll);
@@ -1005,12 +1017,21 @@ function MembersPage() {
   const memberInviteCreate = useMutation(api.memberInvites.createForMember);
   const memberInviteDelete = useMutation(api.memberInvites.deleteForMember);
 
+  const eventLabelById: Record<string, string> = {};
+  const eventOptions: AdminTableSelectOption[] = [];
+  for (const event of eventsData ?? []) {
+    eventLabelById[event._id] = event.name;
+    eventOptions.push({ value: event._id, label: event.name });
+  }
+
   const committeeLabelById: Record<string, string> = {};
   const committeeOptions: AdminTableSelectOption[] = [
     { value: noCommitteeOptionValue, label: "Sem comitê" },
   ];
 
-  for (const committee of committeesData ?? []) {
+  for (const committee of (committeesData ?? []).filter((item) =>
+    isRowFromSelectedEvent(item.eventId, selectedEventId, activeEvent),
+  )) {
     committeeLabelById[committee._id] = committee.theme;
     committeeOptions.push({
       value: committee._id,
@@ -1071,6 +1092,21 @@ function MembersPage() {
 
   const membersColumns: AdminTableColumn<Doc<"members">>[] = [
     { key: "name", label: "Nome" },
+    {
+      ...createSelectColumn({
+        key: "eventId",
+        label: "Evento",
+        options: eventOptions,
+        placeholder: "Selecione um evento",
+      }),
+      showInEditForm: false,
+      render: (member) =>
+        member.eventId
+          ? (eventLabelById[member.eventId] ?? member.eventId)
+          : member.type === "admin"
+            ? "Global"
+            : "Migração pendente",
+    },
     { key: "tuitionId", label: "Matrícula" },
     { key: "schoolClass", label: "Turma" },
     createSelectColumn({
@@ -1309,13 +1345,34 @@ function MembersPage() {
 
       <DynamicTable
         columns={membersColumns}
-        data={membersData ?? []}
+        data={(membersData ?? []).filter(
+          (member) =>
+            member.type === "admin" ||
+            isRowFromSelectedEvent(
+              member.eventId,
+              selectedEventId,
+              activeEvent,
+            ),
+        )}
+        filters={[
+          eventFilter,
+          {
+            id: "type",
+            key: "type",
+            label: "Função",
+            options: memberTypeOptions,
+          },
+        ]}
+        defaultFilterPreset={
+          activeEvent ? { event: activeEvent._id } : undefined
+        }
         isLoading={
           membersData === undefined ||
           usersData === undefined ||
           committeesData === undefined ||
           gradingData === undefined ||
-          invitesData === undefined
+          invitesData === undefined ||
+          eventsData === undefined
         }
         rowKey="name"
         searchParamKey="_id"
@@ -1345,6 +1402,7 @@ function MembersPage() {
                 ? normalizeOptionalCountryCode(values.delegatedCountry)
                 : undefined,
               committee,
+              eventId: values.eventId as Doc<"events">["_id"] | undefined,
             });
 
             if (created === true) {
@@ -1378,6 +1436,7 @@ function MembersPage() {
                 ? normalizeNullableCountryCode(values.delegatedCountry)
                 : null,
               committee,
+              eventId: values.eventId as Doc<"events">["_id"] | undefined,
             });
 
             if (updated === true) {

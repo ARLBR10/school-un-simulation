@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
+import { EventBadges } from "@/components/events/EventBadges";
 import {
   Card,
   CardContent,
@@ -152,6 +153,11 @@ export function CommitteeDetailView({ id }: { id: string }) {
           >
             <motion.header variants={blockVariants}>
               <PageHeader title={committee.theme} />
+              <EventBadges
+                eventName={committee.event?.name ?? null}
+                isPastEvent={committee.isPastEvent}
+                className="mt-2"
+              />
             </motion.header>
 
             <motion.div variants={blockVariants}>

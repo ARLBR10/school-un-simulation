@@ -11,6 +11,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import {
   BookOpen,
+  CalendarDays,
   ClipboardCheck,
   ClipboardList,
   FileText,
@@ -71,6 +72,7 @@ type NavigationItem = {
     | "/dpo"
     | "/documents"
     | "/admin/members"
+    | "/admin/events"
     | "/admin/users"
     | "/admin/committees"
     | "/admin/news"
@@ -103,6 +105,7 @@ const delegateNavigationLinks: NavigationItem[] = [
 ];
 
 const adminNavigationLinks: NavigationItem[] = [
+  { href: "/admin/events", label: "Eventos", icon: CalendarDays },
   { href: "/admin/members", label: "Membros", icon: Users },
   { href: "/admin/users", label: "Usuários", icon: UserCog },
   { href: "/admin/committees", label: "Comitês", icon: Globe },

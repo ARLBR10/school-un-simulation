@@ -10,10 +10,17 @@ import {
   query,
 } from "./_generated/server";
 import { getPostHog } from "./posthog";
+import {
+  getOperationalEventId,
+  isEventInOperationalScope,
+  resolveEventId,
+} from "./events";
 import { uploadthingSchema } from "./uploadthing";
 import { hasDocumentAnalysisConfig } from "@/lib/document-config";
 
-type DocumentPatch = Partial<Pick<Doc<"docs">, "member" | "type" | "uploadthing">>;
+type DocumentPatch = Partial<
+  Pick<Doc<"docs">, "eventId" | "member" | "type" | "uploadthing">
+>;
 
 export type UploadedDocumentListItem = {
   document: Doc<"docs">;
@@ -79,6 +86,7 @@ export const documentUploaded = mutation({
 
     const documentId = await ctx.db.insert("docs", {
       member: member._id,
+      eventId: await resolveEventId(ctx, member.eventId),
       type: args.type,
       uploadthing: {
         name: args.name,
@@ -168,6 +176,7 @@ export const submitPositionPaper = mutation({
 
     const documentId = await ctx.db.insert("docs", {
       member: member._id,
+      eventId: await resolveEventId(ctx, member.eventId),
       type: "position_paper",
       uploadthing: {
         name: args.name,
@@ -230,7 +239,23 @@ export const getAllForOperation = query({
       return null;
     }
 
-    const documents = await ctx.db.query("docs").order("desc").take(999);
+    const operationalEventId = userInfo?.member
+      ? await getOperationalEventId(ctx, userInfo.member)
+      : null;
+    if (!operationalEventId) return null;
+    const candidates = await ctx.db.query("docs").order("desc").take(999);
+    const documents: Doc<"docs">[] = [];
+    for (const document of candidates) {
+      if (
+        await isEventInOperationalScope(
+          ctx,
+          document.eventId,
+          operationalEventId,
+        )
+      ) {
+        documents.push(document);
+      }
+    }
 
     return await Promise.all(
       documents.map(async (document) => ({
@@ -272,6 +297,7 @@ export const create = mutation({
 
     await ctx.db.insert("docs", {
       member: args.member,
+      eventId: await resolveEventId(ctx, member.eventId),
       type: args.type,
       uploadthing: {
         name: args.name,
@@ -336,6 +362,7 @@ export const update = mutation({
       }
 
       documentPatch.member = args.member;
+      documentPatch.eventId = await resolveEventId(ctx, member.eventId);
     }
 
     if (args.type !== undefined) {

@@ -159,6 +159,12 @@ Convex agent skills for common tasks can be installed by running
 - Preserve vendored formatting in `components/ui/*` and `components/reui/*`, even when it differs from project-authored files.
 
 ### State, Data, And Environment
+- Treat `events` as the boundary for every edition of the simulation. Event-owned records such as members, committees, news, grades, attendance, and documents must retain their `eventId`; never infer an edition from `_creationTime` or the current calendar year.
+- Member rows represent participation in one event, not a permanent person profile. The same authenticated user may have separate member rows and different roles in 2026 and 2027, but must never have two roles in the same event.
+- The `unassigned` member type means the participant is registered for an event but their role has not been defined yet. Do not treat it as a delegate or grant operational permissions.
+- Administrators are global and intentionally do not follow an event date. Admin member rows must keep `eventId` unset; event-scoped access must resolve the active membership while global admin access remains available across editions.
+- Use explicit event lifecycle status: `planned`, `active`, or `past`. Keep at most one active event. Public event-owned content must always show the event name and visibly identify `past` content as an event from the past.
+- During the 2026 production rollout, event fields remain optional only for widen/backfill compatibility. New writes must include or resolve an event, and legacy fallbacks must be removed when the backfill is verified and the schema is narrowed.
 - Keep environment variable usage centralized and intentional.
 - Prefer validating required env vars early if you expand bootstrap logic.
 - Never hardcode secrets, deployment URLs, or personal data.

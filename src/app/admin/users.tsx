@@ -116,6 +116,17 @@ function UsersPage() {
       <DynamicTable<AuthUserWithPass>
         columns={userColumns}
         data={(usersData ?? []) as AuthUserWithPass[]}
+        filters={[
+          {
+            id: "emailVerified",
+            key: "emailVerified",
+            label: "E-mail verificado",
+            options: [
+              { value: "true", label: "Verificado" },
+              { value: "false", label: "Não verificado" },
+            ],
+          },
+        ]}
         isLoading={usersData === undefined}
         rowKey="email"
         searchParamKey="_id"

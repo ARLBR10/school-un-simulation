@@ -12,6 +12,10 @@ import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getPostHog } from "./posthog";
+import {
+  getOperationalEventId,
+  isEventInOperationalScope,
+} from "./events";
 
 export const gradingEntryKind = v.union(
   v.literal("grade"),
@@ -23,6 +27,7 @@ type GradingAccessScope = {
   isAllowedGrader: boolean;
   isCommitteeScoped: boolean;
   committeeIds: Id<"committees">[];
+  eventId?: Id<"events">;
 };
 
 export type GradingManageData = {
@@ -89,6 +94,7 @@ function getAssignedCommitteeIds(actor: Doc<"members">) {
 
 function getGradingAccessScope(
   actor: Doc<"members">,
+  eventId: Id<"events"> | undefined,
 ): GradingAccessScope {
   const isAdmin = actor.type === "admin";
   const allowedMemberTypes = getAllowedMemberTypesForGraderType(
@@ -103,11 +109,18 @@ function getGradingAccessScope(
     isCommitteeScoped:
       !isAdmin && (actor.type === "clerk" || actor.committee !== undefined),
     committeeIds,
+    eventId,
   };
 }
 
 function isMemberInScope(member: Doc<"members">, scope: GradingAccessScope) {
-  if (scope.isAdmin || !scope.isCommitteeScoped) {
+  if (scope.isAdmin) {
+    return true;
+  }
+
+  if (member.eventId === undefined || member.eventId !== scope.eventId) return false;
+
+  if (!scope.isCommitteeScoped) {
     return true;
   }
 
@@ -165,6 +178,7 @@ async function getEntriesForMembers(
 
       if (
         category &&
+        entry.eventId === member.eventId &&
         canGraderUseCategory(category, actor.type as GradingMemberType, scope.isAdmin)
       ) {
         entries.push(entry);
@@ -247,7 +261,9 @@ async function getAuthorizedGradingActor(
     return null;
   }
 
-  const scope = getGradingAccessScope(actor);
+  const operationalEventId = await getOperationalEventId(ctx, actor);
+  if (!operationalEventId) return null;
+  const scope = getGradingAccessScope(actor, operationalEventId);
 
   if (!scope.isAllowedGrader) {
     await logPermissionDenied({
@@ -288,6 +304,10 @@ async function validateGradingEntry(
       reason: "member_outside_committee_scope",
     });
     throw new Error("This member is outside your grading scope.");
+  }
+
+  if (!scope.isAdmin && actor.eventId !== member.eventId) {
+    throw new Error("Só é possível lançar notas para membros do mesmo evento.");
   }
 
   const category = getCategoryDefinition(entry.kind, entry.category);
@@ -391,7 +411,9 @@ export const getManageData = query({
       return null;
     }
 
-    const scope = getGradingAccessScope(actor);
+    const operationalEventId = await getOperationalEventId(ctx, actor);
+    if (!operationalEventId) return null;
+    const scope = getGradingAccessScope(actor, operationalEventId);
 
     if (!scope.isAllowedGrader) {
       return null;
@@ -421,6 +443,8 @@ export const getClassReportData = query({
     if (actor?.type !== "admin") {
       return null;
     }
+    const operationalEventId = await getOperationalEventId(ctx, actor);
+    if (!operationalEventId) return null;
 
     const reportMemberTypes: GradingMemberType[] = [
       "delegate",
@@ -429,18 +453,45 @@ export const getClassReportData = query({
     const members: Doc<"members">[] = [];
 
     for (const memberType of reportMemberTypes) {
-      members.push(
-        ...(await ctx.db
+      const candidates = await ctx.db
           .query("members")
           .withIndex("by_type", (q) => q.eq("type", memberType))
-          .take(999)),
-      );
+          .take(999);
+      for (const member of candidates) {
+        if (
+          await isEventInOperationalScope(
+            ctx,
+            member.eventId,
+            operationalEventId,
+          )
+        ) {
+          members.push(member);
+        }
+      }
     }
 
-    const [entries, committees] = await Promise.all([
+    const [entryCandidates, committeeCandidates] = await Promise.all([
       ctx.db.query("gradingEntries").take(999),
       ctx.db.query("committees").take(999),
     ]);
+    const entries: Doc<"gradingEntries">[] = [];
+    const committees: Doc<"committees">[] = [];
+    for (const entry of entryCandidates) {
+      if (await isEventInOperationalScope(ctx, entry.eventId, operationalEventId)) {
+        entries.push(entry);
+      }
+    }
+    for (const committee of committeeCandidates) {
+      if (
+        await isEventInOperationalScope(
+          ctx,
+          committee.eventId,
+          operationalEventId,
+        )
+      ) {
+        committees.push(committee);
+      }
+    }
     const committeesById = new Map(
       committees.map((committee) => [committee._id, committee]),
     );
@@ -540,6 +591,11 @@ export const create = mutation({
     );
     await ensureUniqueGradeEntry(ctx, { ...args, category });
 
+    const targetMember = await ctx.db.get("members", args.member);
+    if (!targetMember?.eventId) {
+      throw new Error("O membro ainda não está vinculado a um evento.");
+    }
+
     const entryId = await ctx.db.insert("gradingEntries", {
       member: args.member,
       kind: args.kind,
@@ -548,6 +604,7 @@ export const create = mutation({
       ...(normalizeOptionalString(args.note) !== undefined
         ? { note: normalizeOptionalString(args.note) }
         : {}),
+      eventId: targetMember.eventId,
     });
     const createdEntry = await ctx.db.get("gradingEntries", entryId);
 
@@ -588,6 +645,12 @@ export const update = mutation({
     if (!existingEntry) {
       return null;
     }
+    if (
+      !scope.eventId ||
+      !(await isEventInOperationalScope(ctx, existingEntry.eventId, scope.eventId))
+    ) {
+      return null;
+    }
 
     const nextEntry = {
       member: args.member ?? existingEntry.member,
@@ -604,6 +667,11 @@ export const update = mutation({
     );
     await ensureUniqueGradeEntry(ctx, nextEntry, args.id);
 
+    const targetMember = await ctx.db.get("members", nextEntry.member);
+    if (!targetMember?.eventId) {
+      throw new Error("O membro ainda não está vinculado a um evento.");
+    }
+
     const normalizedNote = normalizeOptionalString(args.note);
     const entryPatch: Partial<
       Omit<Doc<"gradingEntries">, "_id" | "_creationTime">
@@ -613,6 +681,7 @@ export const update = mutation({
       ...("category" in args ? { category: nextEntry.category } : {}),
       ...("amount" in args ? { amount: nextEntry.amount } : {}),
       ...("note" in args ? { note: normalizedNote } : {}),
+      eventId: targetMember.eventId,
     };
 
     await ctx.db.patch("gradingEntries", args.id, entryPatch);
@@ -648,6 +717,12 @@ export const purge = mutation({
     const { actor, scope } = authorization;
     const existingEntry = await ctx.db.get("gradingEntries", args.id);
     if (!existingEntry) {
+      return null;
+    }
+    if (
+      !scope.eventId ||
+      !(await isEventInOperationalScope(ctx, existingEntry.eventId, scope.eventId))
+    ) {
       return null;
     }
 

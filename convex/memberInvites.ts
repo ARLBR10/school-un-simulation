@@ -189,10 +189,6 @@ export const accept = mutation({
       return null;
     }
 
-    if (userInfo.member) {
-      return "already_assigned";
-    }
-
     const invite = await ctx.db
       .query("memberInvites")
       .withIndex("by_token", (q) => q.eq("token", args.token))
@@ -209,6 +205,19 @@ export const accept = mutation({
     const member = await ctx.db.get("members", invite.member);
 
     if (!member || member.userId) {
+      return "already_assigned";
+    }
+
+    const existingMemberships = await ctx.db
+      .query("members")
+      .withIndex("by_userId", (q) => q.eq("userId", userInfo._id))
+      .take(100);
+    const alreadyAssignedToEvent = existingMemberships.some(
+      (existingMember) =>
+        existingMember.type === "admin" ||
+        existingMember.eventId === member.eventId,
+    );
+    if (alreadyAssignedToEvent) {
       return "already_assigned";
     }
 

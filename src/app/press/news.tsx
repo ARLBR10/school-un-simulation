@@ -33,7 +33,7 @@ export const Route = createFileRoute("/press/news")({
 function PressNewsPage() {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const newsData = useQuery(api.news.getManageList);
-  const committeesData = useQuery(api.committees.list);
+  const committeesData = useQuery(api.committees.listForManagement);
   const isUserLoading = userInfo === undefined;
   const member = userInfo?.member ?? null;
 

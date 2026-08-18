@@ -33,7 +33,7 @@ export const Route = createFileRoute("/press/approvals")({
 function PressApprovalsPage() {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const newsData = useQuery(api.news.getManageList);
-  const committeesData = useQuery(api.committees.list);
+  const committeesData = useQuery(api.committees.listForManagement);
   const isUserLoading = userInfo === undefined;
   const member = userInfo?.member ?? null;
   const canApprove = member?.type === "admin" || member?.pressRole === "media";

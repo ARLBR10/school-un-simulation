@@ -8,6 +8,7 @@ import {
   DynamicTable,
   type AdminTableColumn,
 } from "@/components/admin/DynamicTable";
+import { createSelectColumn } from "@/components/admin/DynamicTableFields";
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,10 @@ import {
 import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { getCountryByCode } from "@/lib/country-list";
+import {
+  isRowFromSelectedEvent,
+  useAdminEventFilter,
+} from "@/hooks/use-admin-event-filter";
 
 const emptyTopicValue = "__empty_topic__";
 
@@ -246,14 +251,40 @@ function TextareaInput({
 }
 
 function CommitteesPage() {
+  const eventsData = useQuery(api.events.getAll);
+  const {
+    activeEvent,
+    eventId: selectedEventId,
+    filter: eventFilter,
+  } = useAdminEventFilter(eventsData);
   const committeesData = useQuery(api.committees.getAll);
   const membersData = useQuery(api.members.getAll);
   const committeeCreate = useMutation(api.committees.create);
   const committeeUpdate = useMutation(api.committees.update);
   const committeeDelete = useMutation(api.committees.purge);
+  const eventOptions = (eventsData ?? []).map((event) => ({
+    value: event._id,
+    label: event.name,
+  }));
+  const eventLabelById = Object.fromEntries(
+    (eventsData ?? []).map((event) => [event._id, event.name]),
+  );
 
   const committeesColumns: AdminTableColumn<Doc<"committees">>[] = [
     { key: "theme", label: "Tema" },
+    {
+      ...createSelectColumn({
+        key: "eventId",
+        label: "Evento",
+        options: eventOptions,
+        placeholder: "Selecione um evento",
+      }),
+      showInEditForm: false,
+      render: (committee) =>
+        committee.eventId
+          ? (eventLabelById[committee.eventId] ?? committee.eventId)
+          : "Migração pendente",
+    },
     {
       key: "topics",
       label: "Tópicos",
@@ -301,8 +332,22 @@ function CommitteesPage() {
 
       <DynamicTable
         columns={committeesColumns}
-        data={committeesData ?? []}
-        isLoading={committeesData === undefined || membersData === undefined}
+        data={(committeesData ?? []).filter((committee) =>
+          isRowFromSelectedEvent(
+            committee.eventId,
+            selectedEventId,
+            activeEvent,
+          ),
+        )}
+        filters={[eventFilter]}
+        defaultFilterPreset={
+          activeEvent ? { event: activeEvent._id } : undefined
+        }
+        isLoading={
+          committeesData === undefined ||
+          membersData === undefined ||
+          eventsData === undefined
+        }
         rowKey="theme"
         searchParamKey="_id"
         onCreate={async (values) => {
@@ -320,6 +365,7 @@ function CommitteesPage() {
               theme,
               description,
               topics,
+              eventId: values.eventId as Doc<"events">["_id"] | undefined,
             });
 
             if (created === true) {
@@ -341,6 +387,7 @@ function CommitteesPage() {
               description:
                 normalizeRequiredString(values.description) ?? undefined,
               topics: parseTopics(values.topics),
+              eventId: values.eventId as Doc<"events">["_id"] | undefined,
             });
 
             if (updated === true) {

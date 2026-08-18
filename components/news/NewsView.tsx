@@ -6,6 +6,13 @@ import { ChevronRight, User } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
+import { EventBadges } from "@/components/events/EventBadges";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Card,
   CardDescription,
@@ -14,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
+import type { NewsListItem } from "@/convex/news";
 
 const SKELETON_ROW_COUNT = 6;
 
@@ -36,6 +44,15 @@ const itemVariants = {
   },
 };
 
+function groupPastNews(items: NewsListItem[]) {
+  const groups = new Map<string, NewsListItem[]>();
+  for (const item of items) {
+    const eventName = item.eventName ?? "Evento anterior";
+    groups.set(eventName, [...(groups.get(eventName) ?? []), item]);
+  }
+  return groups;
+}
+
 function formatDate(timestamp: number) {
   return new Intl.DateTimeFormat("pt-BR", {
     day: "numeric",
@@ -47,6 +64,10 @@ function formatDate(timestamp: number) {
 export function NewsView() {
   const news = useQuery(api.news.list);
   const isLoading = news === undefined;
+  const currentNews = news?.filter((item) => !item.isPastEvent) ?? [];
+  const pastNewsByEvent = groupPastNews(
+    news?.filter((item) => item.isPastEvent) ?? [],
+  );
 
   return (
     <PageShell className="mx-auto w-full max-w-5xl">
@@ -103,20 +124,69 @@ export function NewsView() {
             exit={{ opacity: 0 }}
             className="flex flex-col gap-4"
           >
-            {news.map((item) => (
-              <motion.div key={item._id} variants={itemVariants}>
-                <NewsCard
-                  id={item._id}
-                  title={item.title}
-                  authorName={item.authorName}
-                  createdAt={item._creationTime}
-                />
-              </motion.div>
+            {currentNews.map((item) => (
+              <NewsCardMotion key={item._id} item={item} />
             ))}
+            {pastNewsByEvent.size > 0 ? (
+              <motion.div variants={itemVariants}>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Eventos passados</CardTitle>
+                    <CardDescription>
+                      Consulte as notícias preservadas de edições anteriores.
+                    </CardDescription>
+                  </CardHeader>
+                  <Accordion className="border-t px-4">
+                    {[...pastNewsByEvent.entries()].map(([eventName, items]) => (
+                      <AccordionItem key={eventName} value={eventName}>
+                        <AccordionTrigger>
+                          <span>{eventName}</span>
+                          <span className="ml-auto mr-3 text-xs text-muted-foreground">
+                            {items.length} {items.length === 1 ? "notícia" : "notícias"}
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="flex flex-col gap-3 pt-2">
+                          {items.map((item) => (
+                            <NewsCard
+                              key={item._id}
+                              id={item._id}
+                              title={item.title}
+                              authorName={item.authorName}
+                              createdAt={item._creationTime}
+                              eventName={item.eventName}
+                              isPastEvent={item.isPastEvent}
+                            />
+                          ))}
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </Card>
+              </motion.div>
+            ) : null}
           </motion.div>
         )}
       </AnimatePresence>
     </PageShell>
+  );
+}
+
+function NewsCardMotion({
+  item,
+}: {
+  item: NewsListItem;
+}) {
+  return (
+    <motion.div variants={itemVariants}>
+      <NewsCard
+        id={item._id}
+        title={item.title}
+        authorName={item.authorName}
+        createdAt={item._creationTime}
+        eventName={item.eventName}
+        isPastEvent={item.isPastEvent}
+      />
+    </motion.div>
   );
 }
 
@@ -125,11 +195,15 @@ function NewsCard({
   title,
   authorName,
   createdAt,
+  eventName,
+  isPastEvent,
 }: {
   id: string;
   title: string;
   authorName: string | null;
   createdAt: number;
+  eventName: string | null;
+  isPastEvent: boolean;
 }) {
   return (
     <Card className="transition-colors hover:bg-muted/30">
@@ -158,6 +232,7 @@ function NewsCard({
               </>
             ) : null}
           </CardDescription>
+          <EventBadges eventName={eventName} isPastEvent={isPastEvent} />
         </CardHeader>
       </Link>
     </Card>

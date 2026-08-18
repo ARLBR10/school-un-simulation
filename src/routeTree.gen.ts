@@ -26,6 +26,7 @@ import { Route as AdminAttendanceRouteImport } from './app/admin/attendance'
 import { Route as AdminClassUtilsRouteImport } from './app/admin/class-utils'
 import { Route as AdminCommitteesRouteImport } from './app/admin/committees'
 import { Route as AdminDocumentsRouteImport } from './app/admin/documents'
+import { Route as AdminEventsRouteImport } from './app/admin/events'
 import { Route as AdminGradesRouteImport } from './app/admin/grades'
 import { Route as AdminMembersRouteImport } from './app/admin/members'
 import { Route as AdminNewsRouteImport } from './app/admin/news'
@@ -128,6 +129,11 @@ const AdminDocumentsRoute = AdminDocumentsRouteImport.update({
   path: '/documents',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminEventsRoute = AdminEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminGradesRoute = AdminGradesRouteImport.update({
   id: '/grades',
   path: '/grades',
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/admin/class-utils': typeof AdminClassUtilsRoute
   '/admin/committees': typeof AdminCommitteesRoute
   '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/events': typeof AdminEventsRoute
   '/admin/grades': typeof AdminGradesRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/news': typeof AdminNewsRoute
@@ -260,6 +267,7 @@ export interface FileRoutesByTo {
   '/admin/class-utils': typeof AdminClassUtilsRoute
   '/admin/committees': typeof AdminCommitteesRoute
   '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/events': typeof AdminEventsRoute
   '/admin/grades': typeof AdminGradesRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/news': typeof AdminNewsRoute
@@ -296,6 +304,7 @@ export interface FileRoutesById {
   '/admin/class-utils': typeof AdminClassUtilsRoute
   '/admin/committees': typeof AdminCommitteesRoute
   '/admin/documents': typeof AdminDocumentsRoute
+  '/admin/events': typeof AdminEventsRoute
   '/admin/grades': typeof AdminGradesRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/news': typeof AdminNewsRoute
@@ -333,6 +342,7 @@ export interface FileRouteTypes {
     | '/admin/class-utils'
     | '/admin/committees'
     | '/admin/documents'
+    | '/admin/events'
     | '/admin/grades'
     | '/admin/members'
     | '/admin/news'
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/admin/class-utils'
     | '/admin/committees'
     | '/admin/documents'
+    | '/admin/events'
     | '/admin/grades'
     | '/admin/members'
     | '/admin/news'
@@ -402,6 +413,7 @@ export interface FileRouteTypes {
     | '/admin/class-utils'
     | '/admin/committees'
     | '/admin/documents'
+    | '/admin/events'
     | '/admin/grades'
     | '/admin/members'
     | '/admin/news'
@@ -569,6 +581,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminDocumentsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/events': {
+      id: '/admin/events'
+      path: '/events'
+      fullPath: '/admin/events'
+      preLoaderRoute: typeof AdminEventsRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/grades': {
       id: '/admin/grades'
       path: '/grades'
@@ -689,6 +708,7 @@ interface AdminRouteChildren {
   AdminClassUtilsRoute: typeof AdminClassUtilsRoute
   AdminCommitteesRoute: typeof AdminCommitteesRoute
   AdminDocumentsRoute: typeof AdminDocumentsRoute
+  AdminEventsRoute: typeof AdminEventsRoute
   AdminGradesRoute: typeof AdminGradesRoute
   AdminMembersRoute: typeof AdminMembersRoute
   AdminNewsRoute: typeof AdminNewsRoute
@@ -701,6 +721,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminClassUtilsRoute: AdminClassUtilsRoute,
   AdminCommitteesRoute: AdminCommitteesRoute,
   AdminDocumentsRoute: AdminDocumentsRoute,
+  AdminEventsRoute: AdminEventsRoute,
   AdminGradesRoute: AdminGradesRoute,
   AdminMembersRoute: AdminMembersRoute,
   AdminNewsRoute: AdminNewsRoute,

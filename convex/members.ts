@@ -10,6 +10,7 @@ import {
   query,
 } from "./_generated/server";
 import { getPostHog } from "./posthog";
+import { resolveEventId } from "./events";
 
 type MemberPatch = Partial<Omit<Doc<"members">, "_id" | "_creationTime">>;
 type MemberCreateInput = Omit<Doc<"members">, "_id" | "_creationTime">;
@@ -27,6 +28,7 @@ export const memberTypes = v.union(
   v.literal("press"),
   v.literal("clerk"), // Clerk ~ "Mesário"
   v.literal("teacher"),
+  v.literal("unassigned"),
   v.literal("admin"), // Coordenação, Secretary General, Meg Dev (@ARLBR10)
 );
 
@@ -46,6 +48,7 @@ const memberCreateArgs = {
   pressRole: v.optional(pressRoles),
   delegatedCountry: v.optional(countriesConvexSchema),
   committee: v.optional(v.id("committees")),
+  eventId: v.optional(v.id("events")),
 };
 
 export const getByUserId = internalQuery({
@@ -57,10 +60,19 @@ export const getByUserId = internalQuery({
       return null;
     }
 
-    return await ctx.db
+    const memberships = await ctx.db
       .query("members")
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .unique();
+      .take(100);
+    const adminMembership = memberships.find((member) => member.type === "admin");
+    if (adminMembership) return adminMembership;
+
+    const activeEvent = await ctx.runQuery(internal.events.getActive, {});
+    return (
+      memberships.find((member) => member.eventId === activeEvent?._id) ??
+      memberships.find((member) => member.eventId === undefined) ??
+      null
+    );
   },
 });
 
@@ -90,10 +102,14 @@ export const assignStudentMembershipFromEmail = internalMutation({
       return null;
     }
 
-    const userByTuitionId = await ctx.db
+    const activeEvent = await ctx.runQuery(internal.events.getActive, {});
+    const usersByTuitionId = await ctx.db
       .query("members")
       .withIndex("by_tuitionId", (q) => q.eq("tuitionId", emailTuitionId))
-      .unique();
+      .take(100);
+    const userByTuitionId =
+      usersByTuitionId.find((member) => member.eventId === activeEvent?._id) ??
+      usersByTuitionId.find((member) => member.eventId === undefined);
 
     if (userByTuitionId && userByTuitionId.userId === undefined) {
       await ctx.db.patch("members", userByTuitionId!._id!, {
@@ -157,7 +173,10 @@ export const create = mutation({
       ...(args.userId !== undefined ? { userId: args.userId } : {}),
       ...(args.tuitionId !== undefined ? { tuitionId: args.tuitionId } : {}),
       ...(args.schoolClass !== undefined ? { schoolClass: args.schoolClass } : {}),
+      eventId: await resolveEventId(ctx, args.eventId),
     };
+
+    await ensureMembershipDoesNotOverlap(ctx, newMember);
 
     const memberId = await ctx.db.insert("members", newMember);
 
@@ -211,7 +230,10 @@ export const bulkCreate = mutation({
         ...(member.userId !== undefined ? { userId: member.userId } : {}),
         ...(member.tuitionId !== undefined ? { tuitionId: member.tuitionId } : {}),
         ...(member.schoolClass !== undefined ? { schoolClass: member.schoolClass } : {}),
+        eventId: await resolveEventId(ctx, member.eventId),
       };
+
+      await ensureMembershipDoesNotOverlap(ctx, newMember);
 
       await ctx.db.insert("members", newMember);
     }
@@ -239,6 +261,7 @@ export const update = mutation({
     pressRole: v.optional(v.union(pressRoles, v.null())),
     delegatedCountry: v.optional(v.union(countriesConvexSchema, v.null())),
     committee: v.optional(v.union(v.id("committees"), v.null())),
+    eventId: v.optional(v.id("events")),
   },
   async handler(ctx, args): Promise<null | boolean> {
     const userInfo = await ctx.runQuery(api.auth.getCurrentUser);
@@ -301,6 +324,27 @@ export const update = mutation({
       memberPatch.name = args.name;
     }
 
+    if (
+      args.eventId !== undefined &&
+      memberInfo.type !== "admin" &&
+      memberInfo.eventId !== undefined &&
+      memberInfo.eventId !== args.eventId
+    ) {
+      throw new Error(
+        "O evento de uma participação não pode ser alterado. Crie uma nova participação.",
+      );
+    }
+
+    if (args.eventId !== undefined && memberInfo.type !== "admin") {
+      memberPatch.eventId = await resolveEventId(ctx, args.eventId);
+    }
+
+    await ensureMembershipDoesNotOverlap(
+      ctx,
+      { ...memberInfo, ...memberPatch },
+      memberInfo._id,
+    );
+
     await ctx.db.patch("members", args.id, memberPatch);
 
     await getPostHog().capture(ctx, {
@@ -315,8 +359,58 @@ export const update = mutation({
   },
 });
 
+async function ensureMembershipDoesNotOverlap(
+  ctx: Parameters<typeof resolveEventId>[0],
+  membership: Pick<
+    MemberCreateInput,
+    "committee" | "eventId" | "tuitionId" | "userId"
+  >,
+  ignoredMemberId?: Doc<"members">["_id"],
+) {
+  if (!membership.eventId) return;
+
+  if (membership.committee) {
+    const committee = await ctx.db.get("committees", membership.committee);
+    const event = await ctx.db.get("events", membership.eventId);
+    const isLegacy2026Committee =
+      committee?.eventId === undefined && event?.slug === "school-onu-2026";
+    if (
+      !committee ||
+      (committee.eventId !== membership.eventId && !isLegacy2026Committee)
+    ) {
+      throw new Error("O comitê precisa pertencer ao mesmo evento do membro.");
+    }
+  }
+
+  const possibleDuplicates = new Map<Doc<"members">["_id"], Doc<"members">>();
+  if (membership.userId) {
+    const byUser = await ctx.db
+      .query("members")
+      .withIndex("by_userId", (q) => q.eq("userId", membership.userId))
+      .take(100);
+    for (const member of byUser) possibleDuplicates.set(member._id, member);
+  }
+  if (membership.tuitionId) {
+    const byTuition = await ctx.db
+      .query("members")
+      .withIndex("by_tuitionId", (q) => q.eq("tuitionId", membership.tuitionId))
+      .take(100);
+    for (const member of byTuition) possibleDuplicates.set(member._id, member);
+  }
+
+  const overlap = [...possibleDuplicates.values()].find(
+    (member) =>
+      member._id !== ignoredMemberId &&
+      (member.type === "admin" || member.eventId === membership.eventId),
+  );
+  if (overlap) {
+    throw new Error("Este participante já possui uma função neste evento.");
+  }
+}
+
 export const assignClasses = mutation({
   args: {
+    eventId: v.optional(v.id("events")),
     schoolClass: v.string(),
     rows: v.array(v.object({
       number: v.optional(v.string()),
@@ -350,6 +444,8 @@ export const assignClasses = mutation({
     }
 
     const normalizedClass = args.schoolClass.trim();
+    const eventId = await resolveEventId(ctx, args.eventId);
+    const targetEvent = await ctx.db.get("events", eventId);
 
     if (!normalizedClass) {
       throw new Error("Informe o nome da turma no título do Markdown.");
@@ -377,10 +473,16 @@ export const assignClasses = mutation({
         continue;
       }
 
-      const matches = await ctx.db
+      const matches = (await ctx.db
         .query("members")
         .withIndex("by_tuitionId", (q) => q.eq("tuitionId", tuitionId))
-        .take(2);
+        .take(100))
+        .filter(
+          (member) =>
+            member.eventId === eventId ||
+            (member.eventId === undefined && targetEvent?.slug === "school-onu-2026"),
+        )
+        .slice(0, 2);
 
       if (matches.length === 0) {
         missing.push(`${row.studentName} (${tuitionId})`);
