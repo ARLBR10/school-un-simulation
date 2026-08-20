@@ -57,6 +57,10 @@ function PostHogUserProperties() {
 
     const name = member?.name ?? session?.user.name ?? null;
     const email = session?.user.email ?? null;
+    const memberships = userInfo?.memberships ?? [];
+    const currentMembership = memberships.find(
+      ({ member: membership }) => membership._id === member?._id,
+    );
 
     posthog.identify(userId, {
       $name: name,
@@ -68,6 +72,25 @@ function PostHogUserProperties() {
       "member.mediaFunction": member?.pressRole ?? null,
       "member.committee": committee?.theme ?? member?.committee ?? null,
       "member.committeeId": member?.committee ?? null,
+      "member.eventId": member?.eventId ?? null,
+      "member.eventStatus": currentMembership?.event?.status ?? null,
+      "membership.eventIds": memberships.flatMap(({ event }) =>
+        event ? [event._id] : [],
+      ),
+      "membership.pastEventIds": memberships.flatMap(({ event }) =>
+        event?.status === "past" ? [event._id] : [],
+      ),
+      "membership.history": memberships.map(
+        ({ member: membership, event }) => ({
+          memberId: membership._id,
+          memberType: membership.type,
+          eventId: event?._id ?? null,
+          eventName: event?.name ?? null,
+          eventSlug: event?.slug ?? null,
+          eventYear: event?.year ?? null,
+          eventStatus: event?.status ?? null,
+        }),
+      ),
       name,
       email,
       emailVerified: session?.user.emailVerified ?? null,

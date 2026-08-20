@@ -312,11 +312,19 @@ export const purge = mutation({
       return null;
     }
 
+    const committee = await ctx.db.get("committees", args.id);
+    if (!committee) return null;
+
     await ctx.db.delete("committees", args.id);
     await getPostHog().capture(ctx, {
       event: "admin_delete_committee",
       properties: {
         id: args.id,
+        deletedCommittee: {
+          id: committee._id,
+          eventId: committee.eventId ?? null,
+          theme: committee.theme,
+        },
       },
     });
 

@@ -163,6 +163,10 @@ export type AuthUser = Awaited<ReturnType<typeof authComponent.getAuthUser>>;
 
 type UserInfoType = AuthUser & {
   member: Doc<"members"> | null;
+  memberships: Array<{
+    member: Doc<"members">;
+    event: Doc<"events"> | null;
+  }>;
 };
 
 export const getCurrentUser = query({
@@ -182,7 +186,8 @@ export const getCurrentUser = query({
 
     return {
       ...userInfo,
-      member: membershipInfo,
+      member: membershipInfo.member,
+      memberships: membershipInfo.memberships,
     };
   },
 });

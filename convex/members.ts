@@ -55,9 +55,15 @@ export const getByUserId = internalQuery({
   args: {
     userId: v.optional(v.string()),
   },
-  async handler(ctx, args): Promise<Doc<"members"> | null> {
+  async handler(ctx, args): Promise<{
+    member: Doc<"members"> | null;
+    memberships: Array<{
+      member: Doc<"members">;
+      event: Doc<"events"> | null;
+    }>;
+  }> {
     if (!args.userId) {
-      return null;
+      return { member: null, memberships: [] };
     }
 
     const memberships = await ctx.db
@@ -65,14 +71,25 @@ export const getByUserId = internalQuery({
       .withIndex("by_userId", (q) => q.eq("userId", args.userId))
       .take(100);
     const adminMembership = memberships.find((member) => member.type === "admin");
-    if (adminMembership) return adminMembership;
-
     const activeEvent = await ctx.runQuery(internal.events.getActive, {});
-    return (
+    const member = adminMembership ??
       memberships.find((member) => member.eventId === activeEvent?._id) ??
       memberships.find((member) => member.eventId === undefined) ??
-      null
+      null;
+    const membershipHistory = await Promise.all(
+      memberships.map(async (membership) => ({
+        member: membership,
+        event: membership.eventId
+          ? await ctx.db.get("events", membership.eventId)
+          : null,
+      })),
     );
+
+    membershipHistory.sort(
+      (a, b) => (b.event?.year ?? 0) - (a.event?.year ?? 0),
+    );
+
+    return { member, memberships: membershipHistory };
   },
 });
 
@@ -565,11 +582,19 @@ export const purge = mutation({
       return null;
     }
 
+    const member = await ctx.db.get("members", args.id);
+    if (!member) return null;
+
     await ctx.db.delete("members", args.id);
     await getPostHog().capture(ctx, {
       event: "admin_delete_member",
       properties: {
         id: args.id,
+        deletedMember: {
+          id: member._id,
+          eventId: member.eventId ?? null,
+          type: member.type,
+        },
       },
     });
     return true;

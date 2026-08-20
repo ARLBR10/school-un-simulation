@@ -9,6 +9,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { getPostHog } from "./posthog";
 
 export const eventStatuses = v.union(
   v.literal("planned"),
@@ -154,7 +155,22 @@ export const create = mutation({
 
     await ensureUniqueEvent(ctx, slug, args.year);
     await ensureSingleActiveEvent(ctx, args.status);
-    return await ctx.db.insert("events", { name, slug, year: args.year, status: args.status });
+    const eventId = await ctx.db.insert("events", {
+      name,
+      slug,
+      year: args.year,
+      status: args.status,
+    });
+
+    await getPostHog().capture(ctx, {
+      event: "admin_create_event",
+      properties: {
+        eventId,
+        after: { id: eventId, name, slug, year: args.year, status: args.status },
+      },
+    });
+
+    return eventId;
   },
 });
 
@@ -180,12 +196,25 @@ export const update = mutation({
     await ensureUniqueEvent(ctx, slug, year, existing._id);
     await ensureSingleActiveEvent(ctx, status, existing._id);
 
-    await ctx.db.patch("events", existing._id, {
+    const eventPatch = {
       ...(args.name !== undefined ? { name: args.name.trim() } : {}),
       ...(args.slug !== undefined ? { slug } : {}),
       ...(args.year !== undefined ? { year } : {}),
       ...(args.status !== undefined ? { status } : {}),
+    };
+    await ctx.db.patch("events", existing._id, eventPatch);
+    const updated = await ctx.db.get("events", existing._id);
+
+    await getPostHog().capture(ctx, {
+      event: "admin_update_event",
+      properties: {
+        eventId: existing._id,
+        before: existing,
+        after: updated,
+        changedFields: Object.keys(eventPatch),
+      },
     });
+
     return true;
   },
 });
