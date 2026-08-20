@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronRight, History } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 import type { CommitteeSummary } from "@/convex/committees";
@@ -129,24 +130,40 @@ export function CommitteesView() {
             ))}
             {pastCommitteesByEvent.size > 0 ? (
               <motion.div variants={itemVariants} className="md:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Eventos passados</CardTitle>
-                    <CardDescription>
-                      Consulte os comitês preservados de edições anteriores.
-                    </CardDescription>
+                <Card className="gap-0">
+                  <CardHeader className="pb-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                        <History aria-hidden="true" className="size-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <CardTitle>Eventos passados</CardTitle>
+                        <CardDescription className="mt-1">
+                          Consulte os comitês preservados de edições anteriores.
+                        </CardDescription>
+                      </div>
+                    </div>
                   </CardHeader>
-                  <Accordion className="border-t px-4">
+                  <Accordion className="border-t px-2 sm:px-4">
                     {[...pastCommitteesByEvent.entries()].map(
                       ([eventName, items]) => (
                         <AccordionItem key={eventName} value={eventName}>
-                          <AccordionTrigger>
-                            <span>{eventName}</span>
-                            <span className="ml-auto mr-3 text-xs text-muted-foreground">
-                              {items.length} {items.length === 1 ? "comitê" : "comitês"}
+                          <AccordionTrigger className="items-center px-2 py-3 hover:bg-muted/30 hover:no-underline sm:px-3">
+                            <span className="flex min-w-0 items-center gap-2.5">
+                              <CalendarDays
+                                aria-hidden="true"
+                                className="size-4 shrink-0 text-muted-foreground"
+                              />
+                              <span className="truncate">{eventName}</span>
                             </span>
+                            <Badge
+                              variant="secondary"
+                              className="ml-auto mr-2 tabular-nums"
+                            >
+                              {items.length} {items.length === 1 ? "comitê" : "comitês"}
+                            </Badge>
                           </AccordionTrigger>
-                          <AccordionContent className="grid gap-3 pt-2 md:grid-cols-2">
+                          <AccordionContent className="grid gap-3 px-2 pt-2 pb-4 [&_a]:no-underline md:grid-cols-2 sm:px-3">
                             {items.map((committee) => (
                               <CommitteeCard
                                 key={committee._id}
@@ -190,7 +207,7 @@ function CommitteeCard({
       <Link
         to="/committees/$id"
         params={{ id }}
-        className="group flex h-full flex-col gap-4 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group flex h-full flex-col gap-4 p-4 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <CardHeader className="px-0">
           <CardTitle className="flex items-center justify-between gap-3">
