@@ -37,11 +37,14 @@ import { Route as AuthSingUpRouteImport } from './app/auth/sing-up'
 import { Route as CommitteesIndexRouteImport } from './app/committees/index'
 import { Route as CommitteesIdRouteImport } from './app/committees/$id'
 import { Route as ErrorNot_authorizedRouteImport } from './app/error/not_authorized'
+import { Route as FormsFormKeyRouteImport } from './app/forms/$formKey'
 import { Route as NewsIndexRouteImport } from './app/news/index'
 import { Route as NewsIdRouteImport } from './app/news/$id'
 import { Route as OrganizationPathRouteImport } from './app/organization/$path'
 import { Route as PressApprovalsRouteImport } from './app/press/approvals'
 import { Route as PressNewsRouteImport } from './app/press/news'
+import { Route as AdminFormsIndexRouteImport } from './app/admin/forms/index'
+import { Route as AdminFormsFormKeyRouteImport } from './app/admin/forms/$formKey'
 import { Route as ApiAuthSplatRouteImport } from './app/api/auth/$'
 
 const IndexRoute = IndexRouteImport.update({
@@ -184,6 +187,11 @@ const ErrorNot_authorizedRoute = ErrorNot_authorizedRouteImport.update({
   path: '/error/not_authorized',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FormsFormKeyRoute = FormsFormKeyRouteImport.update({
+  id: '/forms/$formKey',
+  path: '/forms/$formKey',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NewsIndexRoute = NewsIndexRouteImport.update({
   id: '/news/',
   path: '/news/',
@@ -208,6 +216,16 @@ const PressNewsRoute = PressNewsRouteImport.update({
   id: '/press/news',
   path: '/press/news',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AdminFormsIndexRoute = AdminFormsIndexRouteImport.update({
+  id: '/forms/',
+  path: '/forms/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminFormsFormKeyRoute = AdminFormsFormKeyRouteImport.update({
+  id: '/forms/$formKey',
+  path: '/forms/$formKey',
+  getParentRoute: () => AdminRoute,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
@@ -242,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/auth/sing-up': typeof AuthSingUpRoute
   '/committees/$id': typeof CommitteesIdRoute
   '/error/not_authorized': typeof ErrorNot_authorizedRoute
+  '/forms/$formKey': typeof FormsFormKeyRoute
   '/news/$id': typeof NewsIdRoute
   '/organization/$path': typeof OrganizationPathRoute
   '/press/approvals': typeof PressApprovalsRoute
@@ -249,7 +268,9 @@ export interface FileRoutesByFullPath {
   '/admin/': typeof AdminIndexRoute
   '/committees/': typeof CommitteesIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/admin/forms/$formKey': typeof AdminFormsFormKeyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/admin/forms/': typeof AdminFormsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -277,6 +298,7 @@ export interface FileRoutesByTo {
   '/auth/sing-up': typeof AuthSingUpRoute
   '/committees/$id': typeof CommitteesIdRoute
   '/error/not_authorized': typeof ErrorNot_authorizedRoute
+  '/forms/$formKey': typeof FormsFormKeyRoute
   '/news/$id': typeof NewsIdRoute
   '/organization/$path': typeof OrganizationPathRoute
   '/press/approvals': typeof PressApprovalsRoute
@@ -284,7 +306,9 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/committees': typeof CommitteesIndexRoute
   '/news': typeof NewsIndexRoute
+  '/admin/forms/$formKey': typeof AdminFormsFormKeyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/admin/forms': typeof AdminFormsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -314,6 +338,7 @@ export interface FileRoutesById {
   '/auth/sing-up': typeof AuthSingUpRoute
   '/committees/$id': typeof CommitteesIdRoute
   '/error/not_authorized': typeof ErrorNot_authorizedRoute
+  '/forms/$formKey': typeof FormsFormKeyRoute
   '/news/$id': typeof NewsIdRoute
   '/organization/$path': typeof OrganizationPathRoute
   '/press/approvals': typeof PressApprovalsRoute
@@ -321,7 +346,9 @@ export interface FileRoutesById {
   '/admin/': typeof AdminIndexRoute
   '/committees/': typeof CommitteesIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/admin/forms/$formKey': typeof AdminFormsFormKeyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/admin/forms/': typeof AdminFormsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -352,6 +379,7 @@ export interface FileRouteTypes {
     | '/auth/sing-up'
     | '/committees/$id'
     | '/error/not_authorized'
+    | '/forms/$formKey'
     | '/news/$id'
     | '/organization/$path'
     | '/press/approvals'
@@ -359,7 +387,9 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/committees/'
     | '/news/'
+    | '/admin/forms/$formKey'
     | '/api/auth/$'
+    | '/admin/forms/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -387,6 +417,7 @@ export interface FileRouteTypes {
     | '/auth/sing-up'
     | '/committees/$id'
     | '/error/not_authorized'
+    | '/forms/$formKey'
     | '/news/$id'
     | '/organization/$path'
     | '/press/approvals'
@@ -394,7 +425,9 @@ export interface FileRouteTypes {
     | '/admin'
     | '/committees'
     | '/news'
+    | '/admin/forms/$formKey'
     | '/api/auth/$'
+    | '/admin/forms'
   id:
     | '__root__'
     | '/'
@@ -423,6 +456,7 @@ export interface FileRouteTypes {
     | '/auth/sing-up'
     | '/committees/$id'
     | '/error/not_authorized'
+    | '/forms/$formKey'
     | '/news/$id'
     | '/organization/$path'
     | '/press/approvals'
@@ -430,7 +464,9 @@ export interface FileRouteTypes {
     | '/admin/'
     | '/committees/'
     | '/news/'
+    | '/admin/forms/$formKey'
     | '/api/auth/$'
+    | '/admin/forms/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -451,6 +487,7 @@ export interface RootRouteChildren {
   AuthSingUpRoute: typeof AuthSingUpRoute
   CommitteesIdRoute: typeof CommitteesIdRoute
   ErrorNot_authorizedRoute: typeof ErrorNot_authorizedRoute
+  FormsFormKeyRoute: typeof FormsFormKeyRoute
   NewsIdRoute: typeof NewsIdRoute
   OrganizationPathRoute: typeof OrganizationPathRoute
   PressApprovalsRoute: typeof PressApprovalsRoute
@@ -658,6 +695,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ErrorNot_authorizedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/forms/$formKey': {
+      id: '/forms/$formKey'
+      path: '/forms/$formKey'
+      fullPath: '/forms/$formKey'
+      preLoaderRoute: typeof FormsFormKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/news/': {
       id: '/news/'
       path: '/news'
@@ -693,6 +737,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PressNewsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/forms/': {
+      id: '/admin/forms/'
+      path: '/forms'
+      fullPath: '/admin/forms/'
+      preLoaderRoute: typeof AdminFormsIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/forms/$formKey': {
+      id: '/admin/forms/$formKey'
+      path: '/forms/$formKey'
+      fullPath: '/admin/forms/$formKey'
+      preLoaderRoute: typeof AdminFormsFormKeyRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/api/auth/$': {
       id: '/api/auth/$'
       path: '/api/auth/$'
@@ -714,6 +772,8 @@ interface AdminRouteChildren {
   AdminNewsRoute: typeof AdminNewsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
+  AdminFormsFormKeyRoute: typeof AdminFormsFormKeyRoute
+  AdminFormsIndexRoute: typeof AdminFormsIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
@@ -727,6 +787,8 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminNewsRoute: AdminNewsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
+  AdminFormsFormKeyRoute: AdminFormsFormKeyRoute,
+  AdminFormsIndexRoute: AdminFormsIndexRoute,
 }
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
@@ -749,6 +811,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthSingUpRoute: AuthSingUpRoute,
   CommitteesIdRoute: CommitteesIdRoute,
   ErrorNot_authorizedRoute: ErrorNot_authorizedRoute,
+  FormsFormKeyRoute: FormsFormKeyRoute,
   NewsIdRoute: NewsIdRoute,
   OrganizationPathRoute: OrganizationPathRoute,
   PressApprovalsRoute: PressApprovalsRoute,

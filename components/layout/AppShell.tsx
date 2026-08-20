@@ -80,6 +80,7 @@ type NavigationItem = {
     | "/admin/attendance"
     | "/admin/class-utils"
     | "/admin/documents"
+    | "/admin/forms"
     | "/press/news"
     | "/press/approvals"
     | "/grading"
@@ -114,6 +115,7 @@ const adminNavigationLinks: NavigationItem[] = [
   { href: "/admin/attendance", label: "Presenças", icon: UserCheck },
   { href: "/admin/class-utils", label: "Class Utils", icon: School },
   { href: "/admin/documents", label: "Documentos", icon: FileText },
+  { href: "/admin/forms", label: "Formulários", icon: ClipboardList },
 ];
 
 const pressNavigationLinks: NavigationItem[] = [
@@ -506,6 +508,13 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
     return [
       { href: "/admin", label: "Administração" },
       { label: "Documentos" },
+    ];
+  }
+
+  if (pathname.startsWith("/admin/forms")) {
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Formulários" },
     ];
   }
 

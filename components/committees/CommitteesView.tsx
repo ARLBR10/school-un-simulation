@@ -2,8 +2,15 @@
 
 import { useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { CalendarDays, ChevronRight, History } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  ChevronRight,
+  History,
+  Sparkles,
+} from "lucide-react";
 import { Link } from "@tanstack/react-router";
+import { useFeatureFlagEnabled } from "posthog-js/react";
 
 import { PageHeader, PageShell } from "@/components/layout/PageShell";
 import { EventBadges } from "@/components/events/EventBadges";
@@ -15,16 +22,20 @@ import {
 } from "@/components/ui/accordion";
 import {
   Card,
+  CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 import type { CommitteeSummary } from "@/convex/committees";
 
 const SKELETON_ROW_COUNT = 4;
+const COMMITTEE_SELECTION_FORM_FLAG = "committee-selection-form-2027";
 
 const containerVariants = {
   hidden: {},
@@ -56,6 +67,10 @@ function groupPastCommittees(items: CommitteeSummary[]) {
 
 export function CommitteesView() {
   const committees = useQuery(api.committees.list);
+  const showCommitteeSelectionForm = useFeatureFlagEnabled(
+    COMMITTEE_SELECTION_FORM_FLAG,
+    false,
+  );
   const isLoading = committees === undefined;
   const currentCommittees = committees?.filter((item) => !item.isPastEvent) ?? [];
   const pastCommitteesByEvent = groupPastCommittees(
@@ -74,6 +89,44 @@ export function CommitteesView() {
           description="Conheça os comitês da simulação, seus temas e tópicos em debate."
         />
       </motion.header>
+
+      {showCommitteeSelectionForm ? (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.05 }}
+        >
+          <Card className="relative overflow-hidden border-primary/20 bg-primary/5">
+            <div className="pointer-events-none absolute -top-16 -right-16 size-40 rounded-full bg-primary/10 blur-3xl" />
+            <CardHeader>
+              <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Sparkles aria-hidden="true" />
+              </div>
+              <CardTitle>Ajude a escolher os comitês de 2027</CardTitle>
+              <CardDescription className="max-w-2xl leading-6">
+                A nova gestão quer ouvir você. Compartilhe suas preferências e
+                sugestões para a próxima edição da simulação.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Badge variant="secondary">Consulta da gestão 2027</Badge>
+            </CardContent>
+            <CardFooter className="justify-end">
+              <Button
+                render={
+                  <Link
+                    to="/forms/$formKey"
+                    params={{ formKey: "committee-selection-2027" }}
+                  />
+                }
+              >
+                Responder formulário
+                <ArrowRight data-icon="inline-end" />
+              </Button>
+            </CardFooter>
+          </Card>
+        </motion.div>
+      ) : null}
 
       <AnimatePresence mode="wait" initial={false}>
         {isLoading ? (

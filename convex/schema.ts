@@ -91,6 +91,37 @@ export default defineSchema({
     description: v.string(),
     eventId: v.optional(v.id("events")),
   }).index("by_eventId", { fields: ["eventId"], staged: true }),
+  formSubmissions: defineTable({
+    formKey: v.string(),
+    formVersion: v.number(),
+    respondentUserId: v.string(),
+    respondentMemberId: v.id("members"),
+    eventId: v.optional(v.id("events")),
+    submittedAt: v.number(),
+  })
+    .index("by_formKey", ["formKey"])
+    .index("by_respondentUserId", ["respondentUserId"])
+    .index("by_respondentMemberId", ["respondentMemberId"])
+    .index("by_formKey_and_formVersion_and_respondentUserId", [
+      "formKey",
+      "formVersion",
+      "respondentUserId",
+    ])
+    .index("by_eventId", ["eventId"]),
+  formAnswers: defineTable({
+    submissionId: v.id("formSubmissions"),
+    fieldId: v.string(),
+    fieldName: v.string(),
+    displayValue: v.string(),
+    value: v.union(
+      v.string(),
+      v.number(),
+      v.boolean(),
+      v.array(v.string()),
+    ),
+  })
+    .index("by_submissionId", ["submissionId"])
+    .index("by_submissionId_and_fieldId", ["submissionId", "fieldId"]),
   news: defineTable({
     author: v.optional(v.id("members")),
     committee: v.optional(v.array(v.id("committees"))),
