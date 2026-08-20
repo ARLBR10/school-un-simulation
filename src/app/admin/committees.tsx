@@ -180,7 +180,7 @@ function TopicListInput({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const topics = normalizeStringList(value);
+  const topics = value ? value.split("\n") : [];
 
   function updateTopics(nextTopics: string[]) {
     onChange(nextTopics.join("\n"));
@@ -197,9 +197,7 @@ function TopicListInput({
               const nextTopics = [...topics];
               const nextTopic = event.target.value;
 
-              nextTopics[index] = nextTopic.trim()
-                ? nextTopic
-                : emptyTopicValue;
+              nextTopics[index] = nextTopic || emptyTopicValue;
               updateTopics(nextTopics);
             }}
           />

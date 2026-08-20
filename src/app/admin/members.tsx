@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { Copy, QrCode, Trash2 } from "lucide-react";
@@ -685,12 +685,11 @@ function DelegatedCountryCombobox({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const comboboxPortalContainerRef = useRef<HTMLDivElement>(null);
   const selectedCountryOption =
     countryOptions.find((option) => option.value === value) ?? null;
 
   return (
-    <div ref={comboboxPortalContainerRef}>
+    <div>
       <Combobox
         items={countryOptions}
         itemToStringValue={(option) => option.label}
@@ -708,7 +707,7 @@ function DelegatedCountryCombobox({
           showClear
           className="h-10 w-full rounded-md bg-background text-foreground shadow-sm hover:bg-background dark:bg-background"
         />
-        <ComboboxContent portalContainer={comboboxPortalContainerRef}>
+        <ComboboxContent>
           <ComboboxEmpty>Nenhum país encontrado.</ComboboxEmpty>
           <ComboboxList>
             {(option) => (

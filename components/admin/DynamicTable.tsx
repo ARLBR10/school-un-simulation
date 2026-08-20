@@ -203,7 +203,7 @@ function formatFormValue(value: ReactNode) {
       (item) => typeof item === "string" || typeof item === "number",
     )
   ) {
-    return value.join(", ");
+    return value.join("\n");
   }
 
   return "";

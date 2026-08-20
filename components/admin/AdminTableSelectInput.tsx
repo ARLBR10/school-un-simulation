@@ -41,8 +41,6 @@ export function AdminTableSelectInput({
   onChange,
 }: AdminTableSelectInputProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [portalContainer, setPortalContainer] =
-    useState<HTMLDivElement | null>(null);
   const [searchValue, setSearchValue] = useState("");
   const selectedOption =
     options.find((option) => option.value === value) ?? null;
@@ -52,7 +50,7 @@ export function AdminTableSelectInput({
   }
 
   return (
-    <div ref={setPortalContainer} className="relative w-full">
+    <div className="relative w-full">
       <Combobox
         key={`${fieldKey}-${value || "empty"}`}
         items={options}
@@ -104,7 +102,7 @@ export function AdminTableSelectInput({
             <ComboboxValue placeholder={placeholder} />
           </span>
         </ComboboxTrigger>
-        <ComboboxContent portalContainer={portalContainer}>
+        <ComboboxContent>
           <ComboboxInput
             showTrigger={false}
             placeholder={placeholder ?? "Buscar opção"}
