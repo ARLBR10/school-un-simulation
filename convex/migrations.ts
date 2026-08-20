@@ -6,16 +6,19 @@ import { internalMutation, type MutationCtx } from "./_generated/server";
 import schema from "./schema";
 
 const migrations = new Migrations(components.migrations, { internalMutation, schema });
-const legacyEventSlug = "onu-2026";
+const legacyEventSlug = "school-onu-2026";
+const legacyEventYear = 2026;
 
 async function getLegacyEventId(ctx: Pick<MutationCtx, "db">) {
   const event = await ctx.db
     .query("events")
-    .withIndex("by_slug", (q) => q.eq("slug", legacyEventSlug))
+    .withIndex("by_year", (q) => q.eq("year", legacyEventYear))
     .unique();
 
   if (!event) {
-    throw new Error("Run migrations:seed2026Event before the backfill.");
+    throw new Error(
+      "Run `bunx convex run migrations:seed2026Event --prod` before the backfill.",
+    );
   }
   return event._id;
 }
@@ -26,14 +29,14 @@ export const seed2026Event = internalMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("events")
-      .withIndex("by_slug", (q) => q.eq("slug", legacyEventSlug))
+      .withIndex("by_year", (q) => q.eq("year", legacyEventYear))
       .unique();
     if (existing) return existing._id;
 
     return await ctx.db.insert("events", {
       name: args.name?.trim() || "Simulação da ONU 2026",
       slug: legacyEventSlug,
-      year: 2026,
+      year: legacyEventYear,
       status: "active",
     });
   },
