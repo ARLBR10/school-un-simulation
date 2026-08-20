@@ -56,7 +56,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -408,6 +407,11 @@ export function DynamicTable<T extends AdminTableRow>({
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [rowToEdit, setRowToEdit] = useState<T | null>(null);
   const [rowToEditIndex, setRowToEditIndex] = useState<number | null>(null);
+  const [rowToDelete, setRowToDelete] = useState<{
+    row: T;
+    index: number;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const referencedRowValue = searchParamKey ? searchParams.get(searchParamKey) : null;
 
   useEffect(() => {
@@ -690,42 +694,18 @@ export function DynamicTable<T extends AdminTableRow>({
                         <>
                           <DropdownMenuSeparator />
                           <DropdownMenuGroup>
-                            <AlertDialog>
-                              <AlertDialogTrigger
-                                nativeButton={false}
-                                render={
-                                  <DropdownMenuItem
-                                    variant="destructive"
-                                    onSelect={(event) => event.preventDefault()}
-                                  />
-                                }
-                              >
-                                <Trash2 />
-                                Excluir
-                              </AlertDialogTrigger>
-                              <AlertDialogContent size="sm">
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Esta ação não pode ser desfeita.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    variant="destructive"
-                                    onClick={() =>
-                                      void handleDeleteRow(
-                                        row.original,
-                                        tableData.indexOf(row.original),
-                                      )
-                                    }
-                                  >
-                                    Excluir
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() =>
+                                setRowToDelete({
+                                  row: row.original,
+                                  index: tableData.indexOf(row.original),
+                                })
+                              }
+                            >
+                              <Trash2 />
+                              Excluir
+                            </DropdownMenuItem>
                           </DropdownMenuGroup>
                         </>
                       ) : null}
@@ -984,7 +964,7 @@ export function DynamicTable<T extends AdminTableRow>({
     }
 
     if (!shouldApplyChange) {
-      return;
+      return false;
     }
 
     let nextData: T[] = [];
@@ -1008,6 +988,8 @@ export function DynamicTable<T extends AdminTableRow>({
       setRowToEditIndex(null);
       updateSearchParam(null);
     }
+
+    return true;
   }
 
   return (
@@ -1154,6 +1136,52 @@ export function DynamicTable<T extends AdminTableRow>({
         onClose={handleCloseForm}
         onSubmit={handleSubmitForm}
       />
+
+      <AlertDialog
+        open={rowToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open && !isDeleting) {
+            setRowToDelete(null);
+          }
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir registro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={isDeleting}
+              onClick={async () => {
+                if (!rowToDelete) {
+                  return;
+                }
+
+                setIsDeleting(true);
+                try {
+                  const deleted = await handleDeleteRow(
+                    rowToDelete.row,
+                    rowToDelete.index,
+                  );
+
+                  if (deleted) {
+                    setRowToDelete(null);
+                  }
+                } finally {
+                  setIsDeleting(false);
+                }
+              }}
+            >
+              {isDeleting ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
