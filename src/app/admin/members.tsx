@@ -1028,14 +1028,15 @@ function MembersPage() {
     { value: noCommitteeOptionValue, label: "Sem comitê" },
   ];
 
-  for (const committee of (committeesData ?? []).filter((item) =>
-    isRowFromSelectedEvent(item.eventId, selectedEventId, activeEvent),
-  )) {
+  for (const committee of committeesData ?? []) {
     committeeLabelById[committee._id] = committee.theme;
-    committeeOptions.push({
-      value: committee._id,
-      label: committee.theme,
-    });
+
+    if (isRowFromSelectedEvent(committee.eventId, selectedEventId, activeEvent)) {
+      committeeOptions.push({
+        value: committee._id,
+        label: committee.theme,
+      });
+    }
   }
 
   const userLabelById: Record<string, string> = {};
@@ -1098,7 +1099,17 @@ function MembersPage() {
         options: eventOptions,
         placeholder: "Selecione um evento",
       }),
-      showInEditForm: false,
+      formRender: ({ value, onChange, mode, row }) => (
+        <AdminTableSelectInput
+          fieldKey="eventId"
+          mode={mode}
+          options={eventOptions}
+          placeholder="Selecione um evento"
+          value={value}
+          disabled={mode === "edit" && row?.type === "admin"}
+          onChange={onChange}
+        />
+      ),
       render: (member) =>
         member.eventId
           ? (eventLabelById[member.eventId] ?? member.eventId)
@@ -1108,13 +1119,46 @@ function MembersPage() {
     },
     { key: "tuitionId", label: "Matrícula" },
     { key: "schoolClass", label: "Turma" },
-    createSelectColumn({
-      key: "committee",
-      label: "Comitê",
-      options: committeeOptions,
-      placeholder: "Selecione um comitê",
-      showInTable: false,
-    }),
+    {
+      ...createSelectColumn({
+        key: "committee",
+        label: "Comitê",
+        options: committeeOptions,
+        placeholder: "Selecione um comitê",
+        showInTable: false,
+      }),
+      formRender: ({ value, values, onChange, mode }) => {
+        const formEventId = values.eventId;
+        const formCommitteeOptions: AdminTableSelectOption[] = [
+          { value: noCommitteeOptionValue, label: "Sem comitê" },
+          ...(committeesData ?? [])
+            .filter(
+              (committee) =>
+                committee.eventId === formEventId ||
+                (committee.eventId === undefined &&
+                  activeEvent?.slug === "school-onu-2026" &&
+                  activeEvent._id === formEventId),
+            )
+            .map((committee) => ({
+              value: committee._id,
+              label: committee.theme,
+            })),
+        ];
+
+        return (
+          <AdminTableSelectInput
+            fieldKey="committee"
+            mode={mode}
+            options={formCommitteeOptions}
+            placeholder="Selecione um comitê"
+            value={value}
+            onChange={(nextValue) =>
+              onChange(nextValue === noCommitteeOptionValue ? "" : nextValue)
+            }
+          />
+        );
+      },
+    },
     {
       key: "delegatedCountry",
       label: "País representado",
@@ -1444,8 +1488,12 @@ function MembersPage() {
             }
 
             return false;
-          } catch {
-            toast.error("Não foi possível atualizar o membro.");
+          } catch (error) {
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : "Não foi possível atualizar o membro.",
+            );
             return false;
           }
         }}

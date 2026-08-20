@@ -1,6 +1,5 @@
 import { createClient } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
-import { isRunMutationCtx } from "@convex-dev/better-auth/utils";
 import {
   detectBrowser,
   detectBrowserVersion,
@@ -8,16 +7,16 @@ import {
   detectDeviceType,
   detectOS,
 } from "@posthog/core";
-import { createAuthMiddleware } from "better-auth/api";
 import { auditLog } from "better-auth-audit-logs";
 import { betterAuth } from "better-auth/minimal";
+import { v } from "convex/values";
 
 import { components, internal } from "./_generated/api";
-import { query } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import authConfig from "./auth.config";
 import { getPostHog } from "./posthog";
 
-import type { GenericCtx } from "@convex-dev/better-auth";
+import type { AuthFunctions, GenericCtx } from "@convex-dev/better-auth";
 import type { AuditLogEntry } from "better-auth-audit-logs";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Doc } from "./_generated/dataModel";
@@ -30,49 +29,40 @@ const studentEmailDomains =
 
 // The component client has methods needed for integrating Convex with Better Auth,
 // as well as helper methods for general use.
-export const authComponent = createClient<DataModel>(components.betterAuth);
+const authFunctions: AuthFunctions = internal.auth;
 
-export const createAuth = (ctx: GenericCtx<DataModel>) => {
-  return betterAuth({
-    baseURL: siteUrl,
-    database: authComponent.adapter(ctx),
-    hooks: {
-      after: createAuthMiddleware(async (hookCtx) => {
-        const newSession = hookCtx.context.newSession;
-        const email = newSession?.user.email.trim().toLowerCase();
+export const authComponent = createClient<DataModel>(components.betterAuth, {
+  authFunctions,
+  triggers: {
+    user: {
+      onCreate: async (ctx, user) => {
+        const email = user.email.trim().toLowerCase();
 
         if (
-          !newSession ||
-          !email ||
           !studentEmailDomains.some((domain) => email.endsWith(`@${domain}`))
         ) {
           return;
         }
 
-        if (!isRunMutationCtx(ctx)) {
-          hookCtx.context.logger.warn(
-            "Skipping student membership assignment outside a Convex mutation/action context.",
-          );
-          return;
-        }
-
-        try {
-          await ctx.runMutation(
-            internal.members.assignStudentMembershipFromEmail,
-            {
-              userId: newSession.session.userId,
-              email,
-              name: newSession.user.name,
-            },
-          );
-        } catch (error) {
-          hookCtx.context.logger.error(
-            "Failed to assign student membership after auth session creation.",
-            error,
-          );
-        }
-      }),
+        await ctx.runMutation(
+          internal.members.assignStudentMembershipFromEmail,
+          {
+            userId: user._id,
+            email,
+            name: user.name,
+          },
+        );
+      },
     },
+  },
+});
+
+export const { onCreate, onUpdate, onDelete } = authComponent.triggersApi();
+
+export const createAuth = (ctx: GenericCtx<DataModel>) => {
+  return betterAuth({
+    baseURL: siteUrl,
+    database: authComponent.adapter(ctx),
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: false,
@@ -168,6 +158,27 @@ type UserInfoType = AuthUser & {
     event: Doc<"events"> | null;
   }>;
 };
+
+export const ensureStudentMembership = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const user = await authComponent.getAuthUser(ctx);
+    const email = user.email.trim().toLowerCase();
+
+    if (!studentEmailDomains.some((domain) => email.endsWith(`@${domain}`))) {
+      return null;
+    }
+
+    await ctx.runMutation(internal.members.assignStudentMembershipFromEmail, {
+      userId: user._id,
+      email,
+      name: user.name,
+    });
+
+    return null;
+  },
+});
 
 export const getCurrentUser = query({
   args: {},

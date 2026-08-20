@@ -72,8 +72,14 @@ export const getByUserId = internalQuery({
       .take(100);
     const adminMembership = memberships.find((member) => member.type === "admin");
     const activeEvent = await ctx.runQuery(internal.events.getActive, {});
+    const membershipEvent = activeEvent ??
+      await ctx.db
+        .query("events")
+        .withIndex("by_status", (q) => q.eq("status", "planned"))
+        .order("desc")
+        .first();
     const member = adminMembership ??
-      memberships.find((member) => member.eventId === activeEvent?._id) ??
+      memberships.find((member) => member.eventId === membershipEvent?._id) ??
       memberships.find((member) => member.eventId === undefined) ??
       null;
     const membershipHistory = await Promise.all(
@@ -114,25 +120,37 @@ export const assignStudentMembershipFromEmail = internalMutation({
       .query("events")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .unique();
-    if (!activeEvent) {
-      return null;
-    }
-
-    const existingMemberships = await ctx.db
-      .query("members")
-      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
-      .take(100);
-    if (
-      existingMemberships.some(
-        (member) =>
-          member.type === "admin" || member.eventId === activeEvent._id,
-      )
-    ) {
+    const enrollmentEvent = activeEvent ??
+      await ctx.db
+        .query("events")
+        .withIndex("by_status", (q) => q.eq("status", "planned"))
+        .order("desc")
+        .first();
+    if (!enrollmentEvent) {
       return null;
     }
 
     const emailLocalPart = args.email.slice(0, args.email.lastIndexOf("@"));
     const emailTuitionId = emailLocalPart.split(".").at(-1)?.trim();
+    const existingMemberships = await ctx.db
+      .query("members")
+      .withIndex("by_userId", (q) => q.eq("userId", args.userId))
+      .take(100);
+    if (existingMemberships.some((member) => member.type === "admin")) {
+      return null;
+    }
+
+    const existingEventMembership = existingMemberships.find(
+      (member) => member.eventId === enrollmentEvent._id,
+    );
+    if (existingEventMembership) {
+      if (emailTuitionId && !existingEventMembership.tuitionId) {
+        await ctx.db.patch("members", existingEventMembership._id, {
+          tuitionId: emailTuitionId,
+        });
+      }
+      return null;
+    }
 
     if (emailTuitionId) {
       const usersByTuitionId = await ctx.db
@@ -141,7 +159,7 @@ export const assignStudentMembershipFromEmail = internalMutation({
         .take(100);
       const userByTuitionId =
         usersByTuitionId.find(
-          (member) => member.eventId === activeEvent._id,
+          (member) => member.eventId === enrollmentEvent._id,
         ) ??
         usersByTuitionId.find((member) => member.eventId === undefined);
 
@@ -157,8 +175,9 @@ export const assignStudentMembershipFromEmail = internalMutation({
     await ctx.db.insert("members", {
       userId: args.userId,
       name: name || emailLocalPart,
+      tuitionId: emailTuitionId || undefined,
       type: "unassigned",
-      eventId: activeEvent._id,
+      eventId: enrollmentEvent._id,
     });
 
     return null;
@@ -363,17 +382,6 @@ export const update = mutation({
 
     if ("name" in args && args.name !== undefined) {
       memberPatch.name = args.name;
-    }
-
-    if (
-      args.eventId !== undefined &&
-      memberInfo.type !== "admin" &&
-      memberInfo.eventId !== undefined &&
-      memberInfo.eventId !== args.eventId
-    ) {
-      throw new Error(
-        "O evento de uma participação não pode ser alterado. Crie uma nova participação.",
-      );
     }
 
     if (args.eventId !== undefined && memberInfo.type !== "admin") {
