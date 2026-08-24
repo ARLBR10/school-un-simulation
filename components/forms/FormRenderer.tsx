@@ -102,10 +102,12 @@ function MultipleOptionsField({
   const [customValue, setCustomValue] = useState("");
   const knownValues = new Set(field.options.map((option) => option.value));
   const customValues = value.filter((item) => !knownValues.has(item));
+  const selectionLimitReached =
+    field.maxSelections !== undefined && value.length >= field.maxSelections;
 
   function addCustomValue() {
     const nextValue = customValue.trim();
-    if (!nextValue || value.includes(nextValue)) return;
+    if (!nextValue || value.includes(nextValue) || selectionLimitReached) return;
     onChange([...value, nextValue]);
     setCustomValue("");
   }
@@ -119,6 +121,7 @@ function MultipleOptionsField({
             <Checkbox
               id={`${field.id}-${option.value}`}
               checked={value.includes(option.value)}
+              disabled={selectionLimitReached && !value.includes(option.value)}
               aria-invalid={invalid}
               onCheckedChange={(checked) => {
                 onChange(
@@ -154,6 +157,7 @@ function MultipleOptionsField({
           <div className="flex gap-2">
             <Input
               value={customValue}
+              disabled={selectionLimitReached}
               placeholder="Outra sugestão"
               aria-label={`Outra opção para ${field.name}`}
               onChange={(event) => setCustomValue(event.target.value)}
@@ -164,7 +168,12 @@ function MultipleOptionsField({
                 }
               }}
             />
-            <Button type="button" variant="outline" onClick={addCustomValue}>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={selectionLimitReached}
+              onClick={addCustomValue}
+            >
               <Plus data-icon="inline-start" />
               Adicionar
             </Button>
@@ -284,11 +293,37 @@ export function FormRenderer({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextErrors = Object.fromEntries(
-      definition.fields.flatMap((field) =>
-        field.required && isEmpty(answers[field.id])
-          ? [[field.id, "Este campo é obrigatório."]]
-          : [],
-      ),
+      definition.fields.flatMap((field) => {
+        const value = answers[field.id];
+        if (field.required && isEmpty(value)) {
+          return [[field.id, "Este campo é obrigatório."]];
+        }
+        if (
+          (field.type === "multipleOptions" ||
+            field.type === "multipleOptionsWithCustom") &&
+          Array.isArray(value)
+        ) {
+          if (
+            field.minSelections !== undefined &&
+            value.length < field.minSelections
+          ) {
+            return [[
+              field.id,
+              `Selecione pelo menos ${field.minSelections} ${field.minSelections === 1 ? "opção" : "opções"}.`,
+            ]];
+          }
+          if (
+            field.maxSelections !== undefined &&
+            value.length > field.maxSelections
+          ) {
+            return [[
+              field.id,
+              `Selecione no máximo ${field.maxSelections} opções.`,
+            ]];
+          }
+        }
+        return [];
+      }),
     );
     setErrors(nextErrors);
     setSubmitError(null);

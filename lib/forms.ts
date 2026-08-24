@@ -19,6 +19,8 @@ export type FormField =
   | (BaseFormField & {
       type: "multipleOptions" | "multipleOptionsWithCustom";
       options: FormOption[];
+      minSelections?: number;
+      maxSelections?: number;
     });
 
 export type FormDefinition = {
@@ -36,10 +38,10 @@ export type FormDefinition = {
 
 export const committeeSelection2027Form = {
   key: "committee-selection-2027",
-  version: 1,
-  title: "Ajude a escolher os comitês de 2027",
+  version: 2,
+  title: "Ajude a escolher os temas de 2027",
   description:
-    "Compartilhe suas preferências com a nova gestão e ajude a construir a próxima edição da simulação.",
+    "Escolha os temas que você gostaria de ver na próxima edição da simulação.",
   eventSlug: "school-onu-2027",
   submitLabel: "Enviar sugestões",
   successTitle: "Sugestões registradas",
@@ -47,26 +49,47 @@ export const committeeSelection2027Form = {
     "Obrigado por contribuir com a construção da Simulação da ONU de 2027. Você pode voltar e atualizar suas respostas enquanto o formulário estiver disponível.",
   fields: [
     {
-      id: "committeePreferences",
-      name: "Que tipos de comitê você gostaria de ver em 2027?",
-      description:
-        "Selecione quantas opções quiser ou escreva uma sugestão própria.",
-      type: "multipleOptionsWithCustom",
+      id: "topicPreferences",
+      name: "Quais temas você gostaria de ver em 2027?",
+      description: "Selecione de 1 a 3 opções.",
+      type: "multipleOptions",
       required: true,
+      minSelections: 1,
+      maxSelections: 3,
       options: [
-        { value: "security-council", label: "Conselho de Segurança" },
-        { value: "general-assembly", label: "Assembleia Geral" },
-        { value: "historical", label: "Comitê histórico" },
-        { value: "international-court", label: "Tribunal internacional" },
-        { value: "specialized-agency", label: "Agência especializada" },
+        { value: "arms-policy", label: "Política armamentista" },
+        { value: "sanitation-education", label: "Saneamento e educação" },
+        { value: "technological-future", label: "Futuro tecnológico" },
+        {
+          value: "terrorism-international-conflicts",
+          label: "Terrorismo e conflitos internacionais",
+        },
+        { value: "climate-emergencies", label: "Emergências climáticas" },
+        {
+          value: "separatist-movements-nationalism",
+          label: "Movimentos separatistas e nacionalismo",
+        },
+        {
+          value: "police-violence-militias",
+          label: "Violência policial: milícia",
+        },
+        { value: "racism", label: "Racismo" },
+        { value: "immigrants", label: "Imigrantes" },
+        {
+          value: "human-rights-humanitarian-crisis",
+          label: "Acesso aos direitos humanos: crise humanitária",
+        },
+        {
+          value: "data-sovereignty-disinformation-democracies",
+          label:
+            "Soberania de dados, desinformação e a proteção das democracias",
+        },
+        {
+          value: "multilateralism-international-law",
+          label:
+            "Crise no multilateralismo e cumprimento de leis internacionais",
+        },
       ],
-    },
-    {
-      id: "topicSuggestions",
-      name: "Quais temas ou crises deveriam ser debatidos?",
-      description:
-        "Esta pergunta é provisória e poderá ser substituída quando a gestão definir o conteúdo final.",
-      type: "textarea",
     },
   ],
 } satisfies FormDefinition;

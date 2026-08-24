@@ -99,7 +99,12 @@ function validateFieldValue(field: FormField, value: FormAnswerValue) {
   if (field.type === "multipleOptions") {
     return (
       Array.isArray(value) &&
+      (field.minSelections === undefined ||
+        value.length >= field.minSelections) &&
+      (field.maxSelections === undefined ||
+        value.length <= field.maxSelections) &&
       value.length <= MAX_OPTIONS &&
+      new Set(value).size === value.length &&
       value.every((item) => item.length <= MAX_OPTION_LENGTH) &&
       value.every((item) => field.options.some((option) => option.value === item))
     );
@@ -107,7 +112,12 @@ function validateFieldValue(field: FormField, value: FormAnswerValue) {
   if (field.type === "multipleOptionsWithCustom") {
     return (
       Array.isArray(value) &&
+      (field.minSelections === undefined ||
+        value.length >= field.minSelections) &&
+      (field.maxSelections === undefined ||
+        value.length <= field.maxSelections) &&
       value.length <= MAX_OPTIONS &&
+      new Set(value).size === value.length &&
       value.every(
         (item) => item.trim().length > 0 && item.length <= MAX_OPTION_LENGTH,
       )
