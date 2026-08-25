@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+  capturePostHogAsyncSafely,
   capturePostHogSafely,
   redactPostHogError,
 } from "../lib/posthog-telemetry";
@@ -29,5 +30,20 @@ describe("capturePostHogSafely", () => {
 
     expect(redacted.error.message).toBe("form_submission_failed");
     expect(JSON.stringify(redacted)).not.toContain("secret submitted answer");
+  });
+
+  test("does not let async PostHog initialization failures escape", async () => {
+    const telemetryError = new Error("PostHog configuration unavailable");
+    const reportedErrors: unknown[] = [];
+
+    await expect(
+      capturePostHogAsyncSafely(
+        async () => {
+          throw telemetryError;
+        },
+        (error) => reportedErrors.push(error),
+      ),
+    ).resolves.toBeUndefined();
+    expect(reportedErrors).toEqual([telemetryError]);
   });
 });

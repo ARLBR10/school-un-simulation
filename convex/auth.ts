@@ -15,6 +15,7 @@ import { components, internal } from "./_generated/api";
 import { mutation, query } from "./_generated/server";
 import authConfig from "./auth.config";
 import { getPostHog } from "./posthog";
+import { capturePostHogAsyncSafely } from "../lib/posthog-telemetry";
 
 import type { AuthFunctions, GenericCtx } from "@convex-dev/better-auth";
 import type { AuditLogEntry } from "better-auth-audit-logs";
@@ -170,26 +171,28 @@ export const ensureStudentMembership = mutation({
   handler: async (ctx) => {
     const user = await authComponent.getAuthUser(ctx);
     const email = user.email.trim().toLowerCase();
-    const posthog = getPostHog();
 
     const captureOutcome = async (
       outcome: "ready" | "ineligible" | "unavailable" | "error",
     ) => {
-      try {
-        await posthog.capture(ctx, {
-          event: "student_membership_reconciliation",
-          distinctId: user._id,
-          properties: {
-            outcome,
-            allowed_domain_configured: studentEmailDomains.length > 0,
-          },
-        });
-      } catch (error) {
-        console.error(
-          "Failed to capture student membership reconciliation in PostHog",
-          error,
-        );
-      }
+      await capturePostHogAsyncSafely(
+        async () => {
+          await getPostHog().capture(ctx, {
+            event: "student_membership_reconciliation",
+            distinctId: user._id,
+            properties: {
+              outcome,
+              allowed_domain_configured: studentEmailDomains.length > 0,
+            },
+          });
+        },
+        (error) => {
+          console.error(
+            "Failed to capture student membership reconciliation in PostHog",
+            error,
+          );
+        },
+      );
     };
 
     if (!studentEmailDomains.some((domain) => email.endsWith(`@${domain}`))) {
@@ -213,21 +216,24 @@ export const ensureStudentMembership = mutation({
       return outcome;
     } catch (error) {
       console.error("Failed to reconcile student membership", error);
-      try {
-        await posthog.captureException(ctx, {
-          error,
-          distinctId: user._id,
-          additionalProperties: {
-            module: "student_membership",
-            operation: "reconcile",
-          },
-        });
-      } catch (telemetryError) {
-        console.error(
-          "Failed to capture student membership exception in PostHog",
-          telemetryError,
-        );
-      }
+      await capturePostHogAsyncSafely(
+        async () => {
+          await getPostHog().captureException(ctx, {
+            error,
+            distinctId: user._id,
+            additionalProperties: {
+              module: "student_membership",
+              operation: "reconcile",
+            },
+          });
+        },
+        (telemetryError) => {
+          console.error(
+            "Failed to capture student membership exception in PostHog",
+            telemetryError,
+          );
+        },
+      );
 
       return "error" as const;
     }
