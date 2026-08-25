@@ -131,8 +131,16 @@ function MultipleOptionsField({
                 );
               }}
             />
-            <FieldLabel htmlFor={`${field.id}-${option.value}`}>
-              {option.label}
+            <FieldLabel
+              htmlFor={`${field.id}-${option.value}`}
+              className="flex-col items-start gap-1"
+            >
+              <span>{option.label}</span>
+              {option.description ? (
+                <span className="text-sm leading-normal font-normal text-muted-foreground">
+                  {option.description}
+                </span>
+              ) : null}
             </FieldLabel>
           </Field>
         ))}
