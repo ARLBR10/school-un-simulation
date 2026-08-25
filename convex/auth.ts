@@ -161,22 +161,76 @@ type UserInfoType = AuthUser & {
 
 export const ensureStudentMembership = mutation({
   args: {},
-  returns: v.null(),
+  returns: v.union(
+    v.literal("ready"),
+    v.literal("ineligible"),
+    v.literal("unavailable"),
+    v.literal("error"),
+  ),
   handler: async (ctx) => {
     const user = await authComponent.getAuthUser(ctx);
     const email = user.email.trim().toLowerCase();
+    const posthog = getPostHog();
+
+    const captureOutcome = async (
+      outcome: "ready" | "ineligible" | "unavailable" | "error",
+    ) => {
+      try {
+        await posthog.capture(ctx, {
+          event: "student_membership_reconciliation",
+          distinctId: user._id,
+          properties: {
+            outcome,
+            allowed_domain_configured: studentEmailDomains.length > 0,
+          },
+        });
+      } catch (error) {
+        console.error(
+          "Failed to capture student membership reconciliation in PostHog",
+          error,
+        );
+      }
+    };
 
     if (!studentEmailDomains.some((domain) => email.endsWith(`@${domain}`))) {
-      return null;
+      await captureOutcome("ineligible");
+      return "ineligible" as const;
     }
 
-    await ctx.runMutation(internal.members.assignStudentMembershipFromEmail, {
-      userId: user._id,
-      email,
-      name: user.name,
-    });
+    try {
+      await ctx.runMutation(internal.members.assignStudentMembershipFromEmail, {
+        userId: user._id,
+        email,
+        name: user.name,
+      });
 
-    return null;
+      const membershipInfo = await ctx.runQuery(internal.members.getByUserId, {
+        userId: user._id,
+      });
+      const outcome = membershipInfo.member ? "ready" : "unavailable";
+
+      await captureOutcome(outcome);
+      return outcome;
+    } catch (error) {
+      console.error("Failed to reconcile student membership", error);
+      try {
+        await posthog.captureException(ctx, {
+          error,
+          distinctId: user._id,
+          additionalProperties: {
+            module: "student_membership",
+            operation: "reconcile",
+          },
+        });
+      } catch (telemetryError) {
+        console.error(
+          "Failed to capture student membership exception in PostHog",
+          telemetryError,
+        );
+      }
+
+      return "error" as const;
+    }
   },
 });
 
