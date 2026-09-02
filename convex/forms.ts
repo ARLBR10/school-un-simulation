@@ -8,6 +8,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import {
+  eventIndependentSubmissionFields,
   getFormDefinition,
   getFormField,
   getFormOptionLabel,
@@ -15,6 +16,7 @@ import {
   type FormDefinition,
   type FormField,
 } from "../lib/forms";
+import { getPostHog } from "./posthog";
 
 const formAnswerValueValidator = v.union(
   v.string(),
@@ -178,14 +180,6 @@ export async function saveFormSubmission(
 
   validateAnswers(definition, args.answers);
 
-  const event = await ctx.db
-    .query("events")
-    .withIndex("by_slug", (q) => q.eq("slug", definition.eventSlug))
-    .unique();
-  if (!event) {
-    throw new Error("O evento vinculado a este formulário não foi encontrado.");
-  }
-
   const existingSubmission = await ctx.db
     .query("formSubmissions")
     .withIndex("by_formKey_and_formVersion_and_respondentUserId", (q) =>
@@ -202,7 +196,6 @@ export async function saveFormSubmission(
       formVersion: definition.version,
       respondentUserId: userInfo._id,
       respondentMemberId: userInfo.member._id,
-      eventId: event._id,
       submittedAt: Date.now(),
     }));
 
@@ -215,7 +208,7 @@ export async function saveFormSubmission(
       await ctx.db.delete("formAnswers", answer._id);
     }
     await ctx.db.patch("formSubmissions", submissionId, {
-      eventId: event._id,
+      ...eventIndependentSubmissionFields,
       respondentMemberId: userInfo.member._id,
       submittedAt: Date.now(),
     });
@@ -244,6 +237,22 @@ export async function saveFormSubmission(
         value: answer.value,
       });
     }
+  }
+
+  try {
+    await getPostHog().capture(ctx, {
+      event: "form_submission_saved",
+      distinctId: userInfo._id,
+      properties: {
+        form_key: definition.key,
+        form_version: definition.version,
+        answer_count: args.answers.length,
+        submission_mode: existingSubmission ? "updated" : "created",
+        member_type: userInfo.member.type,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to capture form submission in PostHog", error);
   }
 
   return submissionId;

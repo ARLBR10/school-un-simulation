@@ -3,7 +3,7 @@
 import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import { AuthUIProvider } from "@daveyplate/better-auth-ui";
 import { Link } from "@tanstack/react-router";
-import { ConvexReactClient, useMutation, useQuery } from "convex/react";
+import { ConvexReactClient, useQuery } from "convex/react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
@@ -114,32 +114,6 @@ function PostHogUserProperties() {
   return null;
 }
 
-function EnsureStudentMembership() {
-  const { data: session } = authClient.useSession();
-  const userInfo = useQuery(api.auth.getCurrentUser);
-  const ensureMembership = useMutation(api.auth.ensureStudentMembership);
-  const attemptedUserId = useRef<string | null>(null);
-  const userId = session?.user.id;
-
-  useEffect(() => {
-    if (
-      !userId ||
-      userInfo === undefined ||
-      userInfo === null ||
-      userInfo.memberships.length > 0 ||
-      attemptedUserId.current === userId
-    ) {
-      return;
-    }
-
-    attemptedUserId.current = userId;
-    void ensureMembership().catch((error: unknown) => {
-      console.error("Failed to ensure student membership", error);
-    });
-  }, [ensureMembership, userId, userInfo]);
-
-  return null;
-}
 
 export function ConvexClientProvider({
   children,
@@ -155,7 +129,6 @@ export function ConvexClientProvider({
       initialToken={initialToken}
     >
       <AppNotifications />
-      <EnsureStudentMembership />
       <PostHogUserProperties />
       {children}
     </ConvexBetterAuthProvider>

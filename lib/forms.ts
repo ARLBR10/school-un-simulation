@@ -1,5 +1,9 @@
 export type FormAnswerValue = string | number | boolean | string[];
 
+export const eventIndependentSubmissionFields = {
+  eventId: undefined,
+} as const;
+
 export type FormOption = {
   label: string;
   value: string;
@@ -30,7 +34,6 @@ export type FormDefinition = {
   title: string;
   description?: string;
   imageUrl?: string;
-  eventSlug: string;
   submitLabel?: string;
   successTitle?: string;
   successDescription?: string;
@@ -43,7 +46,6 @@ export const committeeSelection2027Form = {
   title: "Ajude a escolher os temas de 2027",
   description:
     "Escolha os temas que você gostaria de ver na próxima edição da simulação.",
-  eventSlug: "school-onu-2027",
   submitLabel: "Enviar sugestões",
   successTitle: "Sugestões registradas",
   successDescription:

@@ -55,10 +55,8 @@ Convex agent skills for common tasks can be installed by running
 - Oxlint only: `bun run lint:oxlint`
 - Convex-specific lint: `bun run lint:convex`
 - Single-file lint: `bun run lint src/app/index.tsx`
-- There is no configured test suite yet.
-- `bun test` currently fails with "0 test files matching ..." because no tests exist.
-- There is no meaningful single-test command today because there are no tests.
-- If Bun tests are added later, use `bun test path/to/file.test.ts` for a single file.
+- Tests use Bun's built-in test runner: `bun test`.
+- Run a focused test with `bun test path/to/file.test.ts`.
 - Prefer `*.test.ts`, `*.test.tsx`, `*.spec.ts`, or `*.spec.tsx` so Bun discovers tests.
 
 ## Tooling Facts
