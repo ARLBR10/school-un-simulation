@@ -7,6 +7,21 @@ import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  environments: {
+    ssr: {
+      // Workerd needs CommonJS dependencies converted to ESM before evaluation.
+      optimizeDeps: {
+        noDiscovery: false,
+        include: [
+          "react",
+          "react/jsx-runtime",
+          "react/jsx-dev-runtime",
+          "react-dom",
+          "react-dom/server",
+        ],
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": fileURLToPath(new URL(".", import.meta.url)),
