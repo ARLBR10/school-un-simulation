@@ -11,7 +11,8 @@ import {
   eventIndependentSubmissionFields,
   getFormDefinition,
   getFormField,
-  getFormOptionLabel,
+  getFormAnswerDisplayValue,
+  isFormExpired,
   type FormAnswerValue,
   type FormDefinition,
   type FormField,
@@ -177,6 +178,9 @@ export async function saveFormSubmission(
 
   const definition = getFormDefinition(args.formKey);
   if (!definition) throw new Error("Formulário não encontrado.");
+  if (isFormExpired(definition, Date.now())) {
+    throw new Error("O prazo deste formulário encerrou. Não é possível enviar ou atualizar respostas.");
+  }
 
   validateAnswers(definition, args.answers);
 
@@ -220,20 +224,10 @@ export async function saveFormSubmission(
         submissionId,
         fieldId: answer.fieldId,
         fieldName: getFormField(definition, answer.fieldId)!.name,
-        displayValue: Array.isArray(answer.value)
-          ? answer.value
-              .map((item) =>
-                getFormOptionLabel(
-                  getFormField(definition, answer.fieldId)!,
-                  item,
-                ),
-              )
-              .join(", ")
-          : typeof answer.value === "boolean"
-            ? answer.value
-              ? "Sim"
-              : "Não"
-            : String(answer.value),
+        displayValue: getFormAnswerDisplayValue(
+          getFormField(definition, answer.fieldId)!,
+          answer.value,
+        ),
         value: answer.value,
       });
     }
@@ -314,7 +308,8 @@ export const listResponses = query({
   args: { formKey: v.string() },
   returns: v.union(v.array(submissionResultValidator), v.null()),
   handler: async (ctx, args): Promise<AdminFormResponse[] | null> => {
-    if (!getFormDefinition(args.formKey)) return null;
+    const definition = getFormDefinition(args.formKey);
+    if (!definition) return null;
     const userInfo: CurrentMemberInfo = await ctx.runQuery(
       api.auth.getCurrentUser,
     );
@@ -351,7 +346,9 @@ export const listResponses = query({
             ({ fieldId, fieldName, displayValue, value }) => ({
               fieldId,
               fieldName,
-              displayValue,
+              displayValue: getFormField(definition, fieldId)
+                ? getFormAnswerDisplayValue(getFormField(definition, fieldId)!, value)
+                : displayValue,
               value,
             }),
           ),

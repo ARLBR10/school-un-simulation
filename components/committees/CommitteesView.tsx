@@ -33,6 +33,12 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/convex/_generated/api";
 import type { CommitteeSummary } from "@/convex/committees";
+import { useFormExpired } from "@/hooks/use-form-expired";
+import {
+  committeeSelection2027Form,
+  formatFormDeadline,
+  toParticipation2026Form,
+} from "@/lib/forms";
 
 const SKELETON_ROW_COUNT = 4;
 const COMMITTEE_SELECTION_FORM_FLAG = "committee-selection-form-2027";
@@ -72,6 +78,8 @@ export function CommitteesView() {
     false,
   );
   const isLoading = committees === undefined;
+  const isCommitteeFormExpired = useFormExpired(committeeSelection2027Form);
+  const isToFormExpired = useFormExpired(toParticipation2026Form);
   const currentCommittees = committees?.filter((item) => !item.isPastEvent) ?? [];
   const pastCommitteesByEvent = groupPastCommittees(
     committees?.filter((item) => item.isPastEvent) ?? [],
@@ -90,7 +98,34 @@ export function CommitteesView() {
         />
       </motion.header>
 
-      {showCommitteeSelectionForm ? (
+      {!isToFormExpired ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{toParticipation2026Form.title}</CardTitle>
+            <CardDescription>{toParticipation2026Form.description}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Badge variant="secondary">
+              Responda até {formatFormDeadline(toParticipation2026Form.expiresAt)} (Brasília)
+            </Badge>
+          </CardContent>
+          <CardFooter className="justify-end">
+            <Button
+              render={
+                <Link
+                  to="/forms/$formKey"
+                  params={{ formKey: toParticipation2026Form.key }}
+                />
+              }
+            >
+              Responder formulário
+              <ArrowRight data-icon="inline-end" />
+            </Button>
+          </CardFooter>
+        </Card>
+      ) : null}
+
+      {showCommitteeSelectionForm && !isCommitteeFormExpired ? (
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}

@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { formDefinitions } from "@/lib/forms";
+import { formatFormDeadline, formDefinitions } from "@/lib/forms";
 
 export const Route = createFileRoute("/admin/forms/")({
   head: () => ({
@@ -32,6 +32,9 @@ function AdminFormsPage() {
             <CardHeader>
               <CardTitle>{definition.title}</CardTitle>
               <CardDescription>{definition.description}</CardDescription>
+              <CardDescription>
+                Prazo: {formatFormDeadline(definition.expiresAt)} (horário de Brasília).
+              </CardDescription>
             </CardHeader>
             <CardFooter className="justify-end">
               <Button

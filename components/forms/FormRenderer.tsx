@@ -34,6 +34,8 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { useFormExpired } from "@/hooks/use-form-expired";
+import { formatFormDeadline, isFormExpired } from "@/lib/forms";
 import type {
   FormAnswerValue,
   FormDefinition,
@@ -238,8 +240,32 @@ function FormControl({
     );
   }
   if (field.type === "option") {
+    if (field.presentation === "checkboxes") {
+      return (
+        <FieldSet>
+          <FieldLegend className="sr-only">{field.name}</FieldLegend>
+          <FieldDescription>Selecione apenas uma opção.</FieldDescription>
+          <FieldGroup className="gap-3">
+            {field.options.map((option) => (
+              <Field key={option.value} orientation="horizontal">
+                <Checkbox
+                  id={`${field.id}-${option.value}`}
+                  checked={value === option.value}
+                  aria-invalid={invalid}
+                  onCheckedChange={(checked) => onChange(checked ? option.value : "")}
+                />
+                <FieldLabel htmlFor={`${field.id}-${option.value}`}>
+                  {option.label}
+                </FieldLabel>
+              </Field>
+            ))}
+          </FieldGroup>
+        </FieldSet>
+      );
+    }
     return (
       <Select
+        items={field.options}
         value={typeof value === "string" ? value : ""}
         onValueChange={(nextValue) => onChange(nextValue ?? "")}
       >
@@ -297,9 +323,14 @@ export function FormRenderer({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const isExpired = useFormExpired(definition);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isFormExpired(definition, Date.now())) {
+      setSubmitError("O prazo deste formulário encerrou.");
+      return;
+    }
     const nextErrors = Object.fromEntries(
       definition.fields.flatMap((field) => {
         const value = answers[field.id];
@@ -352,6 +383,24 @@ export function FormRenderer({
     }
   }
 
+  if (isExpired && definition.expiresAt !== undefined) {
+    return (
+      <Card className="border-dashed" aria-live="polite">
+        <CardHeader>
+          <CardTitle>{definition.title}</CardTitle>
+          <CardDescription>{definition.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <p className="font-medium">Formulário encerrado</p>
+          <p className="text-sm text-muted-foreground">
+            O prazo encerrou em {formatFormDeadline(definition.expiresAt)} (horário de Brasília).
+            Não é possível enviar ou atualizar respostas. As respostas já enviadas foram mantidas.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (isSubmitted) {
     return (
       <Card>
@@ -387,6 +436,11 @@ export function FormRenderer({
         {definition.description ? (
           <CardDescription className="max-w-2xl leading-6">
             {definition.description}
+          </CardDescription>
+        ) : null}
+        {definition.expiresAt !== undefined ? (
+          <CardDescription>
+            Responda até {formatFormDeadline(definition.expiresAt)} (horário de Brasília).
           </CardDescription>
         ) : null}
       </CardHeader>

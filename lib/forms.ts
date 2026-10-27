@@ -20,7 +20,11 @@ type BaseFormField = {
 
 export type FormField =
   | (BaseFormField & { type: "text" | "textarea" | "number" | "boolean" })
-  | (BaseFormField & { type: "option"; options: FormOption[] })
+  | (BaseFormField & {
+      type: "option";
+      options: FormOption[];
+      presentation?: "checkboxes";
+    })
   | (BaseFormField & {
       type: "multipleOptions" | "multipleOptionsWithCustom";
       options: FormOption[];
@@ -31,6 +35,7 @@ export type FormField =
 export type FormDefinition = {
   key: string;
   version: number;
+  expiresAt?: number;
   title: string;
   description?: string;
   imageUrl?: string;
@@ -43,6 +48,7 @@ export type FormDefinition = {
 export const committeeSelection2027Form = {
   key: "committee-selection-2027",
   version: 2,
+  expiresAt: Date.parse("2026-09-02T18:00:00-03:00"),
   title: "Ajude a escolher os temas de 2027",
   description:
     "Escolha os temas que você gostaria de ver na próxima edição da simulação.",
@@ -139,7 +145,80 @@ export const committeeSelection2027Form = {
   ],
 } satisfies FormDefinition;
 
-export const formDefinitions = [committeeSelection2027Form] as const;
+export const toParticipation2026Form = {
+  key: "to-participation-2026",
+  version: 1,
+  expiresAt: Date.parse("2026-11-01T18:00:00-03:00"),
+  title: "Participação no TO",
+  description:
+    "O TO acontece de 11 a 13 de novembro de 2026, no período da tarde. Informe seu interesse e sua disponibilidade para participar.",
+  submitLabel: "Enviar resposta",
+  successTitle: "Resposta registrada",
+  successDescription:
+    "Obrigado por responder sobre sua participação no TO. Você pode atualizar suas respostas até o encerramento do formulário.",
+  fields: [
+    {
+      id: "wantsToParticipate",
+      name: "Você deseja participar do TO?",
+      type: "option",
+      presentation: "checkboxes",
+      required: true,
+      options: [
+        { value: "yes", label: "Sim" },
+        { value: "no", label: "Não" },
+      ],
+    },
+    {
+      id: "schoolStage",
+      name: "Você está em que etapa escolar?",
+      type: "option",
+      required: true,
+      options: [
+        { value: "high-school", label: "Ensino médio" },
+        { value: "elementary-school", label: "Ensino fundamental" },
+      ],
+    },
+    {
+      id: "scheduleAcknowledged",
+      name: "Você tem ciência de que o evento acontece do dia 11 até o dia 13 de novembro de 2026, no horário da tarde?",
+      type: "option",
+      presentation: "checkboxes",
+      required: true,
+      options: [
+        { value: "yes", label: "Sim" },
+        { value: "no", label: "Não" },
+      ],
+    },
+    {
+      id: "isAvailable",
+      name: "Tem disponibilidade nos dias e horários citados anteriormente?",
+      type: "option",
+      presentation: "checkboxes",
+      required: true,
+      options: [
+        { value: "yes", label: "Sim" },
+        { value: "no", label: "Não" },
+      ],
+    },
+  ],
+} satisfies FormDefinition;
+
+export const formDefinitions = [
+  committeeSelection2027Form,
+  toParticipation2026Form,
+] as const;
+
+export function isFormExpired(definition: FormDefinition, now: number) {
+  return definition.expiresAt !== undefined && now >= definition.expiresAt;
+}
+
+export function formatFormDeadline(expiresAt: number) {
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(expiresAt);
+}
 
 export function getFormDefinition(key: string): FormDefinition | undefined {
   return formDefinitions.find((definition) => definition.key === key);
@@ -155,4 +234,13 @@ export function getFormField(
 export function getFormOptionLabel(field: FormField, value: string) {
   if (!("options" in field)) return value;
   return field.options.find((option) => option.value === value)?.label ?? value;
+}
+
+export function getFormAnswerDisplayValue(field: FormField, value: FormAnswerValue): string {
+  if (Array.isArray(value)) {
+    return value.map((item) => getFormOptionLabel(field, item)).join(", ");
+  }
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "string") return getFormOptionLabel(field, value);
+  return String(value);
 }
