@@ -19,9 +19,12 @@ import {
   Globe,
   Landmark,
   LogIn,
+  Map as MapIcon,
   Newspaper,
   NotebookPen,
   School,
+  ScrollText,
+  Swords,
   UserCog,
   UserCheck,
   Users,
@@ -84,14 +87,17 @@ type NavigationItem = {
     | "/press/news"
     | "/press/approvals"
     | "/grading"
-    | "/attendance";
+    | "/attendance"
+    | "/theater"
+    | "/theater/orders"
+    | "/admin/theater";
   label: string;
   icon: LucideIcon;
   exact?: boolean;
 };
 
 type AppBreadcrumbItem = {
-  href?: "/committees" | "/admin" | "/news";
+  href?: "/committees" | "/admin" | "/news" | "/theater";
   label: string;
 };
 
@@ -116,6 +122,7 @@ const adminNavigationLinks: NavigationItem[] = [
   { href: "/admin/class-utils", label: "Class Utils", icon: School },
   { href: "/admin/documents", label: "Documentos", icon: FileText },
   { href: "/admin/forms", label: "Formulários", icon: ClipboardList },
+  { href: "/admin/theater", label: "Teatro de Operações", icon: Swords },
 ];
 
 const pressNavigationLinks: NavigationItem[] = [
@@ -131,6 +138,11 @@ const operationsNavigationLinks: NavigationItem[] = [
   ...gradingNavigationLinks,
   { href: "/attendance", label: "Presenças", icon: ClipboardList },
   { href: "/documents", label: "Documentos", icon: FileText },
+];
+
+const theaterNavigationLinks: NavigationItem[] = [
+  { href: "/theater", label: "Mapa", icon: MapIcon, exact: true },
+  { href: "/theater/orders", label: "Ordens", icon: ScrollText },
 ];
 
 function isActivePath(pathname: string, item: NavigationItem) {
@@ -279,7 +291,19 @@ function AppSidebar() {
   const userInfo = useQuery(api.auth.getCurrentUser);
   const isUserInfoLoading = userInfo === undefined;
   const isAdmin = userInfo?.member?.type === "admin";
-  const isDelegate = userInfo?.member?.type === "delegate";
+  const memberships = userInfo?.memberships ?? [];
+  const currentEvent = memberships.find(
+    ({ member }) => member._id === userInfo?.member?._id,
+  )?.event;
+  const hasTheaterAccess =
+    isAdmin ||
+    memberships.some(
+      ({ member, event }) =>
+        event?.kind === "operations_theater" && member.type !== "unassigned",
+    );
+  const isDelegate =
+    userInfo?.member?.type === "delegate" &&
+    currentEvent?.kind !== "operations_theater";
   const isPress = userInfo?.member?.type === "press" || isAdmin;
   const canApprovePressNews = isAdmin || userInfo?.member?.pressRole === "media";
   const canManageAttendance =
@@ -341,6 +365,25 @@ function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminNavigationLinks.map((item) => (
+                  <AppSidebarLink
+                    key={item.href}
+                    item={item}
+                    isActive={isActivePath(pathname, item)}
+                  />
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : null}
+
+        {!isUserInfoLoading && hasTheaterAccess ? (
+          <SidebarGroup>
+            <SidebarGroupLabel className="h-9 text-sm font-semibold">
+              Teatro de Operações
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {theaterNavigationLinks.map((item) => (
                   <AppSidebarLink
                     key={item.href}
                     item={item}
@@ -515,6 +558,24 @@ function getPageBreadcrumbItems(pathname: string): AppBreadcrumbItem[] {
     return [
       { href: "/admin", label: "Administração" },
       { label: "Formulários" },
+    ];
+  }
+
+  if (pathname.startsWith("/admin/theater")) {
+    return [
+      { href: "/admin", label: "Administração" },
+      { label: "Teatro de Operações" },
+    ];
+  }
+
+  if (pathname === "/theater") {
+    return [{ label: "Teatro de Operações" }];
+  }
+
+  if (pathname.startsWith("/theater/orders")) {
+    return [
+      { href: "/theater", label: "Teatro de Operações" },
+      { label: "Ordens" },
     ];
   }
 

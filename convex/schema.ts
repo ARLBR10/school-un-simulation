@@ -4,7 +4,15 @@ import { memberTypes } from "./members";
 import { countriesConvexSchema } from "@/lib/country-list";
 import { uploadthingSchema } from "./uploadthing";
 import { aiAnalysisStatusSchema } from "./documents";
-import { eventStatuses } from "./events";
+import { eventKinds, eventStatuses } from "./events";
+import {
+  theaterFactionColors,
+  theaterMarkerCategories,
+  theaterMarkerConcealments,
+  theaterMarkerVisibilities,
+  theaterOrderClassifications,
+  theaterOrderStatuses,
+} from "./theater";
 
 const gradingEntryKind = v.union(v.literal("grade"), v.literal("deduction"));
 const attendanceStatus = v.union(
@@ -19,10 +27,13 @@ export default defineSchema({
     slug: v.string(),
     year: v.number(),
     status: eventStatuses,
+    // Optional only until `backfillEventKinds` runs on existing events.
+    kind: v.optional(eventKinds),
   })
     .index("by_slug", ["slug"])
     .index("by_status", ["status"])
-    .index("by_year", ["year"]),
+    .index("by_year", ["year"])
+    .index("by_kind", ["kind"]),
   members: defineTable({
     userId: v.optional(v.string()), // IDs from others components don't count on convex/values. This is optional because the mtf could not be registered.
     name: v.string(),
@@ -40,12 +51,17 @@ export default defineSchema({
     committee: v.optional(v.id("committees")),
     // Optional during the production backfill. Global admins intentionally omit it.
     eventId: v.optional(v.id("events")),
+    // Operations theater participation; only set on delegates of theater events.
+    theaterFactionId: v.optional(v.id("theaterFactions")),
+    theaterPosition: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
     .index("by_tuitionId", ["tuitionId"])
     .index("by_type", ["type"])
     .index("by_committee", ["committee"])
     .index("by_delegatedCountry", ["delegatedCountry"])
+    .index("by_theaterFactionId", ["theaterFactionId"])
+    .index("by_eventId_and_type", ["eventId", "type"])
     .index("by_eventId", { fields: ["eventId"], staged: true })
     .index("by_userId_and_eventId", {
       fields: ["userId", "eventId"],
@@ -164,4 +180,40 @@ export default defineSchema({
     .index("by_dateKey", ["dateKey"])
     .index("by_dateKey_and_committee", ["dateKey", "committee"])
     .index("by_eventId", { fields: ["eventId"], staged: true }),
+  theaterFactions: defineTable({
+    eventId: v.id("events"),
+    name: v.string(),
+    color: theaterFactionColors,
+  }).index("by_eventId", ["eventId"]),
+  theaterMarkers: defineTable({
+    eventId: v.id("events"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    category: theaterMarkerCategories,
+    factionId: v.optional(v.id("theaterFactions")),
+    lat: v.number(),
+    lng: v.number(),
+    visibility: theaterMarkerVisibilities,
+    // Factions that see the full marker when visibility is "factions".
+    visibleToFactionIds: v.array(v.id("theaterFactions")),
+    // What everyone else sees when visibility is "factions".
+    concealment: theaterMarkerConcealments,
+    obscuredLabel: v.optional(v.string()),
+  })
+    .index("by_eventId", ["eventId"])
+    .index("by_factionId", ["factionId"]),
+  theaterOrders: defineTable({
+    eventId: v.id("events"),
+    senderMemberId: v.id("members"),
+    // Snapshot of the sender faction when the order was sent.
+    senderFactionId: v.optional(v.id("theaterFactions")),
+    recipientFactionIds: v.array(v.id("theaterFactions")),
+    recipientMemberIds: v.array(v.id("members")),
+    classification: theaterOrderClassifications,
+    subject: v.string(),
+    body: v.string(),
+    status: theaterOrderStatuses,
+    gluconNote: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+  }).index("by_eventId", ["eventId"]),
 });

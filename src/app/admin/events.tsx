@@ -27,6 +27,16 @@ const statusOptions = Object.entries(statusLabels).map(([value, label]) => ({
   label,
 }));
 
+const kindLabels: Record<NonNullable<Doc<"events">["kind"]>, string> = {
+  un_simulation: "Simulação da ONU",
+  operations_theater: "Teatro de operações",
+};
+
+const kindOptions = Object.entries(kindLabels).map(([value, label]) => ({
+  value,
+  label,
+}));
+
 function EventsPage() {
   const events = useQuery(api.events.getAll);
   const createEvent = useMutation(api.events.create);
@@ -48,6 +58,16 @@ function EventsPage() {
           {statusLabels[event.status]}
         </Badge>
       ),
+    },
+    {
+      ...createSelectColumn({
+        key: "kind",
+        label: "Tipo",
+        options: kindOptions,
+        placeholder: "Selecione o tipo",
+      }),
+      showInEditForm: false,
+      render: (event) => kindLabels[event.kind ?? "un_simulation"],
     },
   ];
 
@@ -71,12 +91,17 @@ function EventsPage() {
         isLoading={events === undefined}
         rowKey="slug"
         onCreate={async (values) => {
+          if (!values.kind) {
+            toast.error("Selecione o tipo do evento.");
+            return false;
+          }
           try {
             const id = await createEvent({
               name: values.name?.trim() ?? "",
               slug: values.slug?.trim() ?? "",
               year: Number(values.year),
               status: values.status as Doc<"events">["status"],
+              kind: values.kind as NonNullable<Doc<"events">["kind"]>,
             });
             if (!id) return false;
             toast.success("Evento criado com sucesso.");

@@ -17,6 +17,11 @@ export const eventStatuses = v.union(
   v.literal("past"),
 );
 
+export const eventKinds = v.union(
+  v.literal("un_simulation"),
+  v.literal("operations_theater"),
+);
+
 const eventDocument = v.object({
   _id: v.id("events"),
   _creationTime: v.number(),
@@ -24,6 +29,7 @@ const eventDocument = v.object({
   slug: v.string(),
   year: v.number(),
   status: eventStatuses,
+  kind: v.optional(eventKinds),
 });
 
 export async function resolveEventId(
@@ -81,18 +87,26 @@ async function ensureUniqueEvent(
   ctx: Pick<MutationCtx, "db">,
   slug: string,
   year: number,
+  kind: NonNullable<Doc<"events">["kind"]>,
   ignoredId?: Id<"events">,
 ) {
-  const [eventBySlug, eventByYear] = await Promise.all([
+  const [eventBySlug, eventsByYear] = await Promise.all([
     ctx.db.query("events").withIndex("by_slug", (q) => q.eq("slug", slug)).first(),
-    ctx.db.query("events").withIndex("by_year", (q) => q.eq("year", year)).first(),
+    ctx.db.query("events").withIndex("by_year", (q) => q.eq("year", year)).take(20),
   ]);
 
+  // Events created before `kind` existed are UN simulations until
+  // `backfillEventKinds` runs and the schema field becomes required.
   if (
     (eventBySlug && eventBySlug._id !== ignoredId) ||
-    (eventByYear && eventByYear._id !== ignoredId)
+    eventsByYear.some(
+      (event) =>
+        event._id !== ignoredId && (event.kind ?? "un_simulation") === kind,
+    )
   ) {
-    throw new Error("Já existe um evento com este identificador ou ano.");
+    throw new Error(
+      "Já existe um evento com este identificador ou um evento do mesmo tipo neste ano.",
+    );
   }
 }
 
@@ -141,6 +155,7 @@ export const create = mutation({
     slug: v.string(),
     year: v.number(),
     status: eventStatuses,
+    kind: eventKinds,
   },
   returns: v.union(v.id("events"), v.null()),
   handler: async (ctx, args) => {
@@ -153,20 +168,28 @@ export const create = mutation({
       throw new Error("Informe nome, identificador e ano válidos.");
     }
 
-    await ensureUniqueEvent(ctx, slug, args.year);
+    await ensureUniqueEvent(ctx, slug, args.year, args.kind);
     await ensureSingleActiveEvent(ctx, args.status);
     const eventId = await ctx.db.insert("events", {
       name,
       slug,
       year: args.year,
       status: args.status,
+      kind: args.kind,
     });
 
     await getPostHog().capture(ctx, {
       event: "admin_create_event",
       properties: {
         eventId,
-        after: { id: eventId, name, slug, year: args.year, status: args.status },
+        after: {
+          id: eventId,
+          name,
+          slug,
+          year: args.year,
+          status: args.status,
+          kind: args.kind,
+        },
       },
     });
 
@@ -193,7 +216,13 @@ export const update = mutation({
     const slug = args.slug?.trim().toLowerCase() ?? existing.slug;
     const year = args.year ?? existing.year;
     const status = args.status ?? existing.status;
-    await ensureUniqueEvent(ctx, slug, year, existing._id);
+    await ensureUniqueEvent(
+      ctx,
+      slug,
+      year,
+      existing.kind ?? "un_simulation",
+      existing._id,
+    );
     await ensureSingleActiveEvent(ctx, status, existing._id);
 
     const eventPatch = {

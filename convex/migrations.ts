@@ -12,7 +12,7 @@ const legacyEventYear = 2026;
 async function getLegacyEventId(ctx: Pick<MutationCtx, "db">) {
   const event = await ctx.db
     .query("events")
-    .withIndex("by_year", (q) => q.eq("year", legacyEventYear))
+    .withIndex("by_slug", (q) => q.eq("slug", legacyEventSlug))
     .unique();
 
   if (!event) {
@@ -29,7 +29,7 @@ export const seed2026Event = internalMutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db
       .query("events")
-      .withIndex("by_year", (q) => q.eq("year", legacyEventYear))
+      .withIndex("by_slug", (q) => q.eq("slug", legacyEventSlug))
       .unique();
     if (existing) return existing._id;
 
@@ -38,6 +38,7 @@ export const seed2026Event = internalMutation({
       slug: legacyEventSlug,
       year: legacyEventYear,
       status: "active",
+      kind: "un_simulation",
     });
   },
 });
@@ -97,4 +98,18 @@ export const run2026Backfill = migrations.runner([
   internal.migrations.backfillGrading2026,
   internal.migrations.backfillDocuments2026,
   internal.migrations.backfillAttendance2026,
+]);
+
+// Events created before `kind` existed are UN simulations. After this runs in
+// production, make `events.kind` required and drop the `?? "un_simulation"` fallback.
+export const backfillEventKinds = migrations.define({
+  table: "events",
+  migrateOne: async (ctx, event) => {
+    if (event.kind !== undefined) return;
+    await ctx.db.patch(event._id, { kind: "un_simulation" });
+  },
+});
+
+export const runEventKindBackfill = migrations.runner([
+  internal.migrations.backfillEventKinds,
 ]);

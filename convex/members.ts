@@ -29,6 +29,8 @@ export const memberTypes = v.union(
   v.literal("clerk"), // Clerk ~ "Mesário"
   v.literal("teacher"),
   v.literal("unassigned"),
+  v.literal("observer"), // Can view public content of the event without operational permissions.
+  v.literal("glucon"), // Operations theater game control.
   v.literal("admin"), // Coordenação, Secretary General, Meg Dev (@ARLBR10)
 );
 
@@ -386,6 +388,15 @@ export const update = mutation({
 
     if (args.eventId !== undefined && memberInfo.type !== "admin") {
       memberPatch.eventId = await resolveEventId(ctx, args.eventId);
+    }
+
+    // Theater factions belong to one event and only apply to delegates.
+    if (
+      (memberPatch.eventId !== undefined &&
+        memberPatch.eventId !== memberInfo.eventId) ||
+      memberPatch.type !== "delegate"
+    ) {
+      memberPatch.theaterFactionId = undefined;
     }
 
     await ensureMembershipDoesNotOverlap(

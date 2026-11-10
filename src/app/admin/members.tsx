@@ -65,6 +65,8 @@ const memberTypeLabels: Record<Doc<"members">["type"], string> = {
   clerk: "Mesário",
   teacher: "Professor",
   unassigned: "Função não definida",
+  observer: "Observador",
+  glucon: "GLUCON",
   admin: "Administrador",
 };
 
@@ -94,6 +96,8 @@ const memberTypes: Doc<"members">["type"][] = [
   "clerk",
   "teacher",
   "unassigned",
+  "observer",
+  "glucon",
   "admin",
 ];
 

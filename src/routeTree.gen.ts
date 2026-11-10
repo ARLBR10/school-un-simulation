@@ -30,6 +30,7 @@ import { Route as AdminEventsRouteImport } from './app/admin/events'
 import { Route as AdminGradesRouteImport } from './app/admin/grades'
 import { Route as AdminMembersRouteImport } from './app/admin/members'
 import { Route as AdminNewsRouteImport } from './app/admin/news'
+import { Route as AdminTheaterRouteImport } from './app/admin/theater'
 import { Route as AdminUsersRouteImport } from './app/admin/users'
 import { Route as ApiUploadthingRouteImport } from './app/api/uploadthing'
 import { Route as AuthPathRouteImport } from './app/auth/$path'
@@ -43,6 +44,8 @@ import { Route as NewsIdRouteImport } from './app/news/$id'
 import { Route as OrganizationPathRouteImport } from './app/organization/$path'
 import { Route as PressApprovalsRouteImport } from './app/press/approvals'
 import { Route as PressNewsRouteImport } from './app/press/news'
+import { Route as TheaterIndexRouteImport } from './app/theater/index'
+import { Route as TheaterOrdersRouteImport } from './app/theater/orders'
 import { Route as AdminFormsIndexRouteImport } from './app/admin/forms/index'
 import { Route as AdminFormsFormKeyRouteImport } from './app/admin/forms/$formKey'
 import { Route as ApiAuthSplatRouteImport } from './app/api/auth/$'
@@ -152,6 +155,11 @@ const AdminNewsRoute = AdminNewsRouteImport.update({
   path: '/news',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminTheaterRoute = AdminTheaterRouteImport.update({
+  id: '/theater',
+  path: '/theater',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -217,6 +225,16 @@ const PressNewsRoute = PressNewsRouteImport.update({
   path: '/press/news',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TheaterIndexRoute = TheaterIndexRouteImport.update({
+  id: '/theater/',
+  path: '/theater/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TheaterOrdersRoute = TheaterOrdersRouteImport.update({
+  id: '/theater/orders',
+  path: '/theater/orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminFormsIndexRoute = AdminFormsIndexRouteImport.update({
   id: '/forms/',
   path: '/forms/',
@@ -254,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/admin/grades': typeof AdminGradesRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/news': typeof AdminNewsRoute
+  '/admin/theater': typeof AdminTheaterRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/uploadthing': typeof ApiUploadthingRoute
   '/auth/$path': typeof AuthPathRoute
@@ -265,9 +284,11 @@ export interface FileRoutesByFullPath {
   '/organization/$path': typeof OrganizationPathRoute
   '/press/approvals': typeof PressApprovalsRoute
   '/press/news': typeof PressNewsRoute
+  '/theater/orders': typeof TheaterOrdersRoute
   '/admin/': typeof AdminIndexRoute
   '/committees/': typeof CommitteesIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/theater/': typeof TheaterIndexRoute
   '/admin/forms/$formKey': typeof AdminFormsFormKeyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/forms/': typeof AdminFormsIndexRoute
@@ -292,6 +313,7 @@ export interface FileRoutesByTo {
   '/admin/grades': typeof AdminGradesRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/news': typeof AdminNewsRoute
+  '/admin/theater': typeof AdminTheaterRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/uploadthing': typeof ApiUploadthingRoute
   '/auth/$path': typeof AuthPathRoute
@@ -303,9 +325,11 @@ export interface FileRoutesByTo {
   '/organization/$path': typeof OrganizationPathRoute
   '/press/approvals': typeof PressApprovalsRoute
   '/press/news': typeof PressNewsRoute
+  '/theater/orders': typeof TheaterOrdersRoute
   '/admin': typeof AdminIndexRoute
   '/committees': typeof CommitteesIndexRoute
   '/news': typeof NewsIndexRoute
+  '/theater': typeof TheaterIndexRoute
   '/admin/forms/$formKey': typeof AdminFormsFormKeyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/forms': typeof AdminFormsIndexRoute
@@ -332,6 +356,7 @@ export interface FileRoutesById {
   '/admin/grades': typeof AdminGradesRoute
   '/admin/members': typeof AdminMembersRoute
   '/admin/news': typeof AdminNewsRoute
+  '/admin/theater': typeof AdminTheaterRoute
   '/admin/users': typeof AdminUsersRoute
   '/api/uploadthing': typeof ApiUploadthingRoute
   '/auth/$path': typeof AuthPathRoute
@@ -343,9 +368,11 @@ export interface FileRoutesById {
   '/organization/$path': typeof OrganizationPathRoute
   '/press/approvals': typeof PressApprovalsRoute
   '/press/news': typeof PressNewsRoute
+  '/theater/orders': typeof TheaterOrdersRoute
   '/admin/': typeof AdminIndexRoute
   '/committees/': typeof CommitteesIndexRoute
   '/news/': typeof NewsIndexRoute
+  '/theater/': typeof TheaterIndexRoute
   '/admin/forms/$formKey': typeof AdminFormsFormKeyRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/forms/': typeof AdminFormsIndexRoute
@@ -373,6 +400,7 @@ export interface FileRouteTypes {
     | '/admin/grades'
     | '/admin/members'
     | '/admin/news'
+    | '/admin/theater'
     | '/admin/users'
     | '/api/uploadthing'
     | '/auth/$path'
@@ -384,9 +412,11 @@ export interface FileRouteTypes {
     | '/organization/$path'
     | '/press/approvals'
     | '/press/news'
+    | '/theater/orders'
     | '/admin/'
     | '/committees/'
     | '/news/'
+    | '/theater/'
     | '/admin/forms/$formKey'
     | '/api/auth/$'
     | '/admin/forms/'
@@ -411,6 +441,7 @@ export interface FileRouteTypes {
     | '/admin/grades'
     | '/admin/members'
     | '/admin/news'
+    | '/admin/theater'
     | '/admin/users'
     | '/api/uploadthing'
     | '/auth/$path'
@@ -422,9 +453,11 @@ export interface FileRouteTypes {
     | '/organization/$path'
     | '/press/approvals'
     | '/press/news'
+    | '/theater/orders'
     | '/admin'
     | '/committees'
     | '/news'
+    | '/theater'
     | '/admin/forms/$formKey'
     | '/api/auth/$'
     | '/admin/forms'
@@ -450,6 +483,7 @@ export interface FileRouteTypes {
     | '/admin/grades'
     | '/admin/members'
     | '/admin/news'
+    | '/admin/theater'
     | '/admin/users'
     | '/api/uploadthing'
     | '/auth/$path'
@@ -461,9 +495,11 @@ export interface FileRouteTypes {
     | '/organization/$path'
     | '/press/approvals'
     | '/press/news'
+    | '/theater/orders'
     | '/admin/'
     | '/committees/'
     | '/news/'
+    | '/theater/'
     | '/admin/forms/$formKey'
     | '/api/auth/$'
     | '/admin/forms/'
@@ -492,8 +528,10 @@ export interface RootRouteChildren {
   OrganizationPathRoute: typeof OrganizationPathRoute
   PressApprovalsRoute: typeof PressApprovalsRoute
   PressNewsRoute: typeof PressNewsRoute
+  TheaterOrdersRoute: typeof TheaterOrdersRoute
   CommitteesIndexRoute: typeof CommitteesIndexRoute
   NewsIndexRoute: typeof NewsIndexRoute
+  TheaterIndexRoute: typeof TheaterIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -646,6 +684,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminNewsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/theater': {
+      id: '/admin/theater'
+      path: '/theater'
+      fullPath: '/admin/theater'
+      preLoaderRoute: typeof AdminTheaterRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/users': {
       id: '/admin/users'
       path: '/users'
@@ -737,6 +782,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PressNewsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/theater/': {
+      id: '/theater/'
+      path: '/theater'
+      fullPath: '/theater/'
+      preLoaderRoute: typeof TheaterIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/theater/orders': {
+      id: '/theater/orders'
+      path: '/theater/orders'
+      fullPath: '/theater/orders'
+      preLoaderRoute: typeof TheaterOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/forms/': {
       id: '/admin/forms/'
       path: '/forms'
@@ -770,6 +829,7 @@ interface AdminRouteChildren {
   AdminGradesRoute: typeof AdminGradesRoute
   AdminMembersRoute: typeof AdminMembersRoute
   AdminNewsRoute: typeof AdminNewsRoute
+  AdminTheaterRoute: typeof AdminTheaterRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminIndexRoute: typeof AdminIndexRoute
   AdminFormsFormKeyRoute: typeof AdminFormsFormKeyRoute
@@ -785,6 +845,7 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminGradesRoute: AdminGradesRoute,
   AdminMembersRoute: AdminMembersRoute,
   AdminNewsRoute: AdminNewsRoute,
+  AdminTheaterRoute: AdminTheaterRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminIndexRoute: AdminIndexRoute,
   AdminFormsFormKeyRoute: AdminFormsFormKeyRoute,
@@ -816,8 +877,10 @@ const rootRouteChildren: RootRouteChildren = {
   OrganizationPathRoute: OrganizationPathRoute,
   PressApprovalsRoute: PressApprovalsRoute,
   PressNewsRoute: PressNewsRoute,
+  TheaterOrdersRoute: TheaterOrdersRoute,
   CommitteesIndexRoute: CommitteesIndexRoute,
   NewsIndexRoute: NewsIndexRoute,
+  TheaterIndexRoute: TheaterIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

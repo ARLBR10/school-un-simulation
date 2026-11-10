@@ -5,6 +5,8 @@ export type GradingMemberType =
   | "clerk"
   | "teacher"
   | "unassigned"
+  | "observer"
+  | "glucon"
   | "admin";
 
 export type GradingEntryKind = "grade" | "deduction";
