@@ -117,6 +117,7 @@ export function TheaterMarkerSheet({
   draft,
   factions,
   participants,
+  delegationFactionId,
   onClose,
   onSaved,
 }: {
@@ -124,6 +125,7 @@ export function TheaterMarkerSheet({
   draft: TheaterMarkerDraft | null;
   factions: Doc<"theaterFactions">[];
   participants: Doc<"members">[] | undefined;
+  delegationFactionId: Id<"theaterFactions"> | null;
   onClose: () => void;
   onSaved: (markerId: Id<"theaterMarkers">) => void;
 }) {
@@ -185,17 +187,19 @@ export function TheaterMarkerSheet({
       ...(values.category === "infantry"
         ? { infantryVariant: values.infantryVariant }
         : {}),
-      factionId:
+      factionId: delegationFactionId ?? (
         values.factionId === noFactionValue
           ? undefined
-          : (values.factionId as Id<"theaterFactions">),
+          : (values.factionId as Id<"theaterFactions">)
+      ),
       personnelCount,
       personnelCapacity,
       lat: position.lat,
       lng: position.lng,
-      visibility: values.visibility,
-      visibleToFactionIds:
-        values.visibility === "factions"
+      visibility: delegationFactionId ? "factions" : values.visibility,
+      visibleToFactionIds: delegationFactionId
+        ? [delegationFactionId]
+        : values.visibility === "factions"
           ? (values.visibleToFactionIds as Id<"theaterFactions">[])
           : [],
       visibleToMemberIds:
@@ -250,7 +254,7 @@ export function TheaterMarkerSheet({
           </SheetTitle>
           <SheetDescription>
             {position
-              ? `Posição: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}. Use “Mover” nos detalhes do marcador para reposicioná-lo.`
+              ? `Posição: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}.${delegationFactionId ? "" : " Use “Mover” nos detalhes do marcador para reposicioná-lo."}`
               : null}
           </SheetDescription>
         </SheetHeader>
@@ -288,6 +292,11 @@ export function TheaterMarkerSheet({
               </Field>
               <Field>
                 <FieldLabel htmlFor="theater-marker-faction">Facção</FieldLabel>
+                {delegationFactionId ? (
+                  <FieldDescription>
+                    {factions.find((faction) => faction._id === delegationFactionId)?.name}
+                  </FieldDescription>
+                ) : (
                 <TheaterOptionSelect
                   id="theater-marker-faction"
                   value={values.factionId}
@@ -299,6 +308,7 @@ export function TheaterMarkerSheet({
                     setValues((current) => ({ ...current, factionId: value }))
                   }
                 />
+                )}
               </Field>
             </div>
 
@@ -410,6 +420,14 @@ export function TheaterMarkerSheet({
               />
             </Field>
 
+            {delegationFactionId ? (
+              <FieldDescription>
+                Este marcador pertence à sua facção e será visível apenas para ela,
+                para o GLUCON e para a administração. Apenas operadores podem editar,
+                mover ou remover marcadores.
+              </FieldDescription>
+            ) : (
+              <>
             <Field>
               <FieldLabel htmlFor="theater-marker-visibility">Quem pode ver</FieldLabel>
               <TheaterOptionSelect
@@ -514,6 +532,8 @@ export function TheaterMarkerSheet({
                 ) : null}
               </>
             ) : null}
+              </>
+            )}
           </FieldGroup>
 
           <div className="flex flex-wrap justify-end gap-2 border-t border-border/70 pt-4">

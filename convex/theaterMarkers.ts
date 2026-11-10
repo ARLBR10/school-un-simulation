@@ -228,7 +228,22 @@ export const create = mutation({
   args: { eventId: v.id("events"), ...markerFields },
   returns: v.id("theaterMarkers"),
   handler: async (ctx, { eventId, ...input }) => {
-    const viewer = await requireTheaterViewer(ctx, eventId, ["admin", "glucon"]);
+    const viewer = await requireTheaterViewer(ctx, eventId, ["admin", "glucon", "delegate"]);
+    if (viewer.role === "delegate") {
+      if (!viewer.factionId) {
+        throw new Error("Sua delegação precisa estar vinculada a uma facção.");
+      }
+      // Delegations cannot impersonate another faction or publish restricted information.
+      input = {
+        ...input,
+        factionId: viewer.factionId,
+        visibility: "factions",
+        visibleToFactionIds: [viewer.factionId],
+        visibleToMemberIds: [],
+        concealment: "hidden",
+        obscuredLabel: undefined,
+      };
+    }
     return await ctx.db.insert("theaterMarkers", {
       eventId: viewer.event._id,
       ...(await normalizeMarker(ctx, viewer.event._id, input)),

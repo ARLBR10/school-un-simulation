@@ -136,6 +136,9 @@ function TheaterMapPage() {
 
   const assignedParticipants = participants?.filter((member) => member.type !== "unassigned");
   const canEdit = isOperator && viewer.event.status !== "past";
+  const canCreate =
+    (isOperator || (viewer.role === "delegate" && viewer.factionId !== null)) &&
+    viewer.event.status !== "past";
   const selectedMarker =
     markers.find((marker) => marker._id === selectedMarkerId) ?? null;
   const fullMarkers = markers.filter(
@@ -204,7 +207,7 @@ function TheaterMapPage() {
               <ScrollText data-icon="inline-start" />
               Ordens
             </Button>
-            {canEdit ? (
+            {canCreate ? (
               <Button
                 type="button"
                 variant={isPlacing ? "secondary" : "default"}
@@ -253,7 +256,7 @@ function TheaterMapPage() {
               setSelectedMarkerId(markerId);
             }}
             onPlace={
-              isPlacing
+              canCreate && isPlacing
                 ? (position) => {
                     setIsPlacing(false);
                     setMovingMarkerId(null);
@@ -341,13 +344,14 @@ function TheaterMapPage() {
         </div>
       </div>
 
-      {eventId && canEdit ? (
+      {eventId && canCreate ? (
         <TheaterMarkerSheet
           key={eventId}
           eventId={eventId}
           draft={draft}
           factions={factions ?? []}
           participants={assignedParticipants}
+          delegationFactionId={viewer.role === "delegate" ? viewer.factionId : null}
           onClose={() => setDraft(null)}
           onSaved={(markerId) => {
             setDraft(null);

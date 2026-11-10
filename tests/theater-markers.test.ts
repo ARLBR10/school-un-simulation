@@ -9,6 +9,7 @@ import {
   type TheaterViewer,
 } from "../convex/theater";
 import {
+  create,
   normalizeMarkerPersonnel,
   toTheaterMarkerView,
 } from "../convex/theaterMarkers";
@@ -194,5 +195,90 @@ describe("theater marker write gates", () => {
         ["admin", "glucon"],
       )).rejects.toThrow("somente para leitura");
     }
+  });
+});
+
+describe("delegation marker creation", () => {
+  const faction: Doc<"theaterFactions"> = {
+    _id: "own-faction" as Id<"theaterFactions">,
+    _creationTime: 0,
+    eventId: event._id,
+    name: "Delegação",
+    color: "blue",
+  };
+  const delegate = { ...member, type: "delegate" as const, theaterFactionId: faction._id };
+  const input = {
+    eventId: event._id,
+    title: marker.title,
+    category: marker.category,
+    lat: marker.lat,
+    lng: marker.lng,
+    factionId: "enemy-faction" as Id<"theaterFactions">,
+    visibility: "public" as const,
+    visibleToFactionIds: ["enemy-faction" as Id<"theaterFactions">],
+    visibleToMemberIds: [member._id],
+    concealment: "obscured" as const,
+    obscuredLabel: "Informação vazada",
+  };
+  // Convex retains the handler at runtime but omits it from the public registration type.
+  const registeredCreate = create as unknown as {
+    _handler: (ctx: MutationCtx, args: typeof input) => Promise<Id<"theaterMarkers">>;
+  };
+  const createHandler = registeredCreate._handler;
+
+  function creationContext(membership: Doc<"members"> = delegate, membershipEvent = event, factionEventId = event._id) {
+    const records: Doc<"theaterMarkers">[] = [];
+    const ctx = {
+      ...viewerContext(membership, membershipEvent),
+      db: {
+        get: async (table: string, id: string) =>
+          table === "events" ? membershipEvent :
+            table === "theaterFactions" && id === faction._id
+              ? { ...faction, eventId: factionEventId } : null,
+        insert: async (_table: string, record: Omit<Doc<"theaterMarkers">, "_id" | "_creationTime">) => {
+          records.push({ ...record, _id: marker._id, _creationTime: 0 });
+          return marker._id;
+        },
+      },
+    } as unknown as MutationCtx;
+    return { ctx, records };
+  }
+
+  test("creates an own-faction marker and ignores forged ownership or audience", async () => {
+    const { ctx, records } = creationContext();
+    expect(await createHandler(ctx, input)).toBe(marker._id);
+    const created = records[0];
+    expect(created.eventId).toBe(event._id);
+    expect(created.factionId).toBe(faction._id);
+    expect(created.visibility).toBe("factions");
+    expect(created.visibleToFactionIds).toEqual([faction._id]);
+    expect(created.visibleToMemberIds).toEqual([]);
+    expect(created.concealment).toBe("hidden");
+    expect(created.obscuredLabel).toBeUndefined();
+    expect(toTheaterMarkerView(created, {
+      event, member: delegate, role: "delegate", factionId: faction._id,
+    })?.kind).toBe("full");
+    expect(toTheaterMarkerView(created, {
+      ...viewer, role: "delegate", factionId: input.factionId,
+    })).toBeNull();
+    expect(toTheaterMarkerView(created, { ...viewer, role: "glucon" })?.kind).toBe("full");
+  });
+
+  test("rejects observers, unassigned delegates, past events, and cross-event factions", async () => {
+    for (const membership of [
+      { ...delegate, type: "observer" as const },
+      { ...delegate, type: "unassigned" as const },
+      { ...delegate, theaterFactionId: undefined },
+    ]) {
+      const { ctx, records } = creationContext(membership);
+      await expect(createHandler(ctx, input)).rejects.toThrow("permissão");
+      expect(records).toEqual([]);
+    }
+    const past = creationContext(delegate, { ...event, status: "past" });
+    await expect(createHandler(past.ctx, input)).rejects.toThrow("somente para leitura");
+    expect(past.records).toEqual([]);
+    const wrongEvent = creationContext(delegate, event, otherEventId);
+    await expect(createHandler(wrongEvent.ctx, input)).rejects.toThrow("Facção");
+    expect(wrongEvent.records).toEqual([]);
   });
 });
