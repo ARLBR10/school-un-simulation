@@ -47,7 +47,7 @@ export const backfillMembers2026 = migrations.define({
   table: "members",
   migrateOne: async (ctx, member) => {
     if (member.type === "admin" || member.eventId !== undefined) return;
-    await ctx.db.patch(member._id, { eventId: await getLegacyEventId(ctx) });
+    await ctx.db.patch("members", member._id, { eventId: await getLegacyEventId(ctx) });
   },
 });
 
@@ -55,7 +55,7 @@ export const backfillCommittees2026 = migrations.define({
   table: "committees",
   migrateOne: async (ctx, committee) => {
     if (committee.eventId !== undefined) return;
-    await ctx.db.patch(committee._id, { eventId: await getLegacyEventId(ctx) });
+    await ctx.db.patch("committees", committee._id, { eventId: await getLegacyEventId(ctx) });
   },
 });
 
@@ -63,7 +63,7 @@ export const backfillNews2026 = migrations.define({
   table: "news",
   migrateOne: async (ctx, news) => {
     if (news.eventId !== undefined) return;
-    await ctx.db.patch(news._id, { eventId: await getLegacyEventId(ctx) });
+    await ctx.db.patch("news", news._id, { eventId: await getLegacyEventId(ctx) });
   },
 });
 
@@ -71,7 +71,7 @@ export const backfillGrading2026 = migrations.define({
   table: "gradingEntries",
   migrateOne: async (ctx, entry) => {
     if (entry.eventId !== undefined) return;
-    await ctx.db.patch(entry._id, { eventId: await getLegacyEventId(ctx) });
+    await ctx.db.patch("gradingEntries", entry._id, { eventId: await getLegacyEventId(ctx) });
   },
 });
 
@@ -79,7 +79,7 @@ export const backfillDocuments2026 = migrations.define({
   table: "docs",
   migrateOne: async (ctx, document) => {
     if (document.eventId !== undefined) return;
-    await ctx.db.patch(document._id, { eventId: await getLegacyEventId(ctx) });
+    await ctx.db.patch("docs", document._id, { eventId: await getLegacyEventId(ctx) });
   },
 });
 
@@ -87,7 +87,7 @@ export const backfillAttendance2026 = migrations.define({
   table: "attendanceEntries",
   migrateOne: async (ctx, attendance) => {
     if (attendance.eventId !== undefined) return;
-    await ctx.db.patch(attendance._id, { eventId: await getLegacyEventId(ctx) });
+    await ctx.db.patch("attendanceEntries", attendance._id, { eventId: await getLegacyEventId(ctx) });
   },
 });
 
@@ -106,7 +106,7 @@ export const backfillEventKinds = migrations.define({
   table: "events",
   migrateOne: async (ctx, event) => {
     if (event.kind !== undefined) return;
-    await ctx.db.patch(event._id, { kind: "un_simulation" });
+    await ctx.db.patch("events", event._id, { kind: "un_simulation" });
   },
 });
 

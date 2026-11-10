@@ -9,6 +9,10 @@ import { defineConfig } from "vite";
 export default defineConfig({
   environments: {
     ssr: {
+      resolve: {
+        // Workerd cannot share externalized React with Vite's optimized modules.
+        noExternal: true,
+      },
       // Workerd needs CommonJS dependencies converted to ESM before evaluation.
       optimizeDeps: {
         noDiscovery: false,
@@ -23,6 +27,8 @@ export default defineConfig({
     },
   },
   resolve: {
+    // SSR dependencies and the renderer must share the same React instance.
+    dedupe: ["react", "react-dom"],
     alias: {
       "@": fileURLToPath(new URL(".", import.meta.url)),
     },

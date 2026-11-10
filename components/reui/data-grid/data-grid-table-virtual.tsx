@@ -23,7 +23,8 @@ import {
   DataGridTableViewport,
   getDataGridTableRowSections,
 } from "@/components/reui/data-grid/data-grid-table"
-import { flexRender, HeaderGroup, Row, Table } from "@tanstack/react-table"
+import { flexRender, Row, RowData, ReactTable } from "@tanstack/react-table"
+import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid-features"
 import {
   useVirtualizer,
   VirtualItem,
@@ -44,18 +45,18 @@ type DataGridTableVirtualizerInstance = Virtualizer<
   HTMLTableRowElement
 >
 
-type DataGridTableVirtualizerOptions<TData> = Omit<
+type DataGridTableVirtualizerOptions<TData extends RowData> = Omit<
   VirtualizerOptions<HTMLElement, HTMLTableRowElement>,
   "count" | "estimateSize" | "getItemKey" | "getScrollElement"
 > & {
-  estimateSize?: (index: number, row: Row<TData>) => number
-  getItemKey?: (index: number, row: Row<TData>) => string | number
+  estimateSize?: (index: number, row: Row<DataGridFeatures, TData>) => number
+  getItemKey?: (index: number, row: Row<DataGridFeatures, TData>) => string | number
   getScrollElement?: (
     elements: DataGridTableVirtualScrollElements
   ) => HTMLElement | null
 }
 
-interface DataGridTableVirtualProps<TData> {
+interface DataGridTableVirtualProps<TData extends RowData> {
   height?: number | string
   estimateSize?: number
   overscan?: number
@@ -68,12 +69,12 @@ interface DataGridTableVirtualProps<TData> {
   virtualizerOptions?: DataGridTableVirtualizerOptions<TData>
 }
 
-interface VirtualBodyProps<TData> {
-  table: Table<TData>
+interface VirtualBodyProps<TData extends RowData> {
+  table: ReactTable<DataGridFeatures, TData>
   columnCount: number
-  topRows: Row<TData>[]
-  centerRows: Row<TData>[]
-  bottomRows: Row<TData>[]
+  topRows: Row<DataGridFeatures, TData>[]
+  centerRows: Row<DataGridFeatures, TData>[]
+  bottomRows: Row<DataGridFeatures, TData>[]
   virtualItems: VirtualItem[]
   totalSize: number
   isVirtualizationEnabled: boolean
@@ -125,7 +126,7 @@ function DataGridTableVirtualStatusRow({
   )
 }
 
-function DataGridTableVirtualBody<TData>({
+function DataGridTableVirtualBody<TData extends RowData>({
   table,
   columnCount,
   topRows,
@@ -265,10 +266,10 @@ function DataGridTableVirtualBody<TData>({
  */
 const MemoizedVirtualBody = memo(
   DataGridTableVirtualBody,
-  (_prev, next) => !!next.table.getState().columnSizingInfo.isResizingColumn
+  (_prev, next) => !!next.table.state.columnResizing.isResizingColumn
 ) as typeof DataGridTableVirtualBody
 
-function DataGridTableVirtual<TData>({
+function DataGridTableVirtual<TData extends RowData>({
   height,
   estimateSize = 48,
   overscan = 10,
@@ -280,7 +281,7 @@ function DataGridTableVirtual<TData>({
   fetchMoreOffset = 0,
   virtualizerOptions,
 }: DataGridTableVirtualProps<TData>) {
-  const { table, props } = useDataGrid()
+  const { table, props } = useDataGrid<TData>()
   const { topRows, centerRows, bottomRows } = getDataGridTableRowSections(
     table,
     props.tableLayout?.rowsPinnable
@@ -419,7 +420,7 @@ function DataGridTableVirtual<TData>({
           <DataGridTableHead>
             {table
               .getHeaderGroups()
-              .map((headerGroup: HeaderGroup<TData>, index) => (
+              .map((headerGroup, index) => (
                 <DataGridTableHeadRow headerGroup={headerGroup} key={index}>
                   {headerGroup.headers.map((header, hIndex) => {
                     const { column } = header

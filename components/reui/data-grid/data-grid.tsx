@@ -5,15 +5,17 @@ import {
   Column,
   ColumnFiltersState,
   RowData,
+  TableFeatures,
   SortingState,
-  Table,
+  ReactTable,
 } from "@tanstack/react-table"
+import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid-features"
 
 import { cn } from "@/lib/utils"
 
 declare module "@tanstack/react-table" {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  interface ColumnMeta<TData extends RowData, TValue> {
+  interface ColumnMeta<TFeatures extends TableFeatures, TData extends RowData, TValue> {
     headerTitle?: string
     headerClassName?: string
     cellClassName?: string
@@ -23,8 +25,8 @@ declare module "@tanstack/react-table" {
 }
 
 /** Label for headers / column visibility: `meta.headerTitle`, string `columnDef.header`, or `column.id`. */
-export function getColumnHeaderLabel<TData, TValue>(
-  column: Column<TData, TValue>
+export function getColumnHeaderLabel<TData extends RowData, TValue>(
+  column: Column<DataGridFeatures, TData, TValue>
 ): string {
   const meta = column.columnDef.meta as { headerTitle?: string } | undefined
   if (typeof meta?.headerTitle === "string") return meta.headerTitle
@@ -50,9 +52,9 @@ export type DataGridApiResponse<T> = {
   }
 }
 
-export interface DataGridContextProps<TData extends object> {
+export interface DataGridContextProps<TData extends RowData> {
   props: DataGridProps<TData>
-  table: Table<TData>
+  table: ReactTable<DataGridFeatures, TData>
   recordCount: number
   isLoading: boolean
 }
@@ -64,9 +66,9 @@ export type DataGridRequestParams = {
   columnFilters?: ColumnFiltersState
 }
 
-export interface DataGridProps<TData extends object> {
+export interface DataGridProps<TData extends RowData> {
   className?: string
-  table?: Table<TData>
+  table?: ReactTable<DataGridFeatures, TData>
   recordCount: number
   children?: ReactNode
   onRowClick?: (row: TData) => void
@@ -107,32 +109,33 @@ export interface DataGridProps<TData extends object> {
   }
 }
 
-const DataGridContext = createContext<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  DataGridContextProps<any> | undefined
->(undefined)
+const DataGridContext = createContext<unknown>(undefined)
 
-function useDataGrid() {
+function useDataGrid<TData extends RowData = RowData>() {
   const context = useContext(DataGridContext)
   if (!context) {
     throw new Error("useDataGrid must be used within a DataGridProvider")
   }
-  return context
+  // React context erases the row type; consumers share their enclosing provider's TData.
+  return context as DataGridContextProps<TData>
 }
 
-function DataGridProvider<TData extends object>({
+function DataGridProvider<TData extends RowData>({
   children,
   table,
   ...props
-}: DataGridProps<TData> & { table: Table<TData> }) {
-  const tableState = table.getState()
+}: DataGridProps<TData> & { table: ReactTable<DataGridFeatures, TData> }) {
+  const tableState = table.state
   const resolvedColumnsResizeMode =
     props.tableLayout?.columnsResizeMode ?? "onEnd"
 
   // Keep resize mode aligned with the DataGrid contract every render so
-  // consumer-level useReactTable options cannot flip it back between drags.
+  // consumer-level useTable options cannot flip it back between drags.
   if (props.tableLayout?.columnsResizable) {
-    table.options.columnResizeMode = resolvedColumnsResizeMode
+    table.setOptions((options) => ({
+      ...options,
+      columnResizeMode: resolvedColumnsResizeMode,
+    }))
   }
 
   // Memoize context value so consumers don't re-render during column resize.
@@ -180,7 +183,7 @@ function DataGridProvider<TData extends object>({
   )
 }
 
-function DataGrid<TData extends object>({
+function DataGrid<TData extends RowData>({
   children,
   table,
   ...props

@@ -47,7 +47,8 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { Cell, flexRender, HeaderGroup, Row } from "@tanstack/react-table"
+import { flexRender, Row, RowData } from "@tanstack/react-table"
+import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid-features"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -98,7 +99,7 @@ function DataGridTableDndRowHandle({ className }: { className?: string }) {
   )
 }
 
-function DataGridTableDndRow<TData>({ row }: { row: Row<TData> }) {
+function DataGridTableDndRow<TData extends RowData>({ row }: { row: Row<DataGridFeatures, TData> }) {
   const {
     transform,
     transition,
@@ -127,7 +128,7 @@ function DataGridTableDndRow<TData>({ row }: { row: Row<TData> }) {
         dndStyle={style}
         key={row.id}
       >
-        {row.getVisibleCells().map((cell: Cell<TData, unknown>, colIndex) => {
+        {row.getVisibleCells().map((cell, colIndex) => {
           return (
             <DataGridTableBodyRowCell cell={cell} key={colIndex}>
               {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -139,7 +140,7 @@ function DataGridTableDndRow<TData>({ row }: { row: Row<TData> }) {
   )
 }
 
-function DataGridTableDndRows<TData>({
+function DataGridTableDndRows({
   handleDragEnd,
   dataIds,
   footerContent,
@@ -149,7 +150,7 @@ function DataGridTableDndRows<TData>({
   footerContent?: ReactNode
 }) {
   const { table, isLoading, props } = useDataGrid()
-  const pagination = table.getState().pagination
+  const pagination = table.state.pagination
   const tableContainerRef = useRef<HTMLDivElement>(null)
   const [isDraggingRow, setIsDraggingRow] = useState(false)
 
@@ -227,7 +228,7 @@ function DataGridTableDndRows<TData>({
           <DataGridTableHead>
             {table
               .getHeaderGroups()
-              .map((headerGroup: HeaderGroup<TData>, index) => {
+              .map((headerGroup, index) => {
                 return (
                   <DataGridTableHeadRow headerGroup={headerGroup} key={index}>
                     {headerGroup.headers.map((header, index) => {
@@ -288,7 +289,7 @@ function DataGridTableDndRows<TData>({
                 items={dataIds}
                 strategy={verticalListSortingStrategy}
               >
-                {table.getRowModel().rows.map((row: Row<TData>) => {
+                {table.getRowModel().rows.map((row) => {
                   return <DataGridTableDndRow row={row} key={row.id} />
                 })}
               </SortableContext>

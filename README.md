@@ -39,8 +39,12 @@ Technical and analytics data, when used, should only support diagnostics, securi
 - Frontend: TanStack Start, React 19, TanStack Router, Vite, and Nitro.
 - Backend: Convex.
 - UI: Tailwind CSS 4, shadcn/radix-nova, reui data-grid, and Lucide icons.
-- Auth: Better Auth integrated with Convex.
+- Auth: Better Auth 1.7 with the bundled Convex Better Auth 0.13 component. No Local Install schema generation is needed; deploy the backend and frontend together when upgrading.
 - Planned deploy: Convex and Cloudflare Workers.
+- Admin tables: TanStack Table 9 with shared feature registration in `components/reui/data-grid/data-grid-features.ts`.
+- AI: AI SDK 7 with explicit `@ai-sdk/otel` tracing; Mistral OCR uses its dedicated SDK entrypoint.
+- Tooling: TypeScript 7 runs `tsc`; the `typescript` alias supplies TypeScript 6's API for ESLint.
+- Worker SSR bundles its dependency graph (`environments.ssr.resolve.noExternal`) so React hooks and the renderer use the same React instance in development and production.
 
 ## Requirements
 

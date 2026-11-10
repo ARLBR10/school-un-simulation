@@ -98,7 +98,6 @@ export default defineSchema({
     ),
     eventId: v.optional(v.id("events")),
   })
-    .index("by_member", ["member"])
     .index("by_member_and_type", ["member", "type"])
     .index("by_eventId", { fields: ["eventId"], staged: true }),
   committees: defineTable({
@@ -115,6 +114,8 @@ export default defineSchema({
     eventId: v.optional(v.id("events")),
     submittedAt: v.number(),
   })
+    // Keep creation-time ordering for the newest submissions across form versions.
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes
     .index("by_formKey", ["formKey"])
     .index("by_respondentUserId", ["respondentUserId"])
     .index("by_respondentMemberId", ["respondentMemberId"])
@@ -136,6 +137,8 @@ export default defineSchema({
       v.array(v.string()),
     ),
   })
+    // Keep submitted answer order rather than sorting by field identifier.
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes
     .index("by_submissionId", ["submissionId"])
     .index("by_submissionId_and_fieldId", ["submissionId", "fieldId"]),
   news: defineTable({
@@ -162,9 +165,10 @@ export default defineSchema({
     note: v.optional(v.string()),
     eventId: v.optional(v.id("events")),
   })
+    // Keep chronological grade history across kinds and categories.
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes
     .index("by_member", ["member"])
     .index("by_kind", ["kind"])
-    .index("by_member_and_kind", ["member", "kind"])
     .index("by_member_and_kind_and_category", ["member", "kind", "category"])
     .index("by_eventId", { fields: ["eventId"], staged: true }),
   attendanceEntries: defineTable({
@@ -177,6 +181,8 @@ export default defineSchema({
     eventId: v.optional(v.id("events")),
   })
     .index("by_member_and_dateKey", ["member", "dateKey"])
+    // Keep creation-time ordering across committees for daily attendance reads.
+    // eslint-disable-next-line @convex-dev/no-duplicate-indexes
     .index("by_dateKey", ["dateKey"])
     .index("by_dateKey_and_committee", ["dateKey", "committee"])
     .index("by_eventId", { fields: ["eventId"], staged: true }),

@@ -3,6 +3,7 @@
 import { v } from "convex/values";
 import { generateText, Output } from "ai";
 import { webSearch } from "@exalabs/ai-sdk";
+import { OpenTelemetry } from "@ai-sdk/otel";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { PostHogTraceExporter } from "@posthog/ai/otel";
@@ -17,18 +18,18 @@ import { sanitizeOcrPages } from "@/lib/ocr";
 
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
-import { internalAction } from "./_generated/server";
-import { getMistralClient, getOpenrouterProvider } from "./ai";
+import { env, internalAction } from "./_generated/server";
+import { getMistralOcrClient, getOpenrouterProvider } from "./ai";
 import { getPostHog } from "./posthog";
 
 async function otelAI() {
   const sdk = new NodeSDK({
     resource: resourceFromAttributes({
-      deployment: process.env.CONVEX_DEPLOYMENT,
+      deployment: env.CONVEX_DEPLOYMENT,
     }),
     traceExporter: new PostHogTraceExporter({
-      apiKey: process.env.POSTHOG_API_KEY!,
-      host: process.env.POSTHOG_HOST!,
+      projectToken: env.POSTHOG_API_KEY,
+      host: env.POSTHOG_HOST,
     }),
   });
 
@@ -111,7 +112,7 @@ export const extractMd = internalAction({
   },
   async handler(ctx, args) {
     const startedAt = Date.now();
-    const mistralClient = await getMistralClient();
+    const mistralClient = await getMistralOcrClient();
     const documentKind = getUploadedDocumentFileKind({
       name: args.fileName ?? args.url,
       mimeType: args.mimeType,
@@ -127,7 +128,7 @@ export const extractMd = internalAction({
             documentUrl: args.url,
           };
 
-    const ocr = await mistralClient.ocr.process({
+    const ocr = await mistralClient.process({
       model: "mistral-ocr-latest",
       document: ocrDocument,
       bboxAnnotationFormat: {
@@ -270,14 +271,19 @@ Mentions of this runtime context in observations should be only referred as "Ins
       tools: {
         webSearch: webSearch(),
       },
-      experimental_telemetry: {
+      runtimeContext: {
+        documentId: args.documentId,
+        memberId: document.member,
+      },
+      telemetry: {
         isEnabled: true,
         recordInputs: true,
         recordOutputs: true,
         functionId: "documentsActions.aisdkAnalysis",
-        metadata: {
-          documentId: args.documentId,
-          memberId: document.member,
+        integrations: [new OpenTelemetry({ runtimeContext: true })],
+        includeRuntimeContext: {
+          documentId: true,
+          memberId: true,
         },
       },
     }).catch(async (e) => {

@@ -12,7 +12,7 @@ import { betterAuth } from "better-auth/minimal";
 import { v } from "convex/values";
 
 import { components, internal } from "./_generated/api";
-import { mutation, query } from "./_generated/server";
+import { env, mutation, query } from "./_generated/server";
 import authConfig from "./auth.config";
 import { getPostHog } from "./posthog";
 import { capturePostHogAsyncSafely } from "../lib/posthog-telemetry";
@@ -22,9 +22,9 @@ import type { AuditLogEntry } from "better-auth-audit-logs";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Doc } from "./_generated/dataModel";
 
-const siteUrl = process.env.SITE_URL!;
+const siteUrl = env.SITE_URL;
 const studentEmailDomains =
-  process.env.ALLOWED_DOMAIN?.split(",")
+  env.ALLOWED_DOMAIN?.split(",")
     .map((domain) => domain.trim().toLowerCase().replace(/^@/, ""))
     .filter(Boolean) ?? [];
 
@@ -70,10 +70,10 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
     },
     socialProviders: {
       google:
-        process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+        env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET
           ? {
-              clientId: process.env.GOOGLE_CLIENT_ID,
-              clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+              clientId: env.GOOGLE_CLIENT_ID,
+              clientSecret: env.GOOGLE_CLIENT_SECRET,
             }
           : undefined,
     },

@@ -1,17 +1,13 @@
 "use client";
 
-import { isValidElement, useEffect, useMemo, useState } from "react";
+import { isValidElement, useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import {
-  getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useReactTable,
+  useTable,
   type ColumnDef,
-  type SortingFn,
+  type SortFn,
   type SortingState,
-  type VisibilityState,
+  type ColumnVisibilityState,
 } from "@tanstack/react-table";
 import {
   CalendarDays,
@@ -92,11 +88,16 @@ import { DataGridColumnHeader } from "@/components/reui/data-grid/data-grid-colu
 import { DataGridColumnVisibility } from "@/components/reui/data-grid/data-grid-column-visibility";
 import { DataGridPagination } from "@/components/reui/data-grid/data-grid-pagination";
 import { DataGridTable } from "@/components/reui/data-grid/data-grid-table";
+import {
+  dataGridFeatures,
+  type DataGridFeatures,
+} from "@/components/reui/data-grid/data-grid-features";
 import { cn } from "@/lib/utils";
 
 export type { AdminTableSelectOption } from "@/components/admin/AdminTableSelectInput";
 
 type AdminTableRow = Record<string, ReactNode>;
+const emptyFilters: never[] = [];
 
 type ReadOnlyFieldKey = "_id" | "_creationTime";
 type SearchParamKey<T extends AdminTableRow> = Extract<keyof T, string>;
@@ -319,7 +320,7 @@ function shouldShowColumnInForm<T extends AdminTableRow>(
 
 function getDefaultColumnVisibility<T extends AdminTableRow>(
   columns: AdminTableColumn<T>[],
-): VisibilityState {
+): ColumnVisibilityState {
   return Object.fromEntries(
     columns
       .filter(
@@ -377,7 +378,7 @@ export function DynamicTable<T extends AdminTableRow>({
   className,
   showColumnVisibility = true,
   showPagination = true,
-  filters = [],
+  filters = emptyFilters,
   defaultFilterPreset = {},
   openLabel = "Abrir",
   rowKey,
@@ -395,7 +396,7 @@ export function DynamicTable<T extends AdminTableRow>({
   const searchParams = new URLSearchParams(location.searchStr);
   const [tableData, setTableData] = useState<T[]>(data);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() =>
+  const [columnVisibility, setColumnVisibility] = useState<ColumnVisibilityState>(() =>
     getDefaultColumnVisibility(columns),
   );
   const [globalFilter, setGlobalFilter] = useState("");
@@ -592,15 +593,51 @@ export function DynamicTable<T extends AdminTableRow>({
     }
   }
 
-  const cellSortingFn = useMemo<SortingFn<T>>(
+  const updateSearchParam = useCallback((nextValue: string | null) => {
+    if (!searchParamKey) {
+      return;
+    }
+
+    const nextSearchParams = new URLSearchParams(location.searchStr);
+
+    if (nextValue) {
+      nextSearchParams.set(searchParamKey, nextValue);
+    } else {
+      nextSearchParams.delete(searchParamKey);
+    }
+
+    const nextQuery = nextSearchParams.toString();
+    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+
+    void navigate({ to: nextUrl, replace: true });
+  }, [location.searchStr, navigate, pathname, searchParamKey]);
+
+  const handleOpenEdit = useCallback((row: T, index: number) => {
+    const nextReferencedRowValue =
+      searchParamKey ? resolveSearchParamValue(row, searchParamKey) : null;
+
+    setFormMode("edit");
+    setRowToEdit(row);
+    setRowToEditIndex(index);
+    setIsFormOpen(true);
+
+    if (nextReferencedRowValue && nextReferencedRowValue !== referencedRowValue) {
+      updateSearchParam(nextReferencedRowValue);
+    }
+  }, [referencedRowValue, searchParamKey, updateSearchParam]);
+
+  const cellSortFn = useMemo<SortFn<DataGridFeatures, T>>(
     () => (leftRow, rightRow, columnId) =>
-      compareCellValues(leftRow.getValue(columnId), rightRow.getValue(columnId)),
+      compareCellValues(
+        leftRow.getValue<ReactNode>(columnId),
+        rightRow.getValue<ReactNode>(columnId),
+      ),
     [],
   );
   const hasRowActions = Boolean(onOpen || onUpdate || onDelete);
 
-  const dataGridColumns: ColumnDef<T>[] = [
-    ...tableColumns.map<ColumnDef<T>>((column) => {
+  const dataGridColumns = useMemo<ColumnDef<DataGridFeatures, T>[]>(() => [
+    ...tableColumns.map<ColumnDef<DataGridFeatures, T>>((column) => {
       const columnId = String(column.key);
       const title = getColumnLabelText(column);
       const Icon = getDefaultColumnIcon(columnId);
@@ -625,7 +662,7 @@ export function DynamicTable<T extends AdminTableRow>({
         ),
         enableHiding: true,
         enableSorting: true,
-        sortingFn: cellSortingFn,
+        sortFn: cellSortFn,
         meta: {
           headerTitle: title,
           headerClassName: column.className,
@@ -721,12 +758,25 @@ export function DynamicTable<T extends AdminTableRow>({
               headerClassName: "px-1 text-right",
               cellClassName: "px-1 text-right",
             },
-          } satisfies ColumnDef<T>,
+          } satisfies ColumnDef<DataGridFeatures, T>,
         ]
       : []),
-  ];
+  ], [
+    cellSortFn,
+    copyIdKey,
+    handleOpenEdit,
+    hasRowActions,
+    onDelete,
+    onOpen,
+    onUpdate,
+    openLabel,
+    rowKey,
+    tableColumns,
+    tableData,
+  ]);
 
-  const table = useReactTable({
+  const table = useTable({
+    features: dataGridFeatures,
     data: filteredTableData,
     columns: dataGridColumns,
     state: {
@@ -772,17 +822,14 @@ export function DynamicTable<T extends AdminTableRow>({
         ),
       );
     },
-    getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
   });
 
+  const setPageSize = table.setPageSize;
   useEffect(() => {
     if (!showPagination) {
-      table.setPageSize(Math.max(tableData.length, 1));
+      setPageSize(Math.max(tableData.length, 1));
     }
-  }, [showPagination, table, tableData.length]);
+  }, [showPagination, setPageSize, tableData.length]);
 
   const formInitialValues = useMemo(() => {
     const baseValues: Record<string, string> = {};
@@ -804,25 +851,6 @@ export function DynamicTable<T extends AdminTableRow>({
     }, baseValues);
   }, [formFields, formMode, rowToEdit]);
 
-  function updateSearchParam(nextValue: string | null) {
-    if (!searchParamKey) {
-      return;
-    }
-
-    const nextSearchParams = new URLSearchParams(searchParams.toString());
-
-    if (nextValue) {
-      nextSearchParams.set(searchParamKey, nextValue);
-    } else {
-      nextSearchParams.delete(searchParamKey);
-    }
-
-    const nextQuery = nextSearchParams.toString();
-    const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
-
-    void navigate({ to: nextUrl, replace: true });
-  }
-
   function handleOpenCreate() {
     setFormMode("create");
     setRowToEdit(null);
@@ -831,20 +859,6 @@ export function DynamicTable<T extends AdminTableRow>({
 
     if (referencedRowValue) {
       updateSearchParam(null);
-    }
-  }
-
-  function handleOpenEdit(row: T, index: number) {
-    const nextReferencedRowValue =
-      searchParamKey ? resolveSearchParamValue(row, searchParamKey) : null;
-
-    setFormMode("edit");
-    setRowToEdit(row);
-    setRowToEditIndex(index);
-    setIsFormOpen(true);
-
-    if (nextReferencedRowValue && nextReferencedRowValue !== referencedRowValue) {
-      updateSearchParam(nextReferencedRowValue);
     }
   }
 

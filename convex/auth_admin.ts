@@ -56,13 +56,16 @@ export const create = mutation({
     const { auth } = await authComponent.getAuth(createAuth, ctx);
     const authContext = await auth.$context;
 
-    const { id: createdUserId } = await authContext.internalAdapter.createUser({
-      updatedAt: new Date(),
-      name: args.name,
-      email: args.email,
-      username: args.username,
-      cellphone: args.cellphone,
-    });
+    const { id: createdUserId } = await authContext.internalAdapter.createUser(
+      {
+        updatedAt: new Date(),
+        name: args.name,
+        email: args.email,
+        username: args.username,
+        cellphone: args.cellphone,
+      },
+      { method: "admin" },
+    );
     const { id: createdAccountId } =
       await authContext.internalAdapter.createAccount({
         accountId: createdUserId,

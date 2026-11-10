@@ -1,5 +1,6 @@
 import { PostHog } from "@posthog/convex";
 import { components } from "./_generated/api";
+import { env } from "./_generated/server";
 
 let posthog: PostHog | undefined;
 
@@ -15,7 +16,7 @@ export function getPostHog() {
         ...event,
         properties: {
           ...event.properties,
-          deployment: process.env.CONVEX_DEPLOYMENT,
+          deployment: env.CONVEX_DEPLOYMENT,
         },
       };
     },

@@ -20,12 +20,7 @@ import {
   type LexicalEditor,
   createCommand,
 } from "lexical";
-import type {
-  ElementNode,
-  LexicalCommand,
-  LexicalNode,
-  NodeKey,
-} from "lexical";
+import type { LexicalCommand, NodeKey } from "lexical";
 
 import {
   $createLayoutContainerNode,
@@ -125,15 +120,15 @@ export function LayoutPlugin(): null {
         );
 
         if ($isLayoutContainerNode(container)) {
-          const parent = container.getParent<ElementNode>();
+          const parent = container.getParent();
           const child =
             parent &&
             (before
-              ? parent.getFirstChild<LexicalNode>()
-              : parent?.getLastChild<LexicalNode>());
+              ? parent.getFirstChild()
+              : parent.getLastChild());
           const descendant = before
-            ? container.getFirstDescendant<LexicalNode>()?.getKey()
-            : container.getLastDescendant<LexicalNode>()?.getKey();
+            ? container.getFirstDescendant()?.getKey()
+            : container.getLastDescendant()?.getKey();
 
           if (
             parent !== null &&
@@ -206,7 +201,7 @@ export function LayoutPlugin(): null {
         UPDATE_LAYOUT_COMMAND,
         ({ template, nodeKey }) => {
           editor.update(() => {
-            const container = $getNodeByKey<LexicalNode>(nodeKey);
+            const container = $getNodeByKey(nodeKey);
 
             if (!$isLayoutContainerNode(container)) {
               return;
@@ -226,7 +221,7 @@ export function LayoutPlugin(): null {
               }
             } else if (itemsCount < prevItemsCount) {
               for (let i = prevItemsCount - 1; i >= itemsCount; i--) {
-                const layoutItem = container.getChildAtIndex<LexicalNode>(i);
+                const layoutItem = container.getChildAtIndex(i);
 
                 if ($isLayoutItemNode(layoutItem)) {
                   layoutItem.remove();
@@ -245,9 +240,9 @@ export function LayoutPlugin(): null {
       // "Container > Item" it'll unwrap nodes and convert it back
       // to regular content.
       editor.registerNodeTransform(LayoutItemNode, (node) => {
-        const parent = node.getParent<ElementNode>();
+        const parent = node.getParent();
         if (!$isLayoutContainerNode(parent)) {
-          const children = node.getChildren<LexicalNode>();
+          const children = node.getChildren();
           for (const child of children) {
             node.insertBefore(child);
           }
@@ -255,7 +250,7 @@ export function LayoutPlugin(): null {
         }
       }),
       editor.registerNodeTransform(LayoutContainerNode, (node) => {
-        const children = node.getChildren<LexicalNode>();
+        const children = node.getChildren();
         if (!children.every($isLayoutItemNode)) {
           for (const child of children) {
             node.insertBefore(child);

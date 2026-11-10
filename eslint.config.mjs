@@ -6,7 +6,6 @@ export default defineConfig([
   {
     ignores: [
       "convex/_generated/**",
-      "convex/betterAuth/generatedSchema.ts",
     ],
   },
   {

@@ -5,7 +5,8 @@ import {
   getColumnHeaderLabel,
   useDataGrid,
 } from "@/components/reui/data-grid/data-grid"
-import { Column } from "@tanstack/react-table"
+import { Column, RowData } from "@tanstack/react-table"
+import type { DataGridFeatures } from "@/components/reui/data-grid/data-grid-features"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -25,10 +26,10 @@ import {
 import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon, CheckIcon, ArrowLeftToLineIcon, ArrowRightToLineIcon, ArrowLeftIcon, ArrowRightIcon, Settings2Icon, PinOffIcon } from "lucide-react"
 
 interface DataGridColumnHeaderProps<
-  TData,
+  TData extends RowData,
   TValue,
 > extends HTMLAttributes<HTMLDivElement> {
-  column: Column<TData, TValue>
+  column: Column<DataGridFeatures, TData, TValue>
   /** When omitted, uses `column.columnDef.meta.headerTitle`, then a string `columnDef.header`, then `column.id`. */
   title?: string
   icon?: ReactNode
@@ -37,7 +38,7 @@ interface DataGridColumnHeaderProps<
   visibility?: boolean
 }
 
-function DataGridColumnHeaderInner<TData, TValue>({
+function DataGridColumnHeaderInner<TData extends RowData, TValue>({
   column,
   title,
   icon,
@@ -48,8 +49,8 @@ function DataGridColumnHeaderInner<TData, TValue>({
   const { isLoading, table, props, recordCount } = useDataGrid()
   const resolvedTitle = title ?? getColumnHeaderLabel(column)
 
-  const columnOrder = table.getState().columnOrder
-  const columnVisibilityKey = JSON.stringify(table.getState().columnVisibility)
+  const columnOrder = table.state.columnOrder
+  const columnVisibilityKey = JSON.stringify(table.state.columnVisibility)
   const isSorted = column.getIsSorted()
   const isPinned = column.getIsPinned()
   const canSort = column.getCanSort()
@@ -161,22 +162,22 @@ function DataGridColumnHeaderInner<TData, TValue>({
       }
       items.push(
         <DropdownMenuItem
-          key="pin-left"
-          onClick={() => column.pin(isPinned === "left" ? false : "left")}
+          key="pin-start"
+          onClick={() => column.pin(isPinned === "start" ? false : "start")}
         >
-          <ArrowLeftToLineIcon className="size-3.5!" aria-hidden="true" />
-          <span className="grow">Pin to left</span>
-          {isPinned === "left" && (
+          <ArrowLeftToLineIcon className="size-3.5! rtl:rotate-180" aria-hidden="true" />
+          <span className="grow">Fixar no início</span>
+          {isPinned === "start" && (
             <CheckIcon className="text-primary size-4 opacity-100!" />
           )}
         </DropdownMenuItem>,
         <DropdownMenuItem
-          key="pin-right"
-          onClick={() => column.pin(isPinned === "right" ? false : "right")}
+          key="pin-end"
+          onClick={() => column.pin(isPinned === "end" ? false : "end")}
         >
-          <ArrowRightToLineIcon className="size-3.5!" aria-hidden="true" />
-          <span className="grow">Pin to right</span>
-          {isPinned === "right" && (
+          <ArrowRightToLineIcon className="size-3.5! rtl:rotate-180" aria-hidden="true" />
+          <span className="grow">Fixar no fim</span>
+          {isPinned === "end" && (
             <CheckIcon className="text-primary size-4 opacity-100!" />
           )}
         </DropdownMenuItem>
