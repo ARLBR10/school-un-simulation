@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 
 import type { TheaterRole } from "@/lib/theater";
+import { capturePostHogAsyncSafely } from "@/lib/posthog-telemetry";
 
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -10,6 +11,7 @@ import {
   type MutationCtx,
   type QueryCtx,
 } from "./_generated/server";
+import { getPostHog } from "./posthog";
 
 export const theaterFactionColors = v.union(
   v.literal("blue"),
@@ -72,6 +74,37 @@ export type TheaterViewer = {
   role: TheaterRole;
   factionId: Id<"theaterFactions"> | null;
 };
+
+/** Metadata only: never send order contents, marker details, or personal data. */
+export async function captureTheaterEvent(
+  ctx: MutationCtx,
+  viewer: TheaterViewer,
+  event:
+    | "theater_marker_created"
+    | "theater_marker_updated"
+    | "theater_marker_moved"
+    | "theater_marker_deleted"
+    | "theater_order_sent"
+    | "theater_order_reviewed"
+    | "theater_faction_created"
+    | "theater_faction_updated"
+    | "theater_faction_deleted"
+    | "theater_participant_updated",
+  properties: Record<string, string | number | boolean | null>,
+) {
+  await capturePostHogAsyncSafely(() =>
+    getPostHog().capture(ctx, {
+      event,
+      properties: {
+        ...properties,
+        eventId: viewer.event._id,
+        actorId: viewer.member._id,
+        actorRole: viewer.role,
+        actorFactionId: viewer.factionId,
+      },
+    }),
+  );
+}
 
 type TheaterEventSummary = Pick<
   Doc<"events">,
@@ -379,11 +412,13 @@ export const createFaction = mutation({
   returns: v.id("theaterFactions"),
   handler: async (ctx, args) => {
     const viewer = await requireTheaterViewer(ctx, args.eventId, ["admin"]);
-    return await ctx.db.insert("theaterFactions", {
+    const factionId = await ctx.db.insert("theaterFactions", {
       eventId: viewer.event._id,
       name: normalizeRequiredText(args.name, "Nome da facção", 80),
       color: args.color,
     });
+    await captureTheaterEvent(ctx, viewer, "theater_faction_created", { factionId });
+    return factionId;
   },
 });
 
@@ -397,13 +432,16 @@ export const updateFaction = mutation({
   handler: async (ctx, args) => {
     const faction = await ctx.db.get("theaterFactions", args.factionId);
     if (!faction) throw new Error("Facção não encontrada.");
-    await requireTheaterViewer(ctx, faction.eventId, ["admin"]);
+    const viewer = await requireTheaterViewer(ctx, faction.eventId, ["admin"]);
 
     await ctx.db.patch("theaterFactions", faction._id, {
       ...(args.name !== undefined
         ? { name: normalizeRequiredText(args.name, "Nome da facção", 80) }
         : {}),
       ...(args.color !== undefined ? { color: args.color } : {}),
+    });
+    await captureTheaterEvent(ctx, viewer, "theater_faction_updated", {
+      factionId: faction._id,
     });
     return null;
   },
@@ -415,7 +453,7 @@ export const removeFaction = mutation({
   handler: async (ctx, args) => {
     const faction = await ctx.db.get("theaterFactions", args.factionId);
     if (!faction) return null;
-    await requireTheaterViewer(ctx, faction.eventId, ["admin"]);
+    const viewer = await requireTheaterViewer(ctx, faction.eventId, ["admin"]);
 
     const [assignedMember, ownedMarker, eventMarkers] = await Promise.all([
       ctx.db
@@ -442,6 +480,9 @@ export const removeFaction = mutation({
     }
 
     await ctx.db.delete("theaterFactions", faction._id);
+    await captureTheaterEvent(ctx, viewer, "theater_faction_deleted", {
+      factionId: faction._id,
+    });
     return null;
   },
 });
@@ -471,6 +512,13 @@ export const updateParticipant = mutation({
       type: args.type,
       theaterFactionId,
       theaterPosition: normalizeOptionalText(args.theaterPosition, "Cargo", 80),
+    });
+    await captureTheaterEvent(ctx, viewer, "theater_participant_updated", {
+      memberId: member._id,
+      previousRole: member.type,
+      role: args.type,
+      previousFactionId: member.theaterFactionId ?? null,
+      factionId: theaterFactionId ?? null,
     });
     return null;
   },

@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import {
+  captureTheaterEvent,
   ensureFactionsInEvent,
   getTheaterViewer,
   isTheaterOperator,
@@ -163,7 +164,7 @@ export const send = mutation({
       }
     }
 
-    return await ctx.db.insert("theaterOrders", {
+    const orderId = await ctx.db.insert("theaterOrders", {
       eventId: viewer.event._id,
       senderMemberId: viewer.member._id,
       senderFactionId: viewer.factionId ?? undefined,
@@ -174,6 +175,13 @@ export const send = mutation({
       body: normalizeRequiredText(args.body, "Conteúdo", 8000),
       status: "sent",
     });
+    await captureTheaterEvent(ctx, viewer, "theater_order_sent", {
+      orderId,
+      classification: args.classification,
+      recipientFactionCount: recipientFactionIds.length,
+      recipientMemberCount: recipientMemberIds.length,
+    });
+    return orderId;
   },
 });
 
@@ -187,12 +195,18 @@ export const review = mutation({
   handler: async (ctx, args) => {
     const order = await ctx.db.get("theaterOrders", args.orderId);
     if (!order) throw new Error("Ordem não encontrada.");
-    await requireTheaterViewer(ctx, order.eventId, ["admin", "glucon"]);
+    const viewer = await requireTheaterViewer(ctx, order.eventId, ["admin", "glucon"]);
 
     await ctx.db.patch("theaterOrders", order._id, {
       status: args.status,
       gluconNote: normalizeOptionalText(args.gluconNote, "Resposta do GLUCON", 2000),
       reviewedAt: Date.now(),
+    });
+    await captureTheaterEvent(ctx, viewer, "theater_order_reviewed", {
+      orderId: order._id,
+      classification: order.classification,
+      previousStatus: order.status,
+      status: args.status,
     });
     return null;
   },

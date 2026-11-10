@@ -5,6 +5,7 @@ import { defaultObscuredMarkerLabel, isWithinKoreaBounds } from "@/lib/theater";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import {
+  captureTheaterEvent,
   ensureFactionsInEvent,
   ensureMembersInEvent,
   getTheaterViewer,
@@ -244,10 +245,17 @@ export const create = mutation({
         obscuredLabel: undefined,
       };
     }
-    return await ctx.db.insert("theaterMarkers", {
+    const markerId = await ctx.db.insert("theaterMarkers", {
       eventId: viewer.event._id,
       ...(await normalizeMarker(ctx, viewer.event._id, input)),
     });
+    await captureTheaterEvent(ctx, viewer, "theater_marker_created", {
+      markerId,
+      category: input.category,
+      visibility: input.visibility,
+      factionId: input.factionId ?? null,
+    });
+    return markerId;
   },
 });
 
@@ -285,6 +293,12 @@ export const update = mutation({
       marker._id,
       await normalizeMarker(ctx, marker.eventId, input),
     );
+    await captureTheaterEvent(ctx, viewer, "theater_marker_updated", {
+      markerId: marker._id,
+      category: input.category,
+      visibility: input.visibility,
+      factionId: input.factionId ?? null,
+    });
     return null;
   },
 });
@@ -295,12 +309,15 @@ export const move = mutation({
   handler: async (ctx, args) => {
     const marker = await ctx.db.get("theaterMarkers", args.markerId);
     if (!marker) throw new Error("Marcador não encontrado.");
-    await requireTheaterViewer(ctx, marker.eventId, ["admin", "glucon"]);
+    const viewer = await requireTheaterViewer(ctx, marker.eventId, ["admin", "glucon"]);
     ensureCoordinates(args.lat, args.lng);
 
     await ctx.db.patch("theaterMarkers", marker._id, {
       lat: args.lat,
       lng: args.lng,
+    });
+    await captureTheaterEvent(ctx, viewer, "theater_marker_moved", {
+      markerId: marker._id,
     });
     return null;
   },
@@ -312,9 +329,12 @@ export const remove = mutation({
   handler: async (ctx, args) => {
     const marker = await ctx.db.get("theaterMarkers", args.markerId);
     if (!marker) return null;
-    await requireTheaterViewer(ctx, marker.eventId, ["admin", "glucon"]);
+    const viewer = await requireTheaterViewer(ctx, marker.eventId, ["admin", "glucon"]);
 
     await ctx.db.delete("theaterMarkers", marker._id);
+    await captureTheaterEvent(ctx, viewer, "theater_marker_deleted", {
+      markerId: marker._id,
+    });
     return null;
   },
 });

@@ -62,6 +62,8 @@ function memberContext(members: Doc<"members">[]) {
 
 function viewerContext(membership: Doc<"members">, membershipEvent = event) {
   return {
+    auth: { getUserIdentity: async () => ({ subject: "theater-test-user" }) },
+    scheduler: { runAfter: async () => "scheduled-telemetry" },
     runQuery: async () => ({ memberships: [{ member: membership, event: membershipEvent }] }),
     db: { get: async () => membershipEvent },
   } as unknown as MutationCtx;

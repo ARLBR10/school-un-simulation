@@ -34,6 +34,14 @@ This repository should contain only the code and data needed to help run the sim
 
 Technical and analytics data, when used, should only support diagnostics, security, auditing, and operational improvement for the event. The platform should not sell data or use analytics for behavioral advertising.
 
+TO analytics are captured by backend mutations after successful writes, using the existing PostHog component:
+- `theater_marker_created`, `theater_marker_updated`, `theater_marker_moved`, `theater_marker_deleted`
+- `theater_order_sent`, `theater_order_reviewed`
+- `theater_faction_created`, `theater_faction_updated`, `theater_faction_deleted`
+- `theater_participant_updated`
+
+Events include the event ID, actor membership/role/faction, affected record ID, and relevant category, visibility, classification, status, recipient counts, or role/faction changes. Order contents, GLUCON notes, marker titles/descriptions/coordinates, participant names, and positions are excluded. Rejected writes and missing-record deletion no-ops emit no success event. Analytics scheduling failures are logged without failing the operation; delivery uses the component's asynchronous queue.
+
 ## Stack
 
 - Runtime and package manager: Bun.
