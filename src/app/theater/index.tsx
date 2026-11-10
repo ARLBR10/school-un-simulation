@@ -141,6 +141,13 @@ function TheaterMapPage() {
     viewer.event.status !== "past";
   const selectedMarker =
     markers.find((marker) => marker._id === selectedMarkerId) ?? null;
+  const canEditSelected = canEdit || (
+    viewer.event.status !== "past" &&
+    viewer.role === "delegate" &&
+    viewer.factionId !== null &&
+    selectedMarker?.kind === "full" &&
+    selectedMarker.factionId === viewer.factionId
+  );
   const fullMarkers = markers.filter(
     (marker): marker is Extract<TheaterMarkerView, { kind: "full" }> =>
       marker.kind === "full",
@@ -277,7 +284,8 @@ function TheaterMapPage() {
             marker={selectedMarker}
             factionsById={factionsById}
             participantsById={participantsById}
-            canEdit={canEdit}
+            canEdit={canEditSelected}
+            canManage={canEdit}
             isMoving={isMoving}
             onToggleMove={(markerId) => {
               setIsPlacing(false);
@@ -369,6 +377,7 @@ function SelectedMarkerCard({
   factionsById,
   participantsById,
   canEdit,
+  canManage,
   isMoving,
   onToggleMove,
   onEdit,
@@ -378,6 +387,7 @@ function SelectedMarkerCard({
   factionsById: Map<Id<"theaterFactions">, Doc<"theaterFactions">>;
   participantsById: Map<Id<"members">, Doc<"members">>;
   canEdit: boolean;
+  canManage: boolean;
   isMoving: boolean;
   onToggleMove: (markerId: Id<"theaterMarkers">) => void;
   onEdit: (marker: Extract<TheaterMarkerView, { kind: "full" }>) => void;
@@ -482,6 +492,7 @@ function SelectedMarkerCard({
         ) : null}
         {canEdit ? (
           <div className="flex flex-wrap gap-2">
+            {canManage ? (
             <Button
               type="button"
               variant={isMoving ? "secondary" : "outline"}
@@ -492,9 +503,11 @@ function SelectedMarkerCard({
               {isMoving ? <X data-icon="inline-start" /> : <Move data-icon="inline-start" />}
               {isMoving ? "Cancelar movimento" : "Mover"}
             </Button>
+            ) : null}
             <Button type="button" variant="outline" size="sm" onClick={() => onEdit(marker)}>
               Editar
             </Button>
+            {canManage ? (
             <AlertDialog>
               <AlertDialogTrigger
                 render={<Button type="button" variant="outline" size="sm" />}
@@ -520,6 +533,7 @@ function SelectedMarkerCard({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            ) : null}
           </div>
         ) : null}
       </CardContent>

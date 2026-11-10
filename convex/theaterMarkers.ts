@@ -257,7 +257,28 @@ export const update = mutation({
   handler: async (ctx, { markerId, ...input }) => {
     const marker = await ctx.db.get("theaterMarkers", markerId);
     if (!marker) throw new Error("Marcador não encontrado.");
-    await requireTheaterViewer(ctx, marker.eventId, ["admin", "glucon"]);
+    const viewer = await requireTheaterViewer(ctx, marker.eventId, ["admin", "glucon", "delegate"]);
+    if (viewer.role === "delegate") {
+      if (
+        !viewer.factionId ||
+        marker.factionId !== viewer.factionId ||
+        toTheaterMarkerView(marker, viewer)?.kind !== "full"
+      ) {
+        throw new Error("Você só pode editar marcadores visíveis da sua própria facção.");
+      }
+      // Delegations edit content, never ownership, position, or operator-defined access.
+      input = {
+        ...input,
+        factionId: marker.factionId,
+        lat: marker.lat,
+        lng: marker.lng,
+        visibility: marker.visibility,
+        visibleToFactionIds: marker.visibleToFactionIds,
+        visibleToMemberIds: marker.visibleToMemberIds,
+        concealment: marker.concealment,
+        obscuredLabel: marker.obscuredLabel,
+      };
+    }
 
     await ctx.db.patch(
       "theaterMarkers",

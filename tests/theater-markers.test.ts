@@ -12,6 +12,7 @@ import {
   create,
   normalizeMarkerPersonnel,
   toTheaterMarkerView,
+  update,
 } from "../convex/theaterMarkers";
 
 const event: Doc<"events"> = {
@@ -280,5 +281,102 @@ describe("delegation marker creation", () => {
     const wrongEvent = creationContext(delegate, event, otherEventId);
     await expect(createHandler(wrongEvent.ctx, input)).rejects.toThrow("Facção");
     expect(wrongEvent.records).toEqual([]);
+  });
+});
+
+describe("delegation marker editing", () => {
+  const factionId = "own-faction" as Id<"theaterFactions">;
+  const delegate: Doc<"members"> = { ...member, type: "delegate", theaterFactionId: factionId };
+  const ownMarker: Doc<"theaterMarkers"> = {
+    ...marker,
+    factionId,
+    visibility: "factions",
+    visibleToFactionIds: [factionId],
+    visibleToMemberIds: [],
+  };
+  const input = {
+    markerId: marker._id,
+    title: "Título atualizado",
+    description: "Situação atualizada",
+    category: "intel" as const,
+    personnelCount: 100,
+    personnelCapacity: 200,
+    factionId: "enemy-faction" as Id<"theaterFactions">,
+    lat: 36,
+    lng: 128,
+    visibility: "public" as const,
+    visibleToFactionIds: [],
+    visibleToMemberIds: [],
+    concealment: "obscured" as const,
+  };
+  // Convex retains handlers at runtime, outside the public registration type.
+  const registeredUpdate = update as unknown as {
+    _handler: (ctx: MutationCtx, args: typeof input) => Promise<null>;
+  };
+
+  function editingContext(
+    target = ownMarker,
+    membership = delegate,
+    membershipEvent = event,
+  ) {
+    const patches: Partial<Doc<"theaterMarkers">>[] = [];
+    const ctx = {
+      ...viewerContext(membership, membershipEvent),
+      db: {
+        get: async (table: string, id: string) => {
+          if (table === "events") return membershipEvent;
+          if (table === "theaterMarkers") return target;
+          if (table === "theaterFactions" && id === factionId) {
+            return { _id: factionId, eventId: event._id };
+          }
+          return null;
+        },
+        patch: async (_table: string, _id: string, patch: Partial<Doc<"theaterMarkers">>) => {
+          patches.push(patch);
+        },
+      },
+    } as unknown as MutationCtx;
+    return { ctx, patches };
+  }
+
+  test("edits faction content without changing ownership, position, or access", async () => {
+    const { ctx, patches } = editingContext();
+    await registeredUpdate._handler(ctx, input);
+    expect(patches).toEqual([expect.objectContaining({
+      title: input.title,
+      description: input.description,
+      category: input.category,
+      personnelCount: input.personnelCount,
+      factionId,
+      lat: ownMarker.lat,
+      lng: ownMarker.lng,
+      visibility: ownMarker.visibility,
+      visibleToFactionIds: ownMarker.visibleToFactionIds,
+      visibleToMemberIds: [],
+      concealment: ownMarker.concealment,
+    })]);
+  });
+
+  test("rejects enemy, unaffiliated, hidden, obscured, and cross-event markers", async () => {
+    for (const target of [
+      { ...ownMarker, factionId: input.factionId, visibility: "public" as const },
+      { ...ownMarker, factionId: undefined },
+      { ...ownMarker, visibility: "glucon" as const },
+      { ...ownMarker, visibleToFactionIds: [], concealment: "obscured" as const },
+      { ...ownMarker, eventId: otherEventId },
+    ]) {
+      const { ctx, patches } = editingContext(target);
+      await expect(registeredUpdate._handler(ctx, input)).rejects.toThrow();
+      expect(patches).toEqual([]);
+    }
+  });
+
+  test("rejects observers and edits in past events", async () => {
+    const observer = editingContext(ownMarker, { ...delegate, type: "observer" });
+    await expect(registeredUpdate._handler(observer.ctx, input)).rejects.toThrow("permissão");
+    expect(observer.patches).toEqual([]);
+    const past = editingContext(ownMarker, delegate, { ...event, status: "past" });
+    await expect(registeredUpdate._handler(past.ctx, input)).rejects.toThrow("somente para leitura");
+    expect(past.patches).toEqual([]);
   });
 });

@@ -422,9 +422,10 @@ export function TheaterMarkerSheet({
 
             {delegationFactionId ? (
               <FieldDescription>
-                Este marcador pertence à sua facção e será visível apenas para ela,
-                para o GLUCON e para a administração. Apenas operadores podem editar,
-                mover ou remover marcadores.
+                {draft?.mode === "edit"
+                  ? "Você pode editar o conteúdo deste marcador da sua facção. A visibilidade definida pelo GLUCON será preservada."
+                  : "Este marcador pertence à sua facção e será visível apenas para ela, para o GLUCON e para a administração."}
+                {" "}Apenas operadores podem mover ou remover marcadores.
               </FieldDescription>
             ) : (
               <>
