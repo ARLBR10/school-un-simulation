@@ -8,10 +8,12 @@ import {
   TheaterCheckboxList,
   TheaterOptionSelect,
 } from "@/components/theater/TheaterShared";
+import { getTheaterMarkerIcon } from "@/components/theater/theater-marker-icons";
 import { Button } from "@/components/ui/button";
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
   FieldLegend,
@@ -31,9 +33,11 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import type { TheaterMarkerView } from "@/convex/theaterMarkers";
 import {
   defaultObscuredMarkerLabel,
+  theaterInfantryVariantLabels,
   theaterMarkerCategoryLabels,
   theaterMarkerConcealmentLabels,
   theaterMarkerVisibilityLabels,
+  type TheaterInfantryVariant,
   type TheaterMarkerCategory,
   type TheaterMarkerConcealment,
   type TheaterMarkerVisibility,
@@ -47,9 +51,13 @@ type MarkerFormValues = {
   title: string;
   description: string;
   category: TheaterMarkerCategory;
+  infantryVariant: TheaterInfantryVariant;
   factionId: string;
+  personnelCount: string;
+  personnelCapacity: string;
   visibility: TheaterMarkerVisibility;
   visibleToFactionIds: string[];
+  visibleToMemberIds: string[];
   concealment: TheaterMarkerConcealment;
   obscuredLabel: string;
 };
@@ -57,6 +65,9 @@ type MarkerFormValues = {
 const noFactionValue = "__no_faction__";
 
 const categoryOptions = Object.entries(theaterMarkerCategoryLabels).map(
+  ([value, label]) => ({ value, label }),
+);
+const infantryVariantOptions = Object.entries(theaterInfantryVariantLabels).map(
   ([value, label]) => ({ value, label }),
 );
 const visibilityOptions = Object.entries(theaterMarkerVisibilityLabels).map(
@@ -73,9 +84,13 @@ function getInitialValues(draft: TheaterMarkerDraft | null): MarkerFormValues {
       title: marker.title,
       description: marker.description ?? "",
       category: marker.category,
+      infantryVariant: marker.infantryVariant ?? "standard",
       factionId: marker.factionId ?? noFactionValue,
+      personnelCount: marker.personnelCount?.toString() ?? "",
+      personnelCapacity: marker.personnelCapacity?.toString() ?? "",
       visibility: marker.access?.visibility ?? "public",
       visibleToFactionIds: marker.access?.visibleToFactionIds ?? [],
+      visibleToMemberIds: marker.access?.visibleToMemberIds ?? [],
       concealment: marker.access?.concealment ?? "hidden",
       obscuredLabel: marker.access?.obscuredLabel ?? "",
     };
@@ -85,9 +100,13 @@ function getInitialValues(draft: TheaterMarkerDraft | null): MarkerFormValues {
     title: "",
     description: "",
     category: "infantry",
+    infantryVariant: "standard",
     factionId: noFactionValue,
+    personnelCount: "",
+    personnelCapacity: "",
     visibility: "public",
     visibleToFactionIds: [],
+    visibleToMemberIds: [],
     concealment: "hidden",
     obscuredLabel: "",
   };
@@ -97,12 +116,14 @@ export function TheaterMarkerSheet({
   eventId,
   draft,
   factions,
+  participants,
   onClose,
   onSaved,
 }: {
   eventId: Id<"events">;
   draft: TheaterMarkerDraft | null;
   factions: Doc<"theaterFactions">[];
+  participants: Doc<"members">[] | undefined;
   onClose: () => void;
   onSaved: (markerId: Id<"theaterMarkers">) => void;
 }) {
@@ -119,31 +140,77 @@ export function TheaterMarkerSheet({
     value: faction._id,
     label: faction.name,
   }));
+  const participantOptions = (participants ?? [])
+    .filter((member) => member.type !== "unassigned")
+    .map((member) => ({
+      value: member._id,
+      label: member.name,
+    }));
+  const personnelCount =
+    values.personnelCount === "" ? undefined : Number(values.personnelCount);
+  const personnelCapacity =
+    values.personnelCapacity === "" ? undefined : Number(values.personnelCapacity);
+  const countInvalid =
+    personnelCount !== undefined &&
+    (!Number.isSafeInteger(personnelCount) || personnelCount < 0);
+  const capacityInvalid =
+    personnelCapacity !== undefined &&
+    (!Number.isSafeInteger(personnelCapacity) || personnelCapacity < 0);
+  const exceedsCapacity =
+    personnelCount !== undefined &&
+    personnelCapacity !== undefined &&
+    personnelCount > personnelCapacity;
+  const personnelError =
+    countInvalid || capacityInvalid
+      ? "Informe quantidades inteiras, não negativas e dentro do limite seguro."
+      : exceedsCapacity
+        ? "O efetivo não pode ultrapassar a capacidade."
+        : null;
   const position =
     draft?.mode === "edit"
       ? { lat: draft.marker.lat, lng: draft.marker.lng }
       : draft
         ? { lat: draft.lat, lng: draft.lng }
         : null;
+  const MarkerIcon = getTheaterMarkerIcon(values.category, values.infantryVariant);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft || !position) return;
+    if (!draft || !position || isSubmitting || personnelError) return;
 
     const input = {
       title: values.title,
       description: values.description || undefined,
       category: values.category,
+      ...(values.category === "infantry"
+        ? { infantryVariant: values.infantryVariant }
+        : {}),
       factionId:
         values.factionId === noFactionValue
           ? undefined
           : (values.factionId as Id<"theaterFactions">),
+      personnelCount,
+      personnelCapacity,
       lat: position.lat,
       lng: position.lng,
       visibility: values.visibility,
-      visibleToFactionIds: values.visibleToFactionIds as Id<"theaterFactions">[],
-      concealment: values.concealment,
-      obscuredLabel: values.obscuredLabel || undefined,
+      visibleToFactionIds:
+        values.visibility === "factions"
+          ? (values.visibleToFactionIds as Id<"theaterFactions">[])
+          : [],
+      visibleToMemberIds:
+        values.visibility === "members"
+          ? (values.visibleToMemberIds as Id<"members">[])
+          : [],
+      concealment:
+        values.visibility === "factions" || values.visibility === "members"
+          ? values.concealment
+          : "hidden",
+      obscuredLabel:
+        (values.visibility === "factions" || values.visibility === "members") &&
+        values.concealment === "obscured"
+          ? values.obscuredLabel || undefined
+          : undefined,
     };
 
     setIsSubmitting(true);
@@ -183,7 +250,7 @@ export function TheaterMarkerSheet({
           </SheetTitle>
           <SheetDescription>
             {position
-              ? `Posição: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}. Arraste o marcador no mapa para reposicioná-lo.`
+              ? `Posição: ${position.lat.toFixed(4)}, ${position.lng.toFixed(4)}. Use “Mover” nos detalhes do marcador para reposicioná-lo.`
               : null}
           </SheetDescription>
         </SheetHeader>
@@ -235,6 +302,97 @@ export function TheaterMarkerSheet({
               </Field>
             </div>
 
+            {values.category === "infantry" ? (
+              <Field>
+                <FieldLabel htmlFor="theater-marker-infantry-variant">
+                  Tipo de infantaria
+                </FieldLabel>
+                <TheaterOptionSelect
+                  id="theater-marker-infantry-variant"
+                  value={values.infantryVariant}
+                  options={infantryVariantOptions}
+                  onChange={(value) =>
+                    setValues((current) => ({
+                      ...current,
+                      infantryVariant: value as TheaterInfantryVariant,
+                    }))
+                  }
+                />
+              </Field>
+            ) : null}
+
+            <div className="flex items-center gap-2 rounded-md bg-muted/40 px-3 py-2 text-sm">
+              <MarkerIcon className="size-5 shrink-0" aria-hidden />
+              <span>
+                {theaterMarkerCategoryLabels[values.category]}
+                {values.category === "infantry"
+                  ? ` · ${theaterInfantryVariantLabels[values.infantryVariant]}`
+                  : ""}
+              </span>
+            </div>
+
+            <FieldSet>
+              <FieldLegend variant="label">Pessoal</FieldLegend>
+              <FieldDescription id="theater-marker-personnel-help">
+                Deixe em branco quando a quantidade não for informada.
+              </FieldDescription>
+              <FieldGroup className="grid gap-4 sm:grid-cols-2">
+                <Field data-invalid={countInvalid || exceedsCapacity}>
+                  <FieldLabel htmlFor="theater-marker-personnel-count">
+                    Efetivo atual
+                  </FieldLabel>
+                  <Input
+                    id="theater-marker-personnel-count"
+                    type="number"
+                    min={0}
+                    max={Number.MAX_SAFE_INTEGER}
+                    step={1}
+                    value={values.personnelCount}
+                    aria-invalid={countInvalid || exceedsCapacity}
+                    aria-describedby="theater-marker-personnel-help theater-marker-personnel-feedback"
+                    onChange={(event) =>
+                      setValues((current) => ({
+                        ...current,
+                        personnelCount: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field data-invalid={capacityInvalid || exceedsCapacity}>
+                  <FieldLabel htmlFor="theater-marker-personnel-capacity">
+                    Capacidade de pessoal
+                  </FieldLabel>
+                  <Input
+                    id="theater-marker-personnel-capacity"
+                    type="number"
+                    min={0}
+                    max={Number.MAX_SAFE_INTEGER}
+                    step={1}
+                    value={values.personnelCapacity}
+                    aria-invalid={capacityInvalid || exceedsCapacity}
+                    aria-describedby="theater-marker-personnel-help theater-marker-personnel-feedback"
+                    onChange={(event) =>
+                      setValues((current) => ({
+                        ...current,
+                        personnelCapacity: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              </FieldGroup>
+              <div id="theater-marker-personnel-feedback" aria-live="polite">
+                {personnelError ? (
+                  <FieldError>{personnelError}</FieldError>
+                ) : personnelCount !== undefined && personnelCapacity !== undefined ? (
+                  <FieldDescription>
+                    {personnelCount.toLocaleString("pt-BR")} de{" "}
+                    {personnelCapacity.toLocaleString("pt-BR")} pessoas;{" "}
+                    {(personnelCapacity - personnelCount).toLocaleString("pt-BR")} vagas disponíveis.
+                  </FieldDescription>
+                ) : null}
+              </div>
+            </FieldSet>
+
             <Field>
               <FieldLabel htmlFor="theater-marker-description">Descrição</FieldLabel>
               <Textarea
@@ -262,6 +420,8 @@ export function TheaterMarkerSheet({
                   setValues((current) => ({
                     ...current,
                     visibility: value as TheaterMarkerVisibility,
+                    visibleToFactionIds: [],
+                    visibleToMemberIds: [],
                   }))
                 }
               />
@@ -270,29 +430,51 @@ export function TheaterMarkerSheet({
               </FieldDescription>
             </Field>
 
-            {values.visibility === "factions" ? (
+            {values.visibility === "factions" || values.visibility === "members" ? (
               <>
-                <FieldSet>
-                  <FieldLegend variant="label">Facções com visão completa</FieldLegend>
-                  {factionOptions.length > 0 ? (
-                    <TheaterCheckboxList
-                      idPrefix="theater-marker-visible-to"
-                      options={factionOptions}
-                      value={values.visibleToFactionIds}
-                      onChange={(visibleToFactionIds) =>
-                        setValues((current) => ({ ...current, visibleToFactionIds }))
-                      }
-                    />
-                  ) : (
-                    <FieldDescription>
-                      Cadastre facções na administração do teatro primeiro.
-                    </FieldDescription>
-                  )}
-                </FieldSet>
+                {values.visibility === "factions" ? (
+                  <FieldSet>
+                    <FieldLegend variant="label">Facções com visão completa</FieldLegend>
+                    {factionOptions.length > 0 ? (
+                      <TheaterCheckboxList
+                        idPrefix="theater-marker-visible-to-faction"
+                        options={factionOptions}
+                        value={values.visibleToFactionIds}
+                        onChange={(visibleToFactionIds) =>
+                          setValues((current) => ({ ...current, visibleToFactionIds }))
+                        }
+                      />
+                    ) : (
+                      <FieldDescription>
+                        Cadastre facções na administração do teatro primeiro.
+                      </FieldDescription>
+                    )}
+                  </FieldSet>
+                ) : (
+                  <FieldSet>
+                    <FieldLegend variant="label">Participantes com visão completa</FieldLegend>
+                    {participantOptions.length > 0 ? (
+                      <TheaterCheckboxList
+                        idPrefix="theater-marker-visible-to-member"
+                        options={participantOptions}
+                        value={values.visibleToMemberIds}
+                        onChange={(visibleToMemberIds) =>
+                          setValues((current) => ({ ...current, visibleToMemberIds }))
+                        }
+                      />
+                    ) : (
+                      <FieldDescription aria-live="polite">
+                        {participants === undefined
+                          ? "Carregando participantes..."
+                          : "Nenhum participante com função definida nesta edição."}
+                      </FieldDescription>
+                    )}
+                  </FieldSet>
+                )}
 
                 <Field>
                   <FieldLabel htmlFor="theater-marker-concealment">
-                    Para as demais facções
+                    Para os demais participantes
                   </FieldLabel>
                   <TheaterOptionSelect
                     id="theater-marker-concealment"
@@ -307,14 +489,14 @@ export function TheaterMarkerSheet({
                   />
                   <FieldDescription>
                     &quot;Não identificado&quot; mostra só a posição e um rótulo genérico,
-                    sem título, descrição ou facção.
+                    sem título, descrição, facção ou informações de pessoal.
                   </FieldDescription>
                 </Field>
 
                 {values.concealment === "obscured" ? (
                   <Field>
                     <FieldLabel htmlFor="theater-marker-obscured-label">
-                      Rótulo para as demais facções
+                      Rótulo para os demais participantes
                     </FieldLabel>
                     <Input
                       id="theater-marker-obscured-label"
@@ -343,7 +525,7 @@ export function TheaterMarkerSheet({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || personnelError !== null}>
               {draft?.mode === "edit" ? "Salvar" : "Adicionar"}
             </Button>
           </div>

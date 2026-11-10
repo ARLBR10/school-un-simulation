@@ -9,7 +9,12 @@ import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { theaterMarkerCategoryIcons } from "@/components/theater/theater-marker-icons";
+import { getTheaterMarkerIcon } from "@/components/theater/theater-marker-icons";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import type { TheaterMarkerView } from "@/convex/theaterMarkers";
 import {
@@ -19,6 +24,8 @@ import {
   theaterFactionColorClasses,
   theaterMapDate,
   theaterMapStyleUrl,
+  theaterMarkerCategoryLabels,
+  theaterInfantryVariantLabels,
 } from "@/lib/theater";
 import { cn } from "@/lib/utils";
 
@@ -31,8 +38,11 @@ type TheaterMapProps = {
   onSelectMarker: (markerId: MarkerId | null) => void;
   /** When set, the next map click places a marker instead of clearing the selection. */
   onPlace?: (position: { lat: number; lng: number }) => void;
-  /** When set, fully visible markers can be dragged; resolve `false` to snap back. */
+  /** Only this explicitly armed marker can be dragged. */
+  movableMarkerId?: MarkerId | null;
+  /** Resolve `false` to snap back; markers are locked again after each attempt. */
   onMove?: (markerId: MarkerId, lat: number, lng: number) => Promise<boolean>;
+  onMoveEnd?: (markerId: MarkerId) => void;
   className?: string;
 };
 
@@ -43,6 +53,8 @@ export function TheaterMap({
   onSelectMarker,
   onPlace,
   onMove,
+  movableMarkerId = null,
+  onMoveEnd,
   className,
 }: TheaterMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,6 +62,10 @@ export function TheaterMap({
   const [mapError, setMapError] = useState<string | null>(null);
   const mapMarkersRef = useRef(new Map<MarkerId, MapLibreMarker>());
   const markerClassRef = useRef<typeof MapLibreMarker | null>(null);
+  const [draggingMarkerId, setDraggingMarkerId] = useState<MarkerId | null>(null);
+  const [savingMarkerIds, setSavingMarkerIds] = useState<Set<MarkerId>>(
+    () => new Set(),
+  );
   const [markerElements, setMarkerElements] = useState(
     () => new Map<MarkerId, HTMLElement>(),
   );
@@ -59,10 +75,14 @@ export function TheaterMap({
   const onSelectRef = useRef(onSelectMarker);
   const onPlaceRef = useRef(onPlace);
   const onMoveRef = useRef(onMove);
+  const movableMarkerRef = useRef(movableMarkerId);
+  const onMoveEndRef = useRef(onMoveEnd);
   markersRef.current = markers;
   onSelectRef.current = onSelectMarker;
   onPlaceRef.current = onPlace;
   onMoveRef.current = onMove;
+  movableMarkerRef.current = movableMarkerId;
+  onMoveEndRef.current = onMoveEnd;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -106,6 +126,25 @@ export function TheaterMap({
         );
         nextMap.once("styledata", () => {
           filterByDate(nextMap, theaterMapDate);
+          // OHM vector tiles expose translated names with underscores, not colons.
+          // Keep airport references and other non-name text fields unchanged.
+          for (const layer of nextMap.getStyle().layers) {
+            if (layer.type !== "symbol") continue;
+            const textField = layer.layout?.["text-field"];
+            if (
+              !Array.isArray(textField) ||
+              textField.length !== 2 ||
+              textField[0] !== "get" ||
+              textField[1] !== "name"
+            ) continue;
+            nextMap.setLayoutProperty(layer.id, "text-field", [
+              "coalesce",
+              ["get", "name_en"],
+              ["get", "int_name"],
+              ["get", "name_latin"],
+              ["get", "name"],
+            ]);
+          }
         });
         nextMap.on("error", (event) => {
           console.error("OpenHistoricalMap error", event.error.message);
@@ -168,10 +207,16 @@ export function TheaterMap({
     }
 
     for (const marker of markers) {
-      const draggable = canMove && marker.kind === "full";
+      const draggable =
+        canMove &&
+        marker.kind === "full" &&
+        marker._id === movableMarkerId &&
+        !savingMarkerIds.has(marker._id);
       const existing = mapMarkers.get(marker._id);
       if (existing) {
-        existing.setLngLat([marker.lng, marker.lat]);
+        if (marker._id !== draggingMarkerId && !savingMarkerIds.has(marker._id)) {
+          existing.setLngLat([marker.lng, marker.lat]);
+        }
         existing.setDraggable(draggable);
         continue;
       }
@@ -180,15 +225,36 @@ export function TheaterMap({
         element: document.createElement("div"),
         anchor: "center",
         draggable,
+        clickTolerance: 10,
       })
         .setLngLat([marker.lng, marker.lat])
         .addTo(map);
+      mapMarker.on("dragstart", () => setDraggingMarkerId(marker._id));
       mapMarker.on("dragend", () => {
+        setDraggingMarkerId(null);
+        mapMarker.setDraggable(false);
+        const move = onMoveRef.current;
+        const latest = markersRef.current.find((item) => item._id === marker._id);
+        if (!move || movableMarkerRef.current !== marker._id) {
+          if (latest) mapMarker.setLngLat([latest.lng, latest.lat]);
+          onMoveEndRef.current?.(marker._id);
+          return;
+        }
+        setSavingMarkerIds((current) => new Set(current).add(marker._id));
         const { lat, lng } = mapMarker.getLngLat();
-        void onMoveRef.current?.(marker._id, lat, lng).then((moved) => {
-          const latest = markersRef.current.find((item) => item._id === marker._id);
-          if (!moved && latest) mapMarker.setLngLat([latest.lng, latest.lat]);
-        });
+        void move(marker._id, lat, lng)
+          .then((moved) => {
+            const latest = markersRef.current.find((item) => item._id === marker._id);
+            if (!moved && latest) mapMarker.setLngLat([latest.lng, latest.lat]);
+          })
+          .finally(() => {
+            setSavingMarkerIds((current) => {
+              const next = new Set(current);
+              next.delete(marker._id);
+              return next;
+            });
+            onMoveEndRef.current?.(marker._id);
+          });
       });
       mapMarkers.set(marker._id, mapMarker);
       elementsChanged = true;
@@ -204,7 +270,7 @@ export function TheaterMap({
         ),
       );
     }
-  }, [map, markers, canMove]);
+  }, [map, markers, canMove, movableMarkerId, draggingMarkerId, savingMarkerIds]);
 
   return (
     <div
@@ -249,6 +315,9 @@ export function TheaterMap({
                 : null
             }
             isSelected={marker._id === selectedMarkerId}
+            isDragging={marker._id === draggingMarkerId}
+            isSaving={savingMarkerIds.has(marker._id)}
+            isMovable={canMove && marker._id === movableMarkerId}
             onSelect={() => onSelectMarker(marker._id)}
           />,
           element,
@@ -263,48 +332,143 @@ function TheaterMarkerBadge({
   marker,
   faction,
   isSelected,
+  isDragging,
+  isSaving,
+  isMovable,
   onSelect,
 }: {
   marker: TheaterMarkerView;
   faction: Doc<"theaterFactions"> | null;
   isSelected: boolean;
+  isDragging: boolean;
+  isSaving: boolean;
+  isMovable: boolean;
   onSelect: () => void;
 }) {
   const Icon =
     marker.kind === "full"
-      ? theaterMarkerCategoryIcons[marker.category]
+      ? getTheaterMarkerIcon(marker.category, marker.infantryVariant)
       : CircleQuestionMark;
   const label = marker.kind === "full" ? marker.title : marker.label;
+  const personnelCount = marker.kind === "full" ? marker.personnelCount : null;
+  const personnelCapacity = marker.kind === "full" ? marker.personnelCapacity : null;
+  const atCapacity =
+    personnelCount !== null &&
+    personnelCapacity !== null &&
+    personnelCount >= personnelCapacity;
 
   return (
-    <button
-      type="button"
-      className="group relative flex flex-col items-center outline-none"
-      aria-label={label}
-      aria-pressed={isSelected}
-      onClick={onSelect}
-    >
-      <span
+    <Tooltip>
+      <TooltipTrigger
         className={cn(
-          "flex size-8 items-center justify-center rounded-full border-2 border-background shadow-md transition-transform group-hover:scale-110 group-focus-visible:ring-2 group-focus-visible:ring-ring",
-          marker.kind === "obscured"
-            ? "border-dashed bg-zinc-700 text-zinc-100"
-            : faction
-              ? theaterFactionColorClasses[faction.color]
-              : "bg-foreground text-background",
-          isSelected && "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background",
+          "group relative flex flex-col items-center outline-none",
+          isMovable && !isSaving ? "cursor-grab" : "cursor-pointer",
         )}
+        aria-label={label}
+        aria-pressed={isSelected}
+        aria-busy={isSaving}
+        onClick={onSelect}
       >
-        <Icon className="size-4" aria-hidden />
-      </span>
-      <span
-        className={cn(
-          "pointer-events-none absolute top-full mt-1 max-w-40 truncate rounded-md bg-background/90 px-1.5 py-0.5 text-xs font-medium text-foreground shadow-sm",
-          isSelected ? "block" : "hidden group-hover:block group-focus-visible:block",
-        )}
+        <span
+          className={cn(
+            "flex size-9 items-center justify-center border-2 border-background shadow-md transition-[transform,box-shadow,opacity] duration-200 group-hover:scale-110 group-focus-visible:ring-2 group-focus-visible:ring-ring motion-reduce:transition-none",
+            marker.kind === "obscured"
+              ? "rounded-full border-dashed bg-muted text-muted-foreground"
+              : cn(
+                  ["infantry", "armor", "artillery", "supply"].includes(marker.category)
+                    ? "rounded-lg"
+                    : "rounded-full",
+                  faction
+                    ? theaterFactionColorClasses[faction.color]
+                    : "bg-foreground text-background",
+                ),
+            isSelected && "scale-110 ring-2 ring-primary ring-offset-2 ring-offset-background",
+            isDragging && "scale-125 cursor-grabbing shadow-xl",
+            isSaving && "opacity-60",
+            atCapacity && "ring-2 ring-warning",
+          )}
+        >
+          <Icon className="size-4" aria-hidden />
+        </span>
+        {personnelCount !== null ? (
+          <span
+            aria-hidden
+            className={cn(
+              "pointer-events-none absolute -bottom-2 rounded-full border border-border bg-background px-1.5 text-[10px] font-semibold tabular-nums text-foreground shadow-sm",
+              atCapacity && "bg-warning text-warning-foreground",
+            )}
+          >
+            {personnelCount.toLocaleString("pt-BR")}
+          </span>
+        ) : null}
+        {isSelected ? (
+          <span className="pointer-events-none absolute top-full mt-3 max-w-40 truncate rounded-md bg-background/90 px-1.5 py-0.5 text-xs font-medium text-foreground shadow-sm">
+            {label}
+          </span>
+        ) : null}
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        sideOffset={12}
+        className="w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-popover p-0 text-popover-foreground shadow-xl [&_[data-slot=tooltip-arrow]]:bg-popover [&_[data-slot=tooltip-arrow]]:fill-popover"
       >
-        {label}
-      </span>
-    </button>
+        <div className="flex w-full min-w-0 flex-col text-left">
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Icon className="size-4" aria-hidden />
+            </span>
+            <p className="min-w-0 break-words text-sm font-semibold leading-snug">
+              {label}
+            </p>
+          </div>
+          {marker.kind === "full" ? (
+            <div className="flex flex-col gap-3 px-4 py-3">
+              <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-2">
+                <dt className="text-muted-foreground">Categoria:</dt>
+                <dd className="break-words font-medium">
+                  {theaterMarkerCategoryLabels[marker.category]}
+                  {marker.infantryVariant
+                    ? ` · ${theaterInfantryVariantLabels[marker.infantryVariant]}`
+                    : ""}
+                </dd>
+                <dt className="text-muted-foreground">Facção:</dt>
+                <dd className="break-words font-medium">{faction?.name ?? "Sem facção"}</dd>
+                <dt className="text-muted-foreground">Efetivo:</dt>
+                <dd className="font-medium tabular-nums">
+                  {personnelCount !== null
+                    ? `${personnelCount.toLocaleString("pt-BR")} pessoas`
+                    : "Não informado"}
+                </dd>
+                <dt className="text-muted-foreground">Capacidade:</dt>
+                <dd className="font-medium tabular-nums">
+                  {personnelCapacity !== null
+                    ? `${personnelCapacity.toLocaleString("pt-BR")} pessoas`
+                    : "Não informada"}
+                </dd>
+                <dt className="text-muted-foreground">Posição:</dt>
+                <dd className="tabular-nums">
+                  {marker.lat.toFixed(4)}, {marker.lng.toFixed(4)}
+                </dd>
+              </dl>
+              {atCapacity ? (
+                <p className="font-medium text-warning-foreground">
+                  Capacidade máxima atingida
+                </p>
+              ) : null}
+              <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+                <p className="font-medium text-muted-foreground">Descrição:</p>
+                <p className="line-clamp-5 whitespace-pre-line break-words leading-relaxed">
+                  {marker.description || "Sem descrição."}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="px-4 py-3 leading-relaxed text-muted-foreground">
+              Detalhes restritos para este participante.
+            </p>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
   );
 }

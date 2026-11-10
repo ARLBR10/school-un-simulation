@@ -190,13 +190,18 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     category: theaterMarkerCategories,
+    infantryVariant: v.optional(v.union(v.literal("standard"), v.literal("heavy"))),
     factionId: v.optional(v.id("theaterFactions")),
+    personnelCount: v.optional(v.number()),
+    personnelCapacity: v.optional(v.number()),
     lat: v.number(),
     lng: v.number(),
     visibility: theaterMarkerVisibilities,
     // Factions that see the full marker when visibility is "factions".
     visibleToFactionIds: v.array(v.id("theaterFactions")),
-    // What everyone else sees when visibility is "factions".
+    // Members that see the full marker when visibility is "members".
+    visibleToMemberIds: v.optional(v.array(v.id("members"))),
+    // What unselected viewers see for faction- or member-restricted markers.
     concealment: theaterMarkerConcealments,
     obscuredLabel: v.optional(v.string()),
   })

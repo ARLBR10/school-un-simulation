@@ -22,6 +22,10 @@ Read it here: [Statement from the developer of this project](./Statement.md).
 - Specific flows for press, grading, operations, and delegates.
 - Real-time backend with Convex.
 - Interface built with TanStack Start, React 19, TanStack Router, and Tailwind CSS 4.
+- Korean War theater map with category-specific markers, themed hover/focus tooltips with labeled description, category, faction, personnel, capacity, and coordinates, and live personnel counts. GLUCON/admins can set optional personnel capacity; counts and capacities must be nonnegative safe integers, and counts cannot exceed a configured capacity.
+- Theater markers can be public, limited to factions, limited to selected participants in the same event, or GLUCON/admin-only. Restricted markers can be hidden or shown without identifying details; permissions and redaction are enforced on the backend.
+- Historical map labels prefer English names from OpenHistoricalMap, then international/Latin names, with the original name retained when no translation is available. The historical date filter remains active.
+- Infantry markers support normal and heavy variants with distinct icons; other categories retain their own icons. To reposition a marker, an operator must select it and choose **Mover** first. Only that marker unlocks, and it locks again after the move attempt or when movement mode is canceled.
 
 ## Privacy
 
@@ -80,7 +84,7 @@ bun run lint
 bun run vite:build
 ```
 
-There is no test suite configured yet.
+Tests use Bun's built-in runner: `bun test`. Run the marker permission and personnel regressions with `bun test tests/theater-markers.test.ts`.
 
 ## Deploy
 

@@ -6,6 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import {
   ensureFactionsInEvent,
+  ensureMembersInEvent,
   getTheaterViewer,
   isTheaterOperator,
   normalizeOptionalText,
@@ -14,6 +15,7 @@ import {
   theaterMarkerCategories,
   theaterMarkerConcealments,
   theaterMarkerVisibilities,
+  type TheaterViewer,
 } from "./theater";
 
 export type TheaterMarkerView =
@@ -23,14 +25,17 @@ export type TheaterMarkerView =
       title: string;
       description: string | null;
       category: Doc<"theaterMarkers">["category"];
+      infantryVariant: "standard" | "heavy" | null;
       factionId: Id<"theaterFactions"> | null;
+      personnelCount: number | null;
+      personnelCapacity: number | null;
       lat: number;
       lng: number;
       // Only sent to GLUCON and admins.
       access: Pick<
         Doc<"theaterMarkers">,
         "visibility" | "visibleToFactionIds" | "concealment" | "obscuredLabel"
-      > | null;
+      > & { visibleToMemberIds: Id<"members">[] } | null;
     }
   | {
       kind: "obscured";
@@ -44,11 +49,15 @@ const markerFields = {
   title: v.string(),
   description: v.optional(v.string()),
   category: theaterMarkerCategories,
+  infantryVariant: v.optional(v.union(v.literal("standard"), v.literal("heavy"))),
   factionId: v.optional(v.id("theaterFactions")),
+  personnelCount: v.optional(v.number()),
+  personnelCapacity: v.optional(v.number()),
   lat: v.number(),
   lng: v.number(),
   visibility: theaterMarkerVisibilities,
   visibleToFactionIds: v.array(v.id("theaterFactions")),
+  visibleToMemberIds: v.optional(v.array(v.id("members"))),
   concealment: theaterMarkerConcealments,
   obscuredLabel: v.optional(v.string()),
 };
@@ -57,11 +66,15 @@ type MarkerInput = {
   title: string;
   description?: string;
   category: Doc<"theaterMarkers">["category"];
+  infantryVariant?: "standard" | "heavy";
   factionId?: Id<"theaterFactions">;
+  personnelCount?: number;
+  personnelCapacity?: number;
   lat: number;
   lng: number;
   visibility: Doc<"theaterMarkers">["visibility"];
   visibleToFactionIds: Id<"theaterFactions">[];
+  visibleToMemberIds?: Id<"members">[];
   concealment: Doc<"theaterMarkers">["concealment"];
   obscuredLabel?: string;
 };
@@ -72,12 +85,35 @@ function ensureCoordinates(lat: number, lng: number) {
   }
 }
 
+export function normalizeMarkerPersonnel(
+  personnelCount: number | undefined,
+  personnelCapacity: number | undefined,
+) {
+  for (const [label, value] of [
+    ["Efetivo", personnelCount],
+    ["Capacidade", personnelCapacity],
+  ] as const) {
+    if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
+      throw new Error(`${label} deve ser um número inteiro não negativo e seguro.`);
+    }
+  }
+  if (
+    personnelCount !== undefined &&
+    personnelCapacity !== undefined &&
+    personnelCount > personnelCapacity
+  ) {
+    throw new Error("O efetivo não pode exceder a capacidade do marcador.");
+  }
+  return { personnelCount, personnelCapacity };
+}
+
 async function normalizeMarker(
   ctx: Pick<MutationCtx, "db">,
   eventId: Id<"events">,
   input: MarkerInput,
 ) {
   ensureCoordinates(input.lat, input.lng);
+  const personnel = normalizeMarkerPersonnel(input.personnelCount, input.personnelCapacity);
   const [factionId] = input.factionId
     ? await ensureFactionsInEvent(ctx, eventId, [input.factionId])
     : [];
@@ -88,16 +124,23 @@ async function normalizeMarker(
   if (input.visibility === "factions" && visibleToFactionIds.length === 0) {
     throw new Error("Escolha ao menos uma facção que pode ver o marcador.");
   }
+  const visibleToMemberIds =
+    input.visibility === "members"
+      ? await ensureMembersInEvent(ctx, eventId, input.visibleToMemberIds ?? [])
+      : [];
 
   return {
     title: normalizeRequiredText(input.title, "Título", 120),
     description: normalizeOptionalText(input.description, "Descrição", 2000),
     category: input.category,
+    infantryVariant: input.category === "infantry" ? input.infantryVariant ?? "standard" : undefined,
     factionId,
+    ...personnel,
     lat: input.lat,
     lng: input.lng,
     visibility: input.visibility,
     visibleToFactionIds,
+    visibleToMemberIds,
     concealment: input.concealment,
     obscuredLabel: normalizeOptionalText(
       input.obscuredLabel,
@@ -105,6 +148,63 @@ async function normalizeMarker(
       120,
     ),
   };
+}
+
+/** Projects only the information this event membership is allowed to receive. */
+export function toTheaterMarkerView(
+  marker: Doc<"theaterMarkers">,
+  viewer: TheaterViewer,
+): TheaterMarkerView | null {
+  if (viewer.event._id !== marker.eventId) return null;
+  const isOperator = isTheaterOperator(viewer);
+  const canSeeFull =
+    isOperator ||
+    marker.visibility === "public" ||
+    (marker.visibility === "factions" &&
+      viewer.factionId !== null &&
+      marker.visibleToFactionIds.includes(viewer.factionId)) ||
+    (marker.visibility === "members" &&
+      viewer.member.eventId === marker.eventId &&
+      (marker.visibleToMemberIds ?? []).includes(viewer.member._id));
+
+  if (canSeeFull) {
+    return {
+      kind: "full",
+      _id: marker._id,
+      title: marker.title,
+      description: marker.description ?? null,
+      category: marker.category,
+      infantryVariant: marker.category === "infantry" ? marker.infantryVariant ?? "standard" : null,
+      factionId: marker.factionId ?? null,
+      personnelCount: marker.personnelCount ?? null,
+      personnelCapacity: marker.personnelCapacity ?? null,
+      lat: marker.lat,
+      lng: marker.lng,
+      access: isOperator
+        ? {
+            visibility: marker.visibility,
+            visibleToFactionIds: marker.visibleToFactionIds,
+            visibleToMemberIds: marker.visibleToMemberIds ?? [],
+            concealment: marker.concealment,
+            obscuredLabel: marker.obscuredLabel,
+          }
+        : null,
+    };
+  }
+
+  if (
+    (marker.visibility === "factions" || marker.visibility === "members") &&
+    marker.concealment === "obscured"
+  ) {
+    return {
+      kind: "obscured",
+      _id: marker._id,
+      lat: marker.lat,
+      lng: marker.lng,
+      label: marker.obscuredLabel ?? defaultObscuredMarkerLabel,
+    };
+  }
+  return null;
 }
 
 export const list = query({
@@ -117,52 +217,9 @@ export const list = query({
       .query("theaterMarkers")
       .withIndex("by_eventId", (q) => q.eq("eventId", viewer.event._id))
       .take(1000);
-    const isOperator = isTheaterOperator(viewer);
-
-    return markers.flatMap((marker): TheaterMarkerView[] => {
-      const canSeeFull =
-        isOperator ||
-        marker.visibility === "public" ||
-        (marker.visibility === "factions" &&
-          viewer.factionId !== null &&
-          marker.visibleToFactionIds.includes(viewer.factionId));
-
-      if (canSeeFull) {
-        return [
-          {
-            kind: "full",
-            _id: marker._id,
-            title: marker.title,
-            description: marker.description ?? null,
-            category: marker.category,
-            factionId: marker.factionId ?? null,
-            lat: marker.lat,
-            lng: marker.lng,
-            access: isOperator
-              ? {
-                  visibility: marker.visibility,
-                  visibleToFactionIds: marker.visibleToFactionIds,
-                  concealment: marker.concealment,
-                  obscuredLabel: marker.obscuredLabel,
-                }
-              : null,
-          },
-        ];
-      }
-
-      if (marker.visibility === "factions" && marker.concealment === "obscured") {
-        return [
-          {
-            kind: "obscured",
-            _id: marker._id,
-            lat: marker.lat,
-            lng: marker.lng,
-            label: marker.obscuredLabel ?? defaultObscuredMarkerLabel,
-          },
-        ];
-      }
-
-      return [];
+    return markers.flatMap((marker) => {
+      const view = toTheaterMarkerView(marker, viewer);
+      return view ? [view] : [];
     });
   },
 });

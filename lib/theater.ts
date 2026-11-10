@@ -3,6 +3,7 @@ import type { Doc } from "@/convex/_generated/dataModel";
 export type TheaterRole = "admin" | "glucon" | "delegate" | "observer";
 export type TheaterFactionColor = Doc<"theaterFactions">["color"];
 export type TheaterMarkerCategory = Doc<"theaterMarkers">["category"];
+export type TheaterInfantryVariant = "standard" | "heavy";
 export type TheaterMarkerVisibility = Doc<"theaterMarkers">["visibility"];
 export type TheaterMarkerConcealment = Doc<"theaterMarkers">["concealment"];
 export type TheaterOrderClassification = Doc<"theaterOrders">["classification"];
@@ -66,15 +67,21 @@ export const theaterMarkerCategoryLabels: Record<TheaterMarkerCategory, string> 
   event: "Acontecimento",
 };
 
+export const theaterInfantryVariantLabels: Record<TheaterInfantryVariant, string> = {
+  standard: "Normal",
+  heavy: "Pesada",
+};
+
 export const theaterMarkerVisibilityLabels: Record<TheaterMarkerVisibility, string> = {
   public: "Público",
   factions: "Somente facções selecionadas",
+  members: "Somente participantes selecionados",
   glucon: "Somente GLUCON",
 };
 
 export const theaterMarkerConcealmentLabels: Record<TheaterMarkerConcealment, string> = {
-  hidden: "Oculto para as demais",
-  obscured: "Não identificado para as demais",
+  hidden: "Oculto para os demais participantes",
+  obscured: "Não identificado para os demais participantes",
 };
 
 export const defaultObscuredMarkerLabel = "Atividade não identificada";

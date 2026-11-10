@@ -6,15 +6,16 @@ import {
   Package,
   Plane,
   Shield,
+  ShieldPlus,
   Ship,
   Swords,
   Truck,
   type LucideIcon,
 } from "lucide-react";
 
-import type { TheaterMarkerCategory } from "@/lib/theater";
+import type { TheaterInfantryVariant, TheaterMarkerCategory } from "@/lib/theater";
 
-export const theaterMarkerCategoryIcons: Record<TheaterMarkerCategory, LucideIcon> = {
+const theaterMarkerCategoryIcons: Record<TheaterMarkerCategory, LucideIcon> = {
   infantry: Shield,
   armor: Truck,
   artillery: Crosshair,
@@ -26,3 +27,12 @@ export const theaterMarkerCategoryIcons: Record<TheaterMarkerCategory, LucideIco
   intel: Eye,
   event: Info,
 };
+
+export function getTheaterMarkerIcon(
+  category: TheaterMarkerCategory,
+  infantryVariant?: TheaterInfantryVariant | null,
+): LucideIcon {
+  return category === "infantry" && infantryVariant === "heavy"
+    ? ShieldPlus
+    : theaterMarkerCategoryIcons[category];
+}

@@ -37,6 +37,7 @@ export const theaterMarkerCategories = v.union(
 export const theaterMarkerVisibilities = v.union(
   v.literal("public"),
   v.literal("factions"),
+  v.literal("members"),
   v.literal("glucon"),
 );
 
@@ -206,6 +207,33 @@ export async function ensureFactionsInEvent(
   return uniqueIds;
 }
 
+/** Validates the event memberships eligible to receive a restricted marker. */
+export async function ensureMembersInEvent(
+  ctx: Pick<MutationCtx, "db">,
+  eventId: Id<"events">,
+  memberIds: Id<"members">[],
+) {
+  const uniqueIds = [...new Set(memberIds)];
+  if (uniqueIds.length === 0) {
+    throw new Error("Escolha ao menos um participante que pode ver o marcador.");
+  }
+  if (uniqueIds.length > 999) {
+    throw new Error("Selecione no máximo 999 participantes.");
+  }
+  for (const memberId of uniqueIds) {
+    const member = await ctx.db.get("members", memberId);
+    if (
+      !member ||
+      member.eventId !== eventId ||
+      member.type === "unassigned" ||
+      member.type === "admin"
+    ) {
+      throw new Error("Participante não encontrado ou sem função neste teatro de operações.");
+    }
+  }
+  return uniqueIds;
+}
+
 export function normalizeRequiredText(
   value: string,
   label: string,
@@ -321,12 +349,24 @@ export const listParticipants = query({
   args: { eventId: v.id("events") },
   handler: async (ctx, args): Promise<Doc<"members">[] | null> => {
     const viewer = await getTheaterViewer(ctx, args.eventId);
-    if (viewer?.role !== "admin") return null;
+    if (!viewer || !isTheaterOperator(viewer)) return null;
 
-    return await ctx.db
+    const members = await ctx.db
       .query("members")
       .withIndex("by_eventId_and_type", (q) => q.eq("eventId", viewer.event._id))
       .take(999);
+    if (viewer.role === "admin") return members;
+
+    // Marker audiences do not need enrollment, identity, or other personal data.
+    return members.map((member) => ({
+      _id: member._id,
+      _creationTime: member._creationTime,
+      eventId: member.eventId,
+      name: member.name,
+      type: member.type,
+      theaterFactionId: member.theaterFactionId,
+      theaterPosition: member.theaterPosition,
+    }));
   },
 });
 
